@@ -163,13 +163,84 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| — | — | (Populated during roadmap creation) |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Pending |
+| AUTH-05 | Phase 1 | Pending |
+| AUTH-06 | Phase 1 | Pending |
+| SECR-01 | Phase 1 | Pending |
+| SECR-02 | Phase 1 | Pending |
+| SECR-03 | Phase 1 | Pending |
+| SECR-04 | Phase 1 | Pending |
+| SECR-06 | Phase 1 | Pending |
+| SECR-05 | Phase 2 | Pending |
+| LLMI-01 | Phase 3 | Pending |
+| LLMI-02 | Phase 3 | Pending |
+| LLMI-03 | Phase 3 | Pending |
+| LLMI-04 | Phase 3 | Pending |
+| LLMI-05 | Phase 3 | Pending |
+| DOCP-01 | Phase 4 | Pending |
+| DOCP-02 | Phase 4 | Pending |
+| DOCP-03 | Phase 4 | Pending |
+| DOCP-04 | Phase 4 | Pending |
+| DOCP-05 | Phase 4 | Pending |
+| GHST-01 | Phase 4 | Pending |
+| GHST-02 | Phase 4 | Pending |
+| GHST-03 | Phase 4 | Pending |
+| TMPL-01 | Phase 5 | Pending |
+| TMPL-02 | Phase 5 | Pending |
+| TMPL-03 | Phase 5 | Pending |
+| TMPL-04 | Phase 5 | Pending |
+| TMPL-05 | Phase 5 | Pending |
+| TMPL-06 | Phase 5 | Pending |
+| TMPL-07 | Phase 5 | Pending |
+| TMPL-08 | Phase 5 | Pending |
+| TMPL-09 | Phase 5 | Pending |
+| TMPL-10 | Phase 5 | Pending |
+| TMPL-11 | Phase 5 | Pending |
+| TRNS-01 | Phase 6 | Pending |
+| TRNS-02 | Phase 6 | Pending |
+| TRNS-03 | Phase 6 | Pending |
+| TRNS-04 | Phase 6 | Pending |
+| TMOD-01 | Phase 7 | Pending |
+| TMOD-02 | Phase 7 | Pending |
+| TMOD-03 | Phase 7 | Pending |
+| TMOD-04 | Phase 7 | Pending |
+| TMOD-05 | Phase 7 | Pending |
+| BULK-01 | Phase 7 | Pending |
+| BULK-02 | Phase 7 | Pending |
+| BULK-03 | Phase 7 | Pending |
+| BULK-04 | Phase 7 | Pending |
+| EXEC-01 | Phase 8 | Pending |
+| EXEC-02 | Phase 8 | Pending |
+| EXEC-03 | Phase 8 | Pending |
+| EXEC-04 | Phase 8 | Pending |
+| EXEC-05 | Phase 8 | Pending |
+| EXEC-06 | Phase 8 | Pending |
+| EXEC-07 | Phase 8 | Pending |
+| EXEC-08 | Phase 8 | Pending |
+| EXEC-09 | Phase 8 | Pending |
+| EXEC-10 | Phase 8 | Pending |
+| EXEC-11 | Phase 8 | Pending |
+| EXEC-12 | Phase 8 | Pending |
+| EXEC-13 | Phase 8 | Pending |
+| DENY-01 | Phase 8 | Pending |
+| DENY-02 | Phase 8 | Pending |
+| DENY-03 | Phase 8 | Pending |
+| DENY-04 | Phase 8 | Pending |
+| LANG-01 | Phase 8 | Pending |
+| LANG-02 | Phase 8 | Pending |
+| LANG-03 | Phase 8 | Pending |
+| DEPL-01 | Phase 9 | Pending |
+| DEPL-02 | Phase 9 | Pending |
+| DEPL-03 | Phase 9 | Pending |
 
 **Coverage:**
 - v1 requirements: 53 total
-- Mapped to phases: 0
-- Unmapped: 53 (pending roadmap creation)
+- Mapped to phases: 53
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-10*
-*Last updated: 2026-02-10 after initial definition*
+*Last updated: 2026-02-10 after roadmap creation*
