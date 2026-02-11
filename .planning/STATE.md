@@ -9,28 +9,30 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 
 ## Current Position
 
-Phase: 1 of 9 (Foundation, Security & Web UI Design) — COMPLETE
-Plan: 6 of 6 (all complete)
-Status: Phase Complete
-Last activity: 2026-02-11 — Phase 1 verified and all bugs fixed
+Phase: 1.1 of 9 (UI/UX Visual Polish - Dark Theme, Logo Integration, Login Aesthetics)
+Plan: 1 of 3 (in progress)
+Status: Active
+Last activity: 2026-02-11 — Plan 01.1-01 complete (color foundation)
 
-Progress: [██████████] 100%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 20 minutes
-- Total execution time: ~2 hours
+- Total plans completed: 7
+- Average duration: 18 minutes
+- Total execution time: ~2.1 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01    | 6     | ~120m | ~20m     |
+| 01.1  | 1     | 8m    | 8m       |
 
 **Recent Trend:**
-- Plans: 01-01 (7m), 01-02 (10m), 01-03 (13m), 01-04 (41m), 01-05 (20m), 01-06 (30m)
+- Phase 01: 01-01 (7m), 01-02 (10m), 01-03 (13m), 01-04 (41m), 01-05 (20m), 01-06 (30m)
+- Phase 01.1: 01.1-01 (8m)
 - Post-execution bugfix session: ~45m (audit black screen, session dialogs, sidebar visibility, CSRF)
 
 *Updated after each plan completion*
@@ -78,6 +80,13 @@ Recent decisions affecting current work:
 - Auto-fetch CSRF token before first POST request in API client
 - TanStack Query with 5-minute staleTime for auth state caching
 - Radix UI SelectItem requires non-empty string value (use sentinel like "all")
+- OKLCH color space for perceptually uniform colors and better accessibility
+- Deep near-black (0.16 lightness) for dark theme matching VS Code/Discord aesthetic
+- Cool blue (hue 250) as accent color for professional, calming appearance
+
+### Roadmap Evolution
+
+- Phase 1.1 inserted after Phase 1: UI/UX Visual Polish - dark theme, logo integration, login aesthetics (URGENT)
 
 ### Pending Todos
 
@@ -90,7 +99,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Phase 1 completion and verification)
-Stopped at: Phase 1 complete. All 6 plans executed, bugs fixed, verified via browser testing.
-Next: Phase 2 — Sanitization Infrastructure
+Last session: 2026-02-11 (Phase 01.1 Plan 01 execution)
+Stopped at: Completed 01.1-01-PLAN.md (Deep-Dark + Cool-Blue Color Foundation)
+Next: 01.1-02-PLAN.md (Login Page + Logo Integration)
 Resume file: None
