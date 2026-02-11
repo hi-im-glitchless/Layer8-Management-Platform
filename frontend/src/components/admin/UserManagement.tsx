@@ -106,8 +106,8 @@ export function UserManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data?.users.map((user: AdminUser, index: number) => (
-                <TableRow key={user.id} className={index % 2 === 0 ? 'bg-muted/50' : ''}>
+              {data?.users.map((user: AdminUser) => (
+                <TableRow key={user.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>
                     {user.isAdmin ? (

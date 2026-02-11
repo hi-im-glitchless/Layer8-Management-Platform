@@ -113,8 +113,8 @@ export function SessionManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data?.sessions.map((session: ActiveSession, index: number) => (
-                <TableRow key={session.sessionId} className={index % 2 === 0 ? 'bg-muted/50' : ''}>
+              {data?.sessions.map((session: ActiveSession) => (
+                <TableRow key={session.sessionId} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <Activity className="h-4 w-4 text-green-600" />

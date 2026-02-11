@@ -265,12 +265,12 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {auditData?.logs.map((log: AuditLog, index: number) => {
+                {auditData?.logs.map((log: AuditLog) => {
                   const isExpanded = expandedRows.has(log.id)
                   return (
                     <Fragment key={log.id}>
                       <TableRow
-                        className={index % 2 === 0 ? 'bg-muted/50' : ''}
+                        className="hover:bg-muted/50 transition-colors"
                       >
                         <TableCell>
                           <Button
