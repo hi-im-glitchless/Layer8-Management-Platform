@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.health import router as health_router
+from app.routes import sanitize_router
+from app.services.sanitizer import SanitizationService
 
 # Configure logging
 logging.basicConfig(
@@ -17,15 +19,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global state for spaCy models
+# Global state for spaCy models and sanitizer
 nlp_models: dict[str, Any] = {}
 models_loaded: bool = False
+sanitizer: Any = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan context manager for startup and shutdown events."""
-    global nlp_models, models_loaded
+    global nlp_models, models_loaded, sanitizer
 
     # Startup: Load spaCy models
     logger.info("Starting Layer8 Sanitization Service...")
@@ -56,6 +59,16 @@ async def lifespan(app: FastAPI):
             f"Only {loaded_count}/{len(settings.spacy_models)} models loaded"
         )
 
+    # Initialize sanitization service
+    if models_loaded:
+        logger.info("Initializing sanitization service...")
+        sanitizer = SanitizationService(nlp_models)
+        app.state.sanitizer = sanitizer
+        logger.info("Sanitization service initialized")
+    else:
+        logger.error("Cannot initialize sanitization service without models")
+        app.state.sanitizer = None
+
     yield
 
     # Shutdown: Clean up resources
@@ -84,8 +97,9 @@ app.add_middleware(
 app.state.nlp_models = nlp_models
 app.state.models_loaded_flag = lambda: models_loaded
 
-# Mount health router
+# Mount routers
 app.include_router(health_router, tags=["health"])
+app.include_router(sanitize_router, tags=["sanitization"])
 
 
 @app.get("/")

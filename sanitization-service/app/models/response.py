@@ -20,6 +20,8 @@ class SanitizeResponse(BaseModel):
     entities: list[DetectedEntity]
     language: str
     entity_counts: dict[str, int]
+    mappings: dict[str, str]  # Forward mappings for Redis storage (original -> placeholder)
+    counters: dict[str, int]  # Counter state for Redis storage (entity_type -> next_index)
     warning: str | None = None
 
 

@@ -17,3 +17,4 @@ class DesanitizeRequest(BaseModel):
 
     text: str
     session_id: str
+    mappings: dict[str, str]  # Reverse mappings from Redis (placeholder -> original)
