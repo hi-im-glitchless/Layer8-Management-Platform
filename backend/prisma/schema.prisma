@@ -25,6 +25,7 @@ model User {
 
   trustedDevices TrustedDevice[]
   auditLogs      AuditLog[]
+  denyListTerms  DenyListTerm[]
 }
 
 model TrustedDevice {
@@ -55,4 +56,19 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+
+model DenyListTerm {
+  id          String   @id @default(cuid())
+  term        String
+  description String?
+  createdBy   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@unique([term])
+  @@index([isActive])
 }
