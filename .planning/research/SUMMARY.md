@@ -100,10 +100,14 @@ Based on research findings, the project should follow a **dependency-driven phas
 
 ### Suggested Phase Structure
 
-#### Phase 1: Security & Infrastructure Foundation
-**Rationale:** All features require session management, authentication, and audit logging. Building this first prevents retrofitting security later (architectural anti-pattern). Sanitization pipeline is critical path for both features since GDPR/NDA compliance is non-negotiable.
+#### Phase 1: Security, Infrastructure Foundation & Web UI Design
+**Rationale:** All features require session management, authentication, and audit logging. Building this first prevents retrofitting security later (architectural anti-pattern). Sanitization pipeline is critical path for both features since GDPR/NDA compliance is non-negotiable. **Phase 1 also establishes the entire frontend foundation** — React scaffold, design system, application shell, and auth UI — so that every subsequent phase has a UI framework to build on.
 
 **Delivers:**
+- **Frontend scaffold:** React 19 + Vite + TypeScript + shadcn/ui + Tailwind CSS design system (color palette, typography, component library)
+- **Application shell:** Responsive layout, navigation sidebar, header with user/session info, client-side routing for all planned pages
+- **Auth UI:** Login page, TOTP setup flow (QR code), TOTP verification dialog, "remember me" checkbox
+- **Admin UI:** Session cleanup panel, basic system management
 - FastAPI skeleton with CORS, middleware, dependency injection
 - PostgreSQL + Redis setup with async connection pooling
 - TOTP MFA authentication with session management
@@ -111,15 +115,15 @@ Based on research findings, the project should follow a **dependency-driven phas
 - Audit service with hash-chain integrity for tamper-proof logging
 - Presidio Analyzer/Anonymizer Docker containers with custom pentest recognizers
 - Sanitization service with session-scoped reversible mapping storage
-- Template upload security validation (Jinja2 injection detection)
+- Template upload security validation (Jinja2 injection detection — defense-in-depth, low priority)
 
 **Addresses pitfalls:**
 - Concurrent session state corruption (session isolation from start)
 - Presidio false negatives (custom recognizers built early)
-- Template injection (security scanning at upload gate)
+- Template injection (security scanning at upload gate — deprioritized since uploads are plain Word docs)
 - Audit log tampering (hash-chain architecture prevents retrofitting)
 
-**Technology stack:** FastAPI, PostgreSQL (asyncpg), Redis (async client), Presidio containers, PyOTP, python-jose, passlib, fastapi-audit-log
+**Technology stack:** FastAPI, PostgreSQL (asyncpg), Redis (async client), Presidio containers, PyOTP, python-jose, passlib, fastapi-audit-log, React 19, Vite, TypeScript, shadcn/ui, Tailwind CSS
 
 **Research flags:** None (standard patterns, well-documented)
 
@@ -131,6 +135,8 @@ Based on research findings, the project should follow a **dependency-driven phas
 **Delivers:**
 - Multi-provider LLM service (CLIProxyAPI primary, Anthropic fallback)
 - SSE streaming with sse-starlette for token-by-token delivery
+- **Streaming LLM response display component** with typewriter effect and loading indicators (reusable across features)
+- **LLM error state UI** with clear messaging and retry controls
 - Frontend SSE client hooks (React + TypeScript)
 - LLM interaction audit logging (sanitized prompts + raw responses)
 - Streaming response error handling (reconnection, keepalive, resume from checkpoint)
@@ -152,10 +158,11 @@ Based on research findings, the project should follow a **dependency-driven phas
 **Depends on:** Phase 1 (session/audit), Phase 2 (LLM streaming)
 
 **Delivers:**
+- **Template adapter workflow UI:** upload → select report type/language → analysis view → preview → annotate → download
+- **Inline annotation canvas** on PDF preview with highlight, comment, and batch submission controls
 - Template upload endpoint with DOCX parsing (python-docx-template)
 - Template compatibility validation (whitelist supported features, generate compatibility report)
 - LLM-powered structure analysis and Jinja2 placeholder suggestions
-- Inline annotation canvas for user feedback on placeholder suggestions
 - Placeholder token validation (counting, syntax checking, Ghostwriter schema verification)
 - Template preview with sample data before PDF generation
 - Template storage with metadata (client, type, language)
@@ -180,6 +187,8 @@ Based on research findings, the project should follow a **dependency-driven phas
 - ARQ background job queue with Redis backend
 - LibreOffice worker pool (max 3 concurrent jobs to handle non-thread-safe constraint)
 - Job status polling endpoints
+- **Reusable file upload component** with drag-and-drop, file type validation, and upload progress
+- **PDF preview component** with page navigation for rendered document previews
 - Template complexity scoring (route simple→Gotenberg, complex→fallback if implemented)
 - PDF rendering fidelity validation (comparison against reference documents)
 - Caching layer for rendered PDFs to minimize repeated conversions
@@ -200,6 +209,10 @@ Based on research findings, the project should follow a **dependency-driven phas
 **Depends on:** Phase 1 (sanitization), Phase 2 (LLM streaming), Phase 4 (PDF generation)
 
 **Delivers:**
+- **Executive report workflow UI:** upload → deny list → sanitization review → approve → streaming generation → desanitized preview → annotate → download
+- **Sanitization review interface** with entity highlighting, counts by type, missed-entity flagging, and approve/reject controls
+- **Deny list management UI** for client-specific terms
+- **Language override selector** UI
 - Technical report upload endpoint (DOCX/PDF parsing)
 - Language detection (EN/PT-PT) with user override
 - Multi-layer sanitization pipeline (Presidio standard + pentest custom + deny lists)
@@ -227,8 +240,9 @@ Based on research findings, the project should follow a **dependency-driven phas
 **Depends on:** Phase 3 (template adapter), Phase 4 (PDF pipeline), Phase 5 (executive report)
 
 **Delivers:**
+- **Bulk upload dashboard** with drag-and-drop for multiple files, per-template queue status, and batch download
+- **Reference template browser** and modification request form with asset upload
 - Bulk template upload queue with parallel processing
-- Progress tracking UI for multi-template operations
 - Monitoring integration (Prometheus metrics, Grafana dashboards)
 - Rate limiting on LLM endpoints (per-user budgets, anomaly detection)
 - Docker Compose production configuration (multi-stage builds, non-root containers)
@@ -247,11 +261,12 @@ Based on research findings, the project should follow a **dependency-driven phas
 
 ### Phase Ordering Rationale
 
-**Why security first (Phase 1):**
+**Why security and UI foundation first (Phase 1):**
 - GDPR/NDA compliance is non-negotiable for pentest data
 - Retrofitting security (session isolation, audit logging) after features exist is architectural anti-pattern
 - Sanitization pipeline is critical path for both features (executive report cannot proceed without it)
-- Template injection security must exist before accepting any user uploads
+- Template injection security must exist before accepting any user uploads (defense-in-depth, deprioritized)
+- Frontend scaffold, design system, and auth UI in Phase 1 means every subsequent phase has a UI framework to build on — no "backend only" phases that defer all frontend work to the end
 
 **Why LLM infrastructure before features (Phase 2):**
 - Both features need LLM streaming; building once prevents duplication

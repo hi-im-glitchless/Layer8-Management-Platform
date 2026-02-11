@@ -918,27 +918,35 @@ template-ai-engine/
 Based on component dependencies, suggested build order for roadmap phases:
 
 ```
-Phase 1: Foundation
+Phase 1: Foundation + Web UI Design
+    ├── React 19 + Vite + TypeScript + shadcn/ui scaffold
+    ├── Application shell (layout, nav, routing)
+    ├── Auth UI (login, TOTP setup/verify, remember me)
     ├── PostgreSQL + Redis setup
     ├── FastAPI skeleton + CORS
     ├── Authentication (TOTP MFA)
     └── Session management (Redis backend)
 
 Phase 2: Core Infrastructure (parallel tracks)
-    ├── Track A: LLM Service
+    ├── Track A: LLM Service + UI
     │   ├── CLIProxyAPI client
     │   ├── Anthropic fallback
-    │   └── SSE streaming
+    │   ├── SSE streaming
+    │   ├── Streaming display component (typewriter effect)
+    │   └── Error state + retry UI
     │
-    └── Track B: Document Service
+    └── Track B: Document Service + UI
         ├── python-docx integration
         ├── LibreOffice headless setup
-        └── PDF conversion queue
+        ├── PDF conversion queue
+        ├── Reusable file upload component (drag-and-drop)
+        └── PDF preview component (page navigation)
 
 Phase 3: Feature 1 - Template Adapter (depends on Phase 2)
+    ├── Template adapter workflow UI (upload → type/lang → analysis → preview → annotate → download)
     ├── Template upload endpoint
     ├── Jinja2 insertion with docxtpl
-    ├── Frontend annotation canvas
+    ├── Inline annotation canvas (highlight + comment + batch submit)
     └── PDF preview pipeline
 
 Phase 4: Sanitization Pipeline (parallel to Phase 3)
@@ -948,6 +956,8 @@ Phase 4: Sanitization Pipeline (parallel to Phase 3)
     └── Integration tests
 
 Phase 5: Feature 2 - Report Generation (depends on Phase 3 + 4)
+    ├── Executive report workflow UI (upload → deny list → sanitize → approve → generate → preview → annotate → download)
+    ├── Sanitization review interface (entity highlighting, counts, approve/reject)
     ├── Technical report upload
     ├── Pre-LLM sanitization flow
     ├── Executive summary generation
@@ -961,6 +971,8 @@ Phase 6: Compliance & Observability (parallel to Phase 5)
     └── Compliance dashboard
 
 Phase 7: Production Readiness
+    ├── Bulk upload dashboard UI (multi-file, queue status, batch download)
+    ├── Reference template browser + modification form UI
     ├── Background jobs (ARQ)
     ├── Bulk processing
     ├── Monitoring (Prometheus/Grafana)

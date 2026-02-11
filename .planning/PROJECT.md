@@ -117,6 +117,8 @@ Pentesters spend their time on security work, not on manual template adaptation 
 | Configurable retention over fixed policy | GDPR/NDA requirements vary by client; admin-configurable is more flexible | — Pending |
 | Batch template upload queue | Users may need to process multiple templates; background queue handles this | — Pending |
 | Pre-sanitization + review-time deny list | Custom client terms are the biggest sanitization gap; both stages needed | — Pending |
+| UI/UX woven into feature phases | Phase 1 includes frontend scaffold, design system, and auth UI; each subsequent phase builds its own UI alongside backend | — Pending |
+| Jinja2 injection scanning deprioritized | Uploaded templates are plain Word docs — app inserts Jinja2, not users; kept as defense-in-depth only | — Pending |
 
 ---
 *Last updated: 2026-02-10 after initialization*

@@ -119,9 +119,18 @@ Translation (Both Features):
 - [ ] Basic audit logging - Track uploads, generations, downloads
 - [ ] Role-based access (admin/user) - Minimal RBAC for team
 
-**Essential UX:**
-- [ ] Streaming LLM responses - Modern UX standard, reduces perceived latency
-- [ ] Error handling and validation - Clear feedback on failures
+**UI/UX Foundation (Phase 1):**
+- [ ] Frontend scaffold (React 19, Vite, TypeScript, shadcn/ui, Tailwind CSS design system)
+- [ ] Application shell (responsive layout, navigation, routing for all pages)
+- [ ] Auth UI (login page, TOTP setup/verification, remember me)
+- [ ] Admin panel UI (session cleanup, system management)
+
+**Essential UX (woven into each feature phase):**
+- [ ] Streaming LLM responses display component - Modern UX standard, reduces perceived latency
+- [ ] Error handling and validation UI - Clear feedback on failures
+- [ ] File upload component (drag-and-drop, validation, progress) - Reusable across features
+- [ ] PDF preview component (page navigation) - Reusable across features
+- [ ] Inline annotation canvas (highlight, comment, batch submit) - Shared by both features
 
 ### Add After Validation (v1.x)
 

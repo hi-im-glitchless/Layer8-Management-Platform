@@ -253,7 +253,9 @@ Phase 1 (Sanitization Engine) - Build comprehensive custom recognizers with exte
 
 ---
 
-### Pitfall 9: Jinja2 Template Injection via Client Template Upload
+### Pitfall 9: Jinja2 Template Injection via Client Template Upload *(deprioritized — defense-in-depth)*
+
+**Note:** This pitfall is deprioritized because uploaded templates are plain Word documents — the application inserts Jinja2 code, not the user. However, it remains a defense-in-depth concern since a crafted .docx could theoretically contain Jinja2 syntax in text content.
 
 **What goes wrong:**
 Malicious or compromised client template contains Jinja2 code injection payloads that execute during template processing, leading to remote code execution, data exfiltration, or system compromise. Example: `{{ ''.__class__.__mro__[1].__subclasses__() }}` in template docx executes during Jinja2 rendering.
@@ -440,7 +442,7 @@ How roadmap phases should address these pitfalls.
 | Portuguese variant drift | Phase 2: Translation Feature | Native speaker review, terminology validation |
 | Streaming interruptions | Phase 2: Executive Report | Network interruption simulation, reconnection testing |
 | Presidio false negatives | Phase 1: Sanitization Engine | Recall measurement on pentest corpus (target >95%) |
-| Template injection | Phase 1: Template Upload | Security scanner, penetration testing |
+| Template injection | Phase 1: Template Upload *(deprioritized, defense-in-depth)* | Security scanner, penetration testing |
 | Audit log incompleteness | Phase 1: Audit Infrastructure | Mock regulatory audit, data lineage reconstruction |
 
 ## Sources

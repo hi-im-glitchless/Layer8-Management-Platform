@@ -18,7 +18,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Security & Compliance
 
-- [ ] **SECR-01**: Uploaded templates are scanned for Jinja2 template injection attempts before processing
+- [ ] **SECR-01**: Uploaded templates are scanned for Jinja2 template injection attempts before processing *(defense-in-depth, low priority — uploaded templates are plain Word docs; the app inserts Jinja2 code, not the user)*
 - [ ] **SECR-02**: All user actions are logged in a tamper-evident hash-chain audit trail (who, what, when)
 - [ ] **SECR-03**: All LLM interactions are logged in audit trail (sanitized prompts sent, responses received)
 - [ ] **SECR-04**: Audit logs are exportable for compliance auditors
@@ -117,6 +117,42 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DEPL-01**: Application runs as a Docker Compose stack (frontend, backend, Presidio, Redis, DB, Gotenberg)
 - [ ] **DEPL-02**: Multiple users can use the application concurrently without interference
 - [ ] **DEPL-03**: Frontend is served via Nginx reverse proxy with SSE support
+
+### UI/UX — Foundation (Phase 1)
+
+- [ ] **UIUX-01**: Frontend application scaffolded with React 19, Vite, TypeScript, shadcn/ui component library, and Tailwind CSS design system
+- [ ] **UIUX-02**: Application shell with responsive layout, navigation sidebar, header, and client-side routing
+- [ ] **UIUX-03**: Login page with username/password form, TOTP setup flow (QR code display), TOTP verification dialog, and "remember me" checkbox
+- [ ] **UIUX-04**: Admin panel UI for manual session cleanup and basic system management
+
+### UI/UX — LLM Integration (Phase 3)
+
+- [ ] **UIUX-05**: Streaming LLM response display component with typewriter effect and loading indicators
+- [ ] **UIUX-06**: LLM error state UI with clear messaging and retry controls
+
+### UI/UX — Document Processing (Phase 4)
+
+- [ ] **UIUX-07**: Reusable file upload component with drag-and-drop, file type validation, and upload progress
+- [ ] **UIUX-08**: PDF preview component with page navigation for rendered document previews
+
+### UI/UX — Template Adapter (Phase 5)
+
+- [ ] **UIUX-09**: Template adapter workflow UI: upload → select report type/language → analysis view → preview → annotate → download
+- [ ] **UIUX-10**: Inline annotation canvas on PDF preview with highlight, comment, and batch submission controls
+
+### UI/UX — Translation (Phase 6)
+
+- [ ] **UIUX-11**: Translation option selector integrated into the template adapter workflow
+
+### UI/UX — Modification & Bulk (Phase 7)
+
+- [ ] **UIUX-12**: Reference template browser and modification request form with asset upload
+- [ ] **UIUX-13**: Bulk upload dashboard with drag-and-drop for multiple files, per-template queue status, and batch download
+
+### UI/UX — Executive Report (Phase 8)
+
+- [ ] **UIUX-14**: Executive report workflow UI: upload → deny list → sanitization review → approve → streaming generation → desanitized preview → annotate → download
+- [ ] **UIUX-15**: Sanitization review interface with entity highlighting, counts by type, missed-entity flagging, and approve/reject controls
 
 ## v2 Requirements
 
@@ -235,10 +271,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEPL-01 | Phase 9 | Pending |
 | DEPL-02 | Phase 9 | Pending |
 | DEPL-03 | Phase 9 | Pending |
+| UIUX-01 | Phase 1 | Pending |
+| UIUX-02 | Phase 1 | Pending |
+| UIUX-03 | Phase 1 | Pending |
+| UIUX-04 | Phase 1 | Pending |
+| UIUX-05 | Phase 3 | Pending |
+| UIUX-06 | Phase 3 | Pending |
+| UIUX-07 | Phase 4 | Pending |
+| UIUX-08 | Phase 4 | Pending |
+| UIUX-09 | Phase 5 | Pending |
+| UIUX-10 | Phase 5 | Pending |
+| UIUX-11 | Phase 6 | Pending |
+| UIUX-12 | Phase 7 | Pending |
+| UIUX-13 | Phase 7 | Pending |
+| UIUX-14 | Phase 8 | Pending |
+| UIUX-15 | Phase 8 | Pending |
 
 **Coverage:**
-- v1 requirements: 53 total
-- Mapped to phases: 53
+- v1 requirements: 68 total
+- Mapped to phases: 68
 - Unmapped: 0
 
 ---
