@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Pentesters spend their time on security work, not on manual template adaptation and executive report writing
-**Current focus:** Phase 1 Complete — Ready for Phase 2
+**Current focus:** Phase 1.1 Complete — Ready for Phase 2
 
 ## Current Position
 
-Phase: 1.1 of 9 (UI/UX Visual Polish - Dark Theme, Logo Integration, Login Aesthetics)
-Plan: 3 of 3 (complete)
-Status: Complete
-Last activity: 2026-02-11 — All plans complete (01.1-01: color foundation, 01.1-02: login & logo, 01.1-03: sidebar & tables)
+Phase: 1.1 of 9 (UI/UX Visual Polish) — COMPLETE
+Plan: 3 of 3 (all complete)
+Status: Phase Complete — Verified (17/17 must-haves passed)
+Last activity: 2026-02-11 — Phase 01.1 verified and approved by user
 
-Progress: [██████████] 100% (3 of 3 plans complete)
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -62,6 +62,26 @@ Progress: [██████████] 100% (3 of 3 plans complete)
 - Session terminate 403 (DELETE not in CSRF-protected methods)
 - Ugly browser confirm() dialogs replaced with shadcn/ui AlertDialog
 
+## Phase 1.1 Completion Summary
+
+### What was delivered:
+1. OKLCH color system with cool blue accent (hue 250) replacing old red in both themes
+2. True black dark theme (oklch(0 0 0)) matching login page aesthetic app-wide
+3. Atmospheric login page: pure black left side, gradient to right, glassmorphism form card
+4. Layer8 logo blending seamlessly on black (using correct PNG file)
+5. Onboarding wizard with matching atmospheric dark gradient + glassmorphism
+6. Notion-like sidebar: roomy spacing, active state with blue left border + background
+7. Hover-only table highlighting in all admin panels (no striped rows)
+8. Gradient and destructive button variants
+9. Favicon set at all sizes from Layer8 logo
+10. PWA manifest (site.webmanifest)
+
+### Fixes during verification:
+- Login page gradient direction (left side pure black, gradient to right only)
+- Dark theme changed from grey (0.16) to true black (0 0 0)
+- Wrong logo file: switched from small JPG to wide PNG for dark mode
+- Logo sizing and blending corrected across sidebar, login, onboarding
+
 ## Accumulated Context
 
 ### Decisions
@@ -86,14 +106,16 @@ Recent decisions affecting current work:
 - TanStack Query with 5-minute staleTime for auth state caching
 - Radix UI SelectItem requires non-empty string value (use sentinel like "all")
 - OKLCH color space for perceptually uniform colors and better accessibility
-- Deep near-black (0.16 lightness) for dark theme matching VS Code/Discord aesthetic
+- Pure black (oklch(0 0 0)) for dark theme — user requested true black, not grey
 - Cool blue (hue 250) as accent color for professional, calming appearance
 - Notion-like sidebar spacing: py-6 px-3 on nav, px-4 py-2.5 on items, mb-6 between groups
 - Active nav state dual indicator: background + 3px left border in accent blue
 - Hover-only table highlighting (no striped rows) for cleaner admin UI
 - Atmospheric gradient aesthetic for auth pages (blue/purple dark tones)
-- Logo integration without visual boundaries (seamless blending)
+- Logo integration without visual boundaries (seamless blending on pure black)
 - Glassmorphism across auth flows (login, TOTP, onboarding)
+- Use layer8_logo_dark.png (wide horizontal PNG) for dark mode, not the JPG
+- Login page left side pure black, gradient flows to the right only
 
 ### Roadmap Evolution
 
@@ -110,7 +132,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Phase 01.1 Plan 02 execution)
-Stopped at: Completed 01.1-02-PLAN.md (Login Page + Logo Integration)
-Next: Phase 01.1 complete - ready for Phase 2
+Last session: 2026-02-11 (Phase 01.1 complete)
+Stopped at: Phase 01.1 verified and all fixes committed
+Next: Phase 2 — Sanitization Infrastructure
 Resume file: None
