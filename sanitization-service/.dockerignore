@@ -2,7 +2,6 @@ __pycache__
 *.pyc
 .env
 .venv
-tests/
 .pytest_cache
 *.log
 .git
