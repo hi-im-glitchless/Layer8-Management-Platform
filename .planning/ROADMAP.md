@@ -13,6 +13,7 @@ Layer8 automates two time-consuming tasks for offensive security teams: converti
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation, Security & Web UI Design** - Frontend scaffold, design system, auth UI, authentication, session management, audit logging, and security scanning
+- [ ] **Phase 1.1: UI/UX Visual Polish** - Dark theme improvements, logo integration, login aesthetics (INSERTED)
 - [ ] **Phase 2: Sanitization Infrastructure** - Presidio-based PII sanitization with custom pentest recognizers
 - [ ] **Phase 3: LLM Integration** - Multi-provider LLM client with SSE streaming and compliance logging
 - [ ] **Phase 4: Document Processing** - DOCX parsing, PDF generation, and Ghostwriter integration
@@ -51,6 +52,17 @@ Plans:
 - [x] 01-04-PLAN.md — Authentication frontend (split-screen login, TOTP setup/verify, onboarding wizard)
 - [x] 01-05-PLAN.md — Audit logging (hash-chain service, middleware, query/export API)
 - [x] 01-06-PLAN.md — Admin panel (user CRUD, session management, audit viewer, template scanner)
+
+### Phase 01.1: UI/UX Visual Polish - dark theme, logo integration, login aesthetics (INSERTED)
+
+**Goal:** Polished, professional visual identity with deep-dark theme, cool blue accent, atmospheric login experience, and refined component styling across both light and dark themes
+**Depends on:** Phase 1
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01.1-01-PLAN.md — Color palette foundation: deep-dark + cool-blue theme, gradient button variants
+- [ ] 01.1-02-PLAN.md — Login page: atmospheric gradient, glassmorphism, logo integration, favicon
+- [ ] 01.1-03-PLAN.md — Sidebar polish: Notion-like spacing, active border accent, table hover styling
 
 ### Phase 2: Sanitization Infrastructure
 **Goal**: Production-grade PII sanitization pipeline with custom pentest recognizers and session-scoped reversible mappings
@@ -203,11 +215,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
+Phases execute in numeric order: 1 → 1.1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation, Security & Web UI Design | 6/6 | Complete | 2026-02-11 |
+| 1.1 UI/UX Visual Polish (INSERTED) | 0/3 | Not started | - |
 | 2. Sanitization Infrastructure | 0/TBD | Not started | - |
 | 3. LLM Integration | 0/TBD | Not started | - |
 | 4. Document Processing | 0/TBD | Not started | - |
