@@ -119,3 +119,60 @@ export async function apiClient<T>(
     throw new ApiError(0, error instanceof Error ? error.message : 'Network error');
   }
 }
+
+/**
+ * Upload API client for multipart form data with CSRF support
+ */
+export async function apiUpload<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  // Ensure CSRF token exists
+  await ensureCsrfToken();
+  const csrfToken = getCsrfToken();
+
+  const headers: Record<string, string> = {};
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+  // Do NOT set Content-Type — browser handles multipart/form-data boundary automatically
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+      credentials: 'include',
+    });
+
+    if (response.status === 401) {
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+      throw new ApiError(401, 'Unauthorized');
+    }
+
+    const contentType = response.headers.get('content-type');
+    let data: unknown;
+    if (contentType?.includes('application/json')) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
+
+    if (!response.ok) {
+      const errorMessage =
+        (data && typeof data === 'object' && 'error' in data)
+          ? String(data.error)
+          : `Request failed with status ${response.status}`;
+      throw new ApiError(response.status, errorMessage, data);
+    }
+
+    return data as T;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(0, error instanceof Error ? error.message : 'Network error');
+  }
+}
