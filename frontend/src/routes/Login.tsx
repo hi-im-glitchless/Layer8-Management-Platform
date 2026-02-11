@@ -91,7 +91,7 @@ export function Login() {
             className="w-72 h-auto mx-auto object-contain"
           />
           <p className="text-slate-400 text-lg max-w-md mt-8">
-            Security reporting platform for professional penetration testers
+            Offensive Security AI Template Engine
           </p>
         </div>
       </div>
@@ -111,23 +111,10 @@ export function Login() {
               <div className="space-y-1 mb-6">
                 <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
                 <p className="text-sm text-slate-400">
-                  Sign in to your Layer8 account
+                  Sign in to your account
                 </p>
               </div>
-              <div className="space-y-4">
-                <LoginForm onSubmit={handleLogin} />
-
-                {/* Forgot password link - placeholder for future */}
-                <div className="text-center">
-                  <button
-                    type="button"
-                    className="text-sm text-slate-400 hover:text-white transition-colors"
-                    onClick={() => toast.info('Password reset coming soon')}
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              </div>
+              <LoginForm onSubmit={handleLogin} />
             </div>
           ) : authState === 'awaitingTOTP' ? (
             <div className="glass rounded-2xl p-8 shadow-2xl">
