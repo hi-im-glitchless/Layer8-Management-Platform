@@ -5,7 +5,6 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { TOTPVerification } from '@/components/auth/TOTPVerification';
 import { OnboardingWizard } from '@/components/auth/OnboardingWizard';
@@ -78,69 +77,72 @@ export function Login() {
     );
   }
 
-  // Split-screen login layout
+  // Split-screen login layout with atmospheric gradient and glassmorphism
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Dark gradient with logo */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 items-center justify-center p-12 relative overflow-hidden">
-        {/* Subtle geometric pattern overlay */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 30-30 30L0 30 30 0z' fill='%23fff' fill-rule='evenodd'/%3E%3C/svg%3E")`,
-            backgroundSize: '30px 30px',
-          }}
-        />
+      {/* Left side - Atmospheric dark gradient with logo (desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 items-center justify-center p-12 relative overflow-hidden">
+        {/* Subtle secondary gradient overlay for depth */}
+        <div className="absolute inset-0 bg-gradient-to-t from-blue-600/5 via-transparent to-purple-600/5" />
 
-        {/* Logo */}
+        {/* Logo - blends seamlessly without visible bounding box */}
         <div className="relative z-10 text-center">
+          {/*
+            Note: layer8_logo_dark.jpg should blend naturally with the dark gradient background.
+            No rounded corners or shadow to ensure seamless integration as per user requirements.
+          */}
           <img
             src="/layer8_logo_dark.jpg"
             alt="Layer8"
-            className="w-64 h-auto mx-auto rounded-lg shadow-2xl"
+            className="w-72 h-auto mx-auto object-contain"
           />
-          <p className="mt-6 text-gray-400 text-lg max-w-md">
+          <p className="text-slate-400 text-lg max-w-md mt-8">
             Security reporting platform for professional penetration testers
           </p>
         </div>
       </div>
 
-      {/* Right side - Login form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 bg-background">
+      {/* Right side - Glassmorphism form card on dark gradient background */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="w-full max-w-md">
+          {/* Mobile-only logo (shown when left side is hidden) */}
+          <img
+            src="/layer8_logo_dark.jpg"
+            alt="Layer8"
+            className="h-10 w-auto mx-auto mb-6 object-contain lg:hidden"
+          />
+
           {authState === 'idle' ? (
-            <Card>
-              <CardHeader className="space-y-1">
-                <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-                <p className="text-sm text-muted-foreground">
+            <div className="glass rounded-2xl p-8 shadow-2xl">
+              <div className="space-y-1 mb-6">
+                <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
+                <p className="text-sm text-slate-400">
                   Sign in to your Layer8 account
                 </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              </div>
+              <div className="space-y-4">
                 <LoginForm onSubmit={handleLogin} />
 
                 {/* Forgot password link - placeholder for future */}
                 <div className="text-center">
                   <button
                     type="button"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-sm text-slate-400 hover:text-white transition-colors"
                     onClick={() => toast.info('Password reset coming soon')}
                   >
                     Forgot password?
                   </button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : authState === 'awaitingTOTP' ? (
-            <Card>
-              <CardContent className="pt-6">
-                <TOTPVerification
-                  onSubmit={handleTOTPVerification}
-                  onBack={handleBackToLogin}
-                  isLoading={verifyTOTPMutation.isPending}
-                />
-              </CardContent>
-            </Card>
+            <div className="glass rounded-2xl p-8 shadow-2xl">
+              <TOTPVerification
+                onSubmit={handleTOTPVerification}
+                onBack={handleBackToLogin}
+                isLoading={verifyTOTPMutation.isPending}
+              />
+            </div>
           ) : null}
         </div>
       </div>
