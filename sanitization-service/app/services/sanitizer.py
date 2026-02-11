@@ -3,7 +3,7 @@ import logging
 from typing import Any, List, Optional
 
 from presidio_analyzer import AnalyzerEngine
-from presidio_analyzer.nlp_engine import NlpEngineProvider
+from presidio_analyzer.nlp_engine import SpacyNlpEngine, NerModelConfiguration
 
 from app.config import settings
 from app.models.response import DetectedEntity, SanitizeResponse, DesanitizeResponse
@@ -13,6 +13,41 @@ from app.services.deny_list import DenyListMatcher
 from app.services.language_detector import detect_language
 
 logger = logging.getLogger(__name__)
+
+
+class PreloadedSpacyNlpEngine(SpacyNlpEngine):
+    """
+    Custom SpacyNlpEngine that uses pre-loaded spaCy models.
+
+    This bypasses Presidio's NlpEngineProvider model download mechanism,
+    which fails when models are already loaded with different naming conventions.
+    """
+
+    def __init__(self, loaded_models: dict[str, Any]):
+        """
+        Initialize with already-loaded spaCy models.
+
+        Args:
+            loaded_models: Dictionary of {language_code: spacy_model_instance}
+        """
+        # Build models list (model_name doesn't matter since we skip loading)
+        models = [
+            {"lang_code": lang, "model_name": lang}
+            for lang in loaded_models
+        ]
+
+        # Initialize parent class
+        super().__init__(
+            models=models,
+            ner_model_configuration=NerModelConfiguration()
+        )
+
+        # Inject pre-loaded models directly
+        self.nlp = loaded_models
+
+    def load(self):
+        """Override load() as a no-op since models are already loaded."""
+        pass
 
 
 class SanitizationService:
@@ -26,35 +61,25 @@ class SanitizationService:
             nlp_models: Dictionary of {language_code: spacy_model}
         """
         self.nlp_models = nlp_models
-        self.analyzers: dict[str, AnalyzerEngine] = {}
 
-        # Create an analyzer for each language
-        for lang_code, nlp_model in nlp_models.items():
-            logger.info(f"Creating analyzer for language: {lang_code}")
+        logger.info(f"Creating analyzer for languages: {list(nlp_models.keys())}")
 
-            # Create NLP engine provider for this language
-            nlp_configuration = {
-                "nlp_engine_name": "spacy",
-                "models": [{"lang_code": lang_code, "model_name": nlp_model.meta["name"]}],
-            }
+        # Create a single NLP engine with all pre-loaded models
+        nlp_engine = PreloadedSpacyNlpEngine(nlp_models)
 
-            provider = NlpEngineProvider(nlp_configuration=nlp_configuration)
-            nlp_engine = provider.create_engine()
+        # Create a single analyzer supporting all languages
+        self.analyzer = AnalyzerEngine(
+            nlp_engine=nlp_engine,
+            supported_languages=list(nlp_models.keys()),
+        )
 
-            # Create analyzer with custom recognizers
-            analyzer = AnalyzerEngine(
-                nlp_engine=nlp_engine,
-                supported_languages=[lang_code],
-            )
+        # Register all custom recognizers
+        custom_recognizers = get_all_recognizers()
+        for recognizer in custom_recognizers:
+            self.analyzer.registry.add_recognizer(recognizer)
+            logger.debug(f"Registered custom recognizer: {recognizer.supported_entities}")
 
-            # Register all custom recognizers
-            custom_recognizers = get_all_recognizers()
-            for recognizer in custom_recognizers:
-                analyzer.registry.add_recognizer(recognizer)
-                logger.debug(f"Registered custom recognizer: {recognizer.supported_entity}")
-
-            self.analyzers[lang_code] = analyzer
-            logger.info(f"Analyzer for {lang_code} initialized with {len(custom_recognizers)} custom recognizers")
+        logger.info(f"Analyzer initialized with {len(custom_recognizers)} custom recognizers for languages: {list(nlp_models.keys())}")
 
     def sanitize(
         self,
@@ -92,13 +117,12 @@ class SanitizationService:
             logger.info(f"Deny list matched {len(deny_list_results)} terms")
 
         # Step 3: Presidio analysis
-        analyzer = self.analyzers.get(language)
-        if analyzer is None:
-            logger.warning(f"No analyzer for language '{language}', using 'en'")
-            analyzer = self.analyzers["en"]
+        # Verify language is supported, fall back to 'en' if not
+        if language not in self.nlp_models:
+            logger.warning(f"Language '{language}' not supported, using 'en'")
             language = "en"
 
-        presidio_results = analyzer.analyze(
+        presidio_results = self.analyzer.analyze(
             text=text,
             language=language,
             entities=entities,
