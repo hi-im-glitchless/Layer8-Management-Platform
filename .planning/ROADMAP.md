@@ -74,10 +74,14 @@ Plans:
   3. Sanitization mappings are stored per-session in Redis with automatic TTL-based expiration
   4. Mappings are never sent to the LLM, only placeholder tokens
   5. System can desanitize content by restoring original values from session-scoped mappings
-**Plans**: TBD
+**Plans:** 5 plans
 
 Plans:
-- [ ] 02-01: TBD during phase planning
+- [ ] 02-01-PLAN.md — Python FastAPI microservice scaffold with spaCy model loading and health endpoint
+- [ ] 02-02-PLAN.md — Deny list data model (Prisma) and CRUD API in Node backend
+- [ ] 02-03-PLAN.md — Core sanitization pipeline: custom recognizers, deny list, mapping operator, sanitize/desanitize endpoints
+- [ ] 02-04-PLAN.md — Node backend integration: sanitization proxy routes, Redis mapping storage
+- [ ] 02-05-PLAN.md — TDD: synthetic test data, recognizer unit tests, round-trip integration tests
 
 ### Phase 3: LLM Integration
 **Goal**: Multi-provider LLM client with SSE streaming, compliance-grade interaction logging, and streaming UI components
@@ -221,7 +225,7 @@ Phases execute in numeric order: 1 → 1.1 → 2 → 3 → 4 → 5 → 6 → 7 �
 |-------|----------------|--------|-----------|
 | 1. Foundation, Security & Web UI Design | 6/6 | Complete | 2026-02-11 |
 | 1.1 UI/UX Visual Polish (INSERTED) | 3/3 | Complete | 2026-02-11 |
-| 2. Sanitization Infrastructure | 0/TBD | Not started | - |
+| 2. Sanitization Infrastructure | 0/5 | Not started | - |
 | 3. LLM Integration | 0/TBD | Not started | - |
 | 4. Document Processing | 0/TBD | Not started | - |
 | 5. Template Adapter - Core | 0/TBD | Not started | - |
