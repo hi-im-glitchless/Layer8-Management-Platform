@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
+import path from 'path';
+import fs from 'fs';
 import { config } from './config.js';
 import { connectRedis, createRedisStore } from './db/redis.js';
 import { csrfProtection } from './middleware/csrf.js';
@@ -13,6 +15,7 @@ import usersRouter from './routes/users.js';
 import adminRouter from './routes/admin.js';
 import denyListRouter from './routes/denyList.js';
 import sanitizationRouter from './routes/sanitization.js';
+import profileRouter from './routes/profile.js';
 import { waitForSanitizer } from './services/sanitization.js';
 
 const app = express();
@@ -44,9 +47,16 @@ app.get('/api/csrf-token', (req, res) => {
   res.json({ csrfToken });
 });
 
+// Static file serving for uploads (before rate limiting for performance)
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // Start server
 async function startServer() {
   try {
+    // Ensure upload directories exist
+    const uploadDir = path.join(process.cwd(), 'uploads', 'avatars');
+    fs.mkdirSync(uploadDir, { recursive: true });
+
     // Connect to Redis first
     await connectRedis();
 
@@ -84,6 +94,9 @@ async function startServer() {
 
     // Mount auth routes
     app.use('/api/auth', authRouter);
+
+    // Mount profile routes
+    app.use('/api/profile', profileRouter);
 
     // Mount audit routes
     app.use('/api/audit', auditRouter);

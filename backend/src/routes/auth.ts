@@ -87,6 +87,12 @@ router.post('/login', loginRateLimiter, auditMiddleware('auth.login'), async (re
     // Password is correct - reset failed attempts
     await resetFailedAttempts(user.id);
 
+    // Update lastLoginAt
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
     // Set session data
     req.session.userId = user.id;
     req.session.username = user.username;
@@ -237,7 +243,8 @@ router.post('/totp/setup', auditMiddleware('auth.totp.setup'), async (req: Reque
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (user.totpEnabled) {
+    // Allow re-setup only for fully authenticated users (totpVerified=true)
+    if (user.totpEnabled && !req.session.totpVerified) {
       return res.status(400).json({ error: 'TOTP already enabled' });
     }
 
@@ -395,9 +402,12 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
       select: {
         id: true,
         username: true,
+        displayName: true,
+        avatarUrl: true,
         isAdmin: true,
         totpEnabled: true,
         createdAt: true,
+        lastLoginAt: true,
       },
     });
 
