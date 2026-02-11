@@ -7,6 +7,7 @@ const envSchema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
+  SANITIZER_URL: z.string().default('http://localhost:8000'),
 });
 
 const parsed = envSchema.safeParse(process.env);
