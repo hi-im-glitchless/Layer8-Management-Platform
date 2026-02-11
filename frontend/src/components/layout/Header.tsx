@@ -33,7 +33,7 @@ export function Header() {
     : 'U';
 
   return (
-    <header className="h-14 border-b border-border flex items-center justify-between px-6">
+    <header className="h-14 border-b border-border bg-background flex items-center justify-between px-6">
       {/* Left side - could add breadcrumb later */}
       <div className="flex-1" />
 

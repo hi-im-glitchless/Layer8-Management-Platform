@@ -4,13 +4,13 @@ import { Header } from './Header'
 
 export function AppShell() {
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-r from-background to-[var(--background-end,var(--background))]">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
-
+      
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-
-        <main className="flex-1 overflow-y-auto">
+        
+        <main className="flex-1 overflow-y-auto bg-background">
           <div className="container mx-auto p-6 max-w-7xl">
             <Outlet />
           </div>
