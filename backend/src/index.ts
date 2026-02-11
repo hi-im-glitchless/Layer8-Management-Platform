@@ -12,6 +12,8 @@ import auditRouter from './routes/audit.js';
 import usersRouter from './routes/users.js';
 import adminRouter from './routes/admin.js';
 import denyListRouter from './routes/denyList.js';
+import sanitizationRouter from './routes/sanitization.js';
+import { waitForSanitizer } from './services/sanitization.js';
 
 const app = express();
 
@@ -94,6 +96,20 @@ async function startServer() {
 
     // Mount deny list routes
     app.use('/api/deny-list', denyListRouter);
+
+    // Mount sanitization routes
+    app.use('/api', sanitizationRouter);
+
+    // Check sanitizer service readiness (optional - don't block server start)
+    waitForSanitizer(10000, 2000).then(ready => {
+      if (ready) {
+        console.log('[startup] Sanitizer service is ready');
+      } else {
+        console.warn('[startup] Sanitizer service not ready - routes will return 503 until service starts');
+      }
+    }).catch(err => {
+      console.warn('[startup] Could not check sanitizer readiness:', err.message);
+    });
 
     app.listen(config.PORT, () => {
       console.log(`Server running on port ${config.PORT}`);
