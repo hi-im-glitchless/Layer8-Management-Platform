@@ -1,7 +1,7 @@
 import { User as UserIcon, LogOut, Shield } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ThemeToggle } from './ThemeToggle'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
@@ -28,9 +28,18 @@ export function Header() {
   };
 
   // Get user initials for avatar
-  const initials = user?.username
-    ? user.username.charAt(0).toUpperCase()
-    : 'U';
+  const getInitials = () => {
+    if (user?.displayName) {
+      const words = user.displayName.trim().split(/\s+/);
+      if (words.length >= 2) {
+        return (words[0][0] + words[1][0]).toUpperCase();
+      }
+      return words[0][0].toUpperCase();
+    }
+    return user?.username?.[0]?.toUpperCase() || 'U';
+  };
+
+  const initials = getInitials();
 
   return (
     <header className="h-14 border-b border-border bg-background flex items-center justify-between px-6">
@@ -45,6 +54,7 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative rounded-full">
               <Avatar className="h-8 w-8">
+                <AvatarImage src={user?.avatarUrl || undefined} alt={user?.displayName || user?.username || 'User'} />
                 <AvatarFallback className="bg-primary text-primary-foreground">
                   {initials}
                 </AvatarFallback>
@@ -60,13 +70,16 @@ export function Header() {
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">{user?.username || 'User'}</p>
+                  <p className="text-sm font-medium">{user?.displayName || user?.username || 'User'}</p>
                   {isAdmin && (
                     <Badge variant="secondary" className="text-xs">
                       Admin
                     </Badge>
                   )}
                 </div>
+                {user?.displayName && (
+                  <p className="text-xs text-muted-foreground">@{user?.username}</p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {user?.totpEnabled ? 'MFA Enabled' : 'MFA Disabled'}
                 </p>
