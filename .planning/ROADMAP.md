@@ -83,6 +83,15 @@ Plans:
 - [x] 02-04-PLAN.md — Node backend integration: sanitization proxy routes, Redis mapping storage
 - [x] 02-05-PLAN.md — TDD: synthetic test data, recognizer unit tests, round-trip integration tests
 
+### Phase 02.1: Profile page completion (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 2
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 02.1 to break down)
+
 ### Phase 3: LLM Integration
 **Goal**: Multi-provider LLM client with SSE streaming, compliance-grade interaction logging, and streaming UI components
 **Depends on**: Phase 1 (requires audit logging infrastructure)
@@ -95,10 +104,12 @@ Plans:
   5. LLM client handles transient failures with exponential backoff and retry logic
   6. All LLM interactions are logged in the audit trail (sanitized prompts sent, responses received)
   7. LLM error state UI shows clear messaging and retry controls when LLM is unavailable
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: TBD during phase planning
+- [ ] 03-01-PLAN.md — Backend LLM client: Prisma settings model, provider implementations (CLIProxy + Anthropic), fallback logic, retry utility
+- [ ] 03-02-PLAN.md — Frontend streaming UI: useStreamingLLM hook, StreamingResponse component, LoadingIndicator, ErrorBanner
+- [ ] 03-03-PLAN.md — SSE endpoint, audit logging, admin LLM settings tab, audit viewer expansion, Express wiring
 
 ### Phase 4: Document Processing
 **Goal**: DOCX parsing, PDF generation, Ghostwriter integration, and reusable document UI components (upload, preview, progress)
@@ -226,7 +237,7 @@ Phases execute in numeric order: 1 → 1.1 → 2 → 3 → 4 → 5 → 6 → 7 �
 | 1. Foundation, Security & Web UI Design | 6/6 | Complete | 2026-02-11 |
 | 1.1 UI/UX Visual Polish (INSERTED) | 3/3 | Complete | 2026-02-11 |
 | 2. Sanitization Infrastructure | 5/5 | Complete | 2026-02-11 |
-| 3. LLM Integration | 0/TBD | Not started | - |
+| 3. LLM Integration | 0/3 | Not started | - |
 | 4. Document Processing | 0/TBD | Not started | - |
 | 5. Template Adapter - Core | 0/TBD | Not started | - |
 | 6. Template Adapter - Translation | 0/TBD | Not started | - |
