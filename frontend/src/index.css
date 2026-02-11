@@ -48,73 +48,73 @@
 :root {
   --radius: 0.5rem;
 
-  /* Layer8 Light Theme: White background, Black text, Red accent */
-  --background: oklch(1 0 0); /* white #ffffff */
+  /* Layer8 Light Theme: Clean white background with cool blue accent */
+  --background: oklch(1 0 0); /* pure white #ffffff */
   --foreground: oklch(0.145 0 0); /* near-black #09090b */
-  --card: oklch(1 0 0);
+  --card: oklch(1 0 0); /* white cards */
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.145 0 0); /* black primary */
-  --primary-foreground: oklch(1 0 0); /* white text on black */
-  --secondary: oklch(0.97 0 0); /* light gray */
+  --primary: oklch(0.55 0.16 250); /* cool blue primary for light mode */
+  --primary-foreground: oklch(1 0 0); /* white text on blue */
+  --secondary: oklch(0.97 0.005 260); /* light gray with cool tint */
   --secondary-foreground: oklch(0.145 0 0);
-  --muted: oklch(0.97 0 0); /* zinc-100 */
-  --muted-foreground: oklch(0.556 0 0); /* zinc-500 */
-  --accent: oklch(0.576 0.215 27.325); /* red accent #dc2626 for Layer8 "8" */
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.576 0.215 27.325); /* same red for destructive */
-  --border: oklch(0.922 0 0); /* zinc-200 */
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.145 0 0); /* black ring */
-  --chart-1: oklch(0.576 0.215 27.325);
-  --chart-2: oklch(0.145 0 0);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(1 0 0);
+  --muted: oklch(0.97 0.005 260); /* light gray */
+  --muted-foreground: oklch(0.55 0 0); /* medium gray - 4.5:1 contrast */
+  --accent: oklch(0.55 0.16 250); /* cool blue accent */
+  --accent-foreground: oklch(1 0 0); /* white text on blue */
+  --destructive: oklch(0.55 0.2 25); /* red for danger */
+  --border: oklch(0.92 0 0); /* light gray border */
+  --input: oklch(0.92 0 0);
+  --ring: oklch(0.55 0.16 250); /* cool blue focus ring */
+  --chart-1: oklch(0.55 0.16 250); /* cool blue */
+  --chart-2: oklch(0.50 0.14 200); /* cyan */
+  --chart-3: oklch(0.50 0.12 180); /* teal */
+  --chart-4: oklch(0.60 0.15 280); /* purple */
+  --chart-5: oklch(0.55 0.18 230); /* bright blue */
+  --sidebar: oklch(1 0 0); /* white sidebar */
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.55 0.16 250);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent: oklch(0.97 0.005 260); /* light gray accent bg */
   --sidebar-accent-foreground: oklch(0.145 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.92 0 0);
+  --sidebar-ring: oklch(0.55 0.16 250);
 }
 
 .dark {
-  /* Layer8 Dark Theme: Black background, White text, Red accent */
-  --background: oklch(0.145 0 0); /* near-black #09090b */
-  --foreground: oklch(0.985 0 0); /* near-white #fafafa */
-  --card: oklch(0.205 0 0); /* zinc-900 cards */
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  /* Layer8 Dark Theme: Deep near-black with cool blue accent (VS Code/Discord-like) */
+  --background: oklch(0.16 0.005 260); /* deep near-black with cool tint #1a1b1e */
+  --foreground: oklch(0.98 0 0); /* near-white #fafafa */
+  --card: oklch(0.20 0.005 260); /* slightly elevated surface #25262b */
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.22 0.005 260); /* popover slightly lighter */
+  --popover-foreground: oklch(0.98 0 0);
   --primary: oklch(0.985 0 0); /* white primary in dark mode */
-  --primary-foreground: oklch(0.145 0 0); /* black text on white */
-  --secondary: oklch(0.269 0 0); /* zinc-800 */
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0); /* zinc-400 */
-  --accent: oklch(0.576 0.215 27.325); /* red accent #dc2626 */
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.704 0.191 22.216); /* brighter red for dark mode */
-  --border: oklch(1 0 0 / 10%); /* subtle border */
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.985 0 0); /* white ring */
-  --chart-1: oklch(0.576 0.215 27.325);
-  --chart-2: oklch(0.985 0 0);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.985 0 0);
-  --sidebar-primary-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.16 0 0); /* dark text on white */
+  --secondary: oklch(0.25 0.005 260); /* subtle surface */
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.25 0.005 260); /* slightly lifted surface */
+  --muted-foreground: oklch(0.71 0 0); /* readable secondary text - 4.5:1 contrast */
+  --accent: oklch(0.65 0.16 250); /* cool blue accent #4E9FFF */
+  --accent-foreground: oklch(0.98 0 0); /* white text on blue */
+  --destructive: oklch(0.65 0.2 25); /* bright red for visibility on dark */
+  --border: oklch(1 0 0 / 8%); /* subtle border */
+  --input: oklch(1 0 0 / 12%); /* slightly more visible input border */
+  --ring: oklch(0.65 0.16 250); /* cool blue focus ring */
+  --chart-1: oklch(0.65 0.16 250); /* cool blue */
+  --chart-2: oklch(0.60 0.14 200); /* cyan */
+  --chart-3: oklch(0.60 0.12 180); /* teal */
+  --chart-4: oklch(0.70 0.15 280); /* purple */
+  --chart-5: oklch(0.65 0.18 230); /* bright blue */
+  --sidebar: oklch(0.18 0.005 260); /* slightly different from background */
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary-foreground: oklch(0.16 0 0);
+  --sidebar-accent: oklch(0.65 0.16 250 / 15%); /* cool blue with low opacity for active */
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.65 0.16 250);
 }
 
 @layer base {
@@ -145,5 +145,19 @@
 
   .fade-in {
     animation: fadeIn 0.3s ease-out;
+  }
+
+  /* Glassmorphism utility for login page */
+  .glass {
+    background: oklch(0 0 0 / 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid oklch(1 0 0 / 0.1);
+  }
+
+  @supports not (backdrop-filter: blur(12px)) {
+    .glass {
+      background: oklch(0 0 0 / 0.85);
+    }
   }
 }
