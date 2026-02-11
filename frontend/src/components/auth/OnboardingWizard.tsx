@@ -74,7 +74,7 @@ export function OnboardingWizard({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-r from-black via-slate-950 to-blue-950/80">
       <div className="w-full max-w-2xl glass rounded-2xl">
         <div className="p-8 pb-0 space-y-4">
           {/* Logo */}

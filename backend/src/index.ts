@@ -124,6 +124,14 @@ async function startServer() {
       console.warn('[startup] Could not check sanitizer readiness:', err.message);
     });
 
+    // Global error handler - log all unhandled errors
+    app.use((err: any, req: any, res: any, next: any) => {
+      console.error('[GLOBAL ERROR HANDLER]', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
     app.listen(config.PORT, () => {
       console.log(`Server running on port ${config.PORT}`);
       console.log(`Environment: ${config.NODE_ENV}`);
