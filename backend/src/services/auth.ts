@@ -3,9 +3,8 @@ import { TOTP, generateSecret, generateURI, NobleCryptoPlugin, ScureBase32Plugin
 import QRCode from 'qrcode';
 import { prisma } from '@/db/prisma.js';
 
-// Create TOTP instance with 1-step drift tolerance, Noble crypto and Scure Base32 plugins
+// Create TOTP instance with Noble crypto and Scure Base32 plugins
 const totp = new TOTP({
-  window: 1,
   crypto: new NobleCryptoPlugin(),
   base32: new ScureBase32Plugin(),
 });
@@ -52,7 +51,6 @@ export async function generateTOTPSecret(username: string): Promise<{
     issuer: 'Layer8',
     label: username,
     secret,
-    type: 'totp',
   });
   const qrCodeDataURL = await QRCode.toDataURL(otpauth);
 
@@ -70,8 +68,9 @@ export async function generateTOTPSecret(username: string): Promise<{
  */
 export async function verifyTOTP(secret: string, token: string): Promise<boolean> {
   try {
-    // TOTP instance already configured with window: 1
-    return await totp.verify({ token, secret });
+    // Generate current valid token
+    const validToken = await totp.generate({ secret });
+    return validToken === token;
   } catch (error) {
     return false;
   }

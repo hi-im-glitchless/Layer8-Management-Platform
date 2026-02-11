@@ -19,13 +19,25 @@ const globalForPrisma = globalThis as unknown as {
 
 // Function to create libsql client with DATABASE_URL from env
 function createLibSqlClient() {
-  // Convert relative file: URL to absolute path
-  let dbUrl = process.env.DATABASE_URL || 'file:./dev.db';
+  // Ensure DATABASE_URL is set - default to dev.db in backend root
+  let dbUrl = process.env.DATABASE_URL;
+
+  if (!dbUrl) {
+    console.warn('DATABASE_URL not set, defaulting to file:./dev.db');
+    dbUrl = 'file:./dev.db';
+  }
 
   if (dbUrl.startsWith('file:./') || dbUrl.startsWith('file:../')) {
     // Extract the relative path and make it absolute from backend root
     const relativePath = dbUrl.replace('file:', '');
-    dbUrl = `file:${join(__dirname, '../..', relativePath)}`;
+    const absolutePath = join(__dirname, '../..', relativePath);
+    dbUrl = `file:${absolutePath}`;
+  }
+
+  console.log(`[prisma.ts] Creating libsql client with URL: ${dbUrl}`);
+
+  if (!dbUrl || dbUrl === 'undefined') {
+    throw new Error(`Invalid DATABASE_URL: ${dbUrl}. Please set DATABASE_URL environment variable.`);
   }
 
   return createClient({ url: dbUrl });
@@ -33,7 +45,7 @@ function createLibSqlClient() {
 
 // Always create fresh adapter (don't use global cache in tests)
 const libsql = createLibSqlClient();
-const adapter = new PrismaLibSql(libsql);
+const adapter = new PrismaLibSql(libsql as any); // Type assertion needed for LibSQL adapter
 
 export const prisma = new PrismaClient({
   adapter,
