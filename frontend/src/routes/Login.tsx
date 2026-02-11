@@ -86,7 +86,7 @@ export function Login() {
         {/* Logo - blends seamlessly into pure black background */}
         <div className="relative z-10 text-center">
           <img
-            src="/layer8_logo_dark.jpg"
+            src="/layer8_logo_dark.png"
             alt="Layer8"
             className="w-72 h-auto mx-auto object-contain"
           />
@@ -101,7 +101,7 @@ export function Login() {
         <div className="w-full max-w-md">
           {/* Mobile-only logo (shown when left side is hidden) */}
           <img
-            src="/layer8_logo_dark.jpg"
+            src="/layer8_logo_dark.png"
             alt="Layer8"
             className="h-10 w-auto mx-auto mb-6 object-contain lg:hidden"
           />

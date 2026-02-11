@@ -83,18 +83,18 @@
 }
 
 .dark {
-  /* Layer8 Dark Theme: Deep near-black with cool blue accent (VS Code/Discord-like) */
-  --background: oklch(0.16 0.005 260); /* deep near-black with cool tint #1a1b1e */
+  /* Layer8 Dark Theme: True black with cool blue accent — matches login page */
+  --background: oklch(0 0 0); /* pure black #000000 */
   --foreground: oklch(0.98 0 0); /* near-white #fafafa */
-  --card: oklch(0.20 0.005 260); /* slightly elevated surface #25262b */
+  --card: oklch(0.12 0.005 260); /* slightly elevated surface */
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.22 0.005 260); /* popover slightly lighter */
+  --popover: oklch(0.14 0.005 260); /* popover slightly lighter */
   --popover-foreground: oklch(0.98 0 0);
   --primary: oklch(0.985 0 0); /* white primary in dark mode */
-  --primary-foreground: oklch(0.16 0 0); /* dark text on white */
-  --secondary: oklch(0.25 0.005 260); /* subtle surface */
+  --primary-foreground: oklch(0.05 0 0); /* dark text on white */
+  --secondary: oklch(0.15 0.005 260); /* subtle surface */
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.25 0.005 260); /* slightly lifted surface */
+  --muted: oklch(0.15 0.005 260); /* slightly lifted surface */
   --muted-foreground: oklch(0.71 0 0); /* readable secondary text - 4.5:1 contrast */
   --accent: oklch(0.65 0.16 250); /* cool blue accent #4E9FFF */
   --accent-foreground: oklch(0.98 0 0); /* white text on blue */
@@ -107,10 +107,10 @@
   --chart-3: oklch(0.60 0.12 180); /* teal */
   --chart-4: oklch(0.70 0.15 280); /* purple */
   --chart-5: oklch(0.65 0.18 230); /* bright blue */
-  --sidebar: oklch(0.18 0.005 260); /* slightly different from background */
+  --sidebar: oklch(0 0 0); /* pure black sidebar, matches background */
   --sidebar-foreground: oklch(0.98 0 0);
   --sidebar-primary: oklch(0.98 0 0);
-  --sidebar-primary-foreground: oklch(0.16 0 0);
+  --sidebar-primary-foreground: oklch(0.05 0 0);
   --sidebar-accent: oklch(0.65 0.16 250 / 15%); /* cool blue with low opacity for active */
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);

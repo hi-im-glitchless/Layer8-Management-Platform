@@ -80,7 +80,7 @@ export function OnboardingWizard({
           {/* Logo */}
           <div className="flex justify-center">
             <img
-              src="/layer8_logo_dark.jpg"
+              src="/layer8_logo_dark.png"
               alt="Layer8"
               className="h-10 w-auto mx-auto object-contain"
             />

@@ -83,8 +83,8 @@ export function Sidebar() {
     localStorage.setItem('sidebar-collapsed', JSON.stringify(newState))
   }
 
-  const logoSrc = resolvedTheme === 'dark' 
-    ? '/layer8_logo_dark.jpg' 
+  const logoSrc = resolvedTheme === 'dark'
+    ? '/layer8_logo_dark.png'
     : '/layer8_logo_white.jpg'
 
   return (
