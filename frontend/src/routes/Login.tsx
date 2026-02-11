@@ -78,19 +78,13 @@ export function Login() {
   }
 
   // Split-screen login layout with atmospheric gradient and glassmorphism
+  // Login page is always dark regardless of theme — it's the atmospheric entry point
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Atmospheric dark gradient with logo (desktop only) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 items-center justify-center p-12 relative overflow-hidden">
-        {/* Subtle secondary gradient overlay for depth */}
-        <div className="absolute inset-0 bg-gradient-to-t from-blue-600/5 via-transparent to-purple-600/5" />
-
-        {/* Logo - blends seamlessly without visible bounding box */}
+    <div className="min-h-screen flex bg-black">
+      {/* Left side - Pure black background so logo blends seamlessly (desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-black items-center justify-center p-12 relative overflow-hidden">
+        {/* Logo - blends seamlessly into pure black background */}
         <div className="relative z-10 text-center">
-          {/*
-            Note: layer8_logo_dark.jpg should blend naturally with the dark gradient background.
-            No rounded corners or shadow to ensure seamless integration as per user requirements.
-          */}
           <img
             src="/layer8_logo_dark.jpg"
             alt="Layer8"
@@ -102,8 +96,8 @@ export function Login() {
         </div>
       </div>
 
-      {/* Right side - Glassmorphism form card on dark gradient background */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Right side - Dark with subtle blue gradient, glassmorphism form card */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 bg-gradient-to-r from-black via-slate-950 to-blue-950/80">
         <div className="w-full max-w-md">
           {/* Mobile-only logo (shown when left side is hidden) */}
           <img
