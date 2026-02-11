@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/hooks'
 
@@ -96,34 +95,31 @@ export function Sidebar() {
       )}
     >
       {/* Logo */}
-      <div className="h-14 flex items-center justify-center px-4 border-b border-sidebar-border">
+      <div className="h-16 flex items-center justify-center px-4 py-2 border-b border-sidebar-border">
         {!collapsed && (
-          <img 
-            src={logoSrc} 
-            alt="Layer8" 
+          <img
+            src={logoSrc}
+            alt="Layer8"
             className="h-8 w-auto object-contain"
           />
         )}
         {collapsed && (
-          <div className="text-accent text-xl font-bold">8</div>
+          <div className="text-blue-500 text-xl font-bold">8</div>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4">
+      <nav className="flex-1 overflow-y-auto py-6 px-3">
         {visibleGroups.map((group, groupIndex) => (
-          <div key={group.label}>
-            {groupIndex > 0 && (
-              <Separator className="my-2 mx-3" />
-            )}
+          <div key={group.label} className={groupIndex > 0 ? 'mb-6' : ''}>
             {!collapsed && (
-              <div className="px-3 mb-2">
-                <p className="text-xs font-medium text-sidebar-foreground/60 uppercase tracking-wider">
+              <div className="px-3 mb-3">
+                <p className="text-xs font-medium font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
                   {group.label}
                 </p>
               </div>
             )}
-            <div className="space-y-1 px-2">
+            <div className="space-y-1.5">
               {group.items.map((item) => (
                 <NavLink
                   key={item.to}
@@ -131,11 +127,10 @@ export function Sidebar() {
                   end={item.to === '/'}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                      'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      'flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200',
                       isActive
-                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                        : 'text-sidebar-foreground/70',
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground border-l-[3px] border-blue-500 pl-[13px]'
+                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
                       collapsed && 'justify-center'
                     )
                   }
