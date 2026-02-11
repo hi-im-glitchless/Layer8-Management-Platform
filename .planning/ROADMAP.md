@@ -14,7 +14,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation, Security & Web UI Design** - Frontend scaffold, design system, auth UI, authentication, session management, audit logging, and security scanning
 - [x] **Phase 1.1: UI/UX Visual Polish** - Dark theme improvements, logo integration, login aesthetics (INSERTED)
-- [ ] **Phase 2: Sanitization Infrastructure** - Presidio-based PII sanitization with custom pentest recognizers
+- [x] **Phase 2: Sanitization Infrastructure** - Presidio-based PII sanitization with custom pentest recognizers
+- [ ] **Phase 02.1: Profile Page Completion** - User profile with avatar, display name, security settings (INSERTED)
 - [ ] **Phase 3: LLM Integration** - Multi-provider LLM client with SSE streaming and compliance logging
 - [ ] **Phase 4: Document Processing** - DOCX parsing, PDF generation, and Ghostwriter integration
 - [ ] **Phase 5: Template Adapter - Core** - LLM-powered Jinja2 insertion with preview and feedback loop
@@ -85,12 +86,13 @@ Plans:
 
 ### Phase 02.1: Profile page completion (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
+**Goal:** Complete user profile page with avatar upload (initials fallback), display name editing, password change and TOTP regeneration dialogs, account metadata display, and header integration
 **Depends on:** Phase 2
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 02.1 to break down)
+- [ ] 02.1-01-PLAN.md — Backend: Prisma schema update (displayName, avatarUrl, lastLoginAt), profile API routes, avatar upload with multer, static file serving, frontend type/upload helper updates
+- [ ] 02.1-02-PLAN.md — Frontend: Profile page UI (view/edit toggle, avatar, security dialogs, metadata), header avatar/display name integration
 
 ### Phase 3: LLM Integration
 **Goal**: Multi-provider LLM client with SSE streaming, compliance-grade interaction logging, and streaming UI components
@@ -230,13 +232,14 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 1.1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
+Phases execute in numeric order: 1 → 1.1 → 2 → 2.1 → 3 → 4 → 5 → 6 → 7 → 8 → 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation, Security & Web UI Design | 6/6 | Complete | 2026-02-11 |
 | 1.1 UI/UX Visual Polish (INSERTED) | 3/3 | Complete | 2026-02-11 |
 | 2. Sanitization Infrastructure | 5/5 | Complete | 2026-02-11 |
+| 2.1 Profile Page Completion (INSERTED) | 0/2 | Not started | - |
 | 3. LLM Integration | 0/3 | Not started | - |
 | 4. Document Processing | 0/TBD | Not started | - |
 | 5. Template Adapter - Core | 0/TBD | Not started | - |
