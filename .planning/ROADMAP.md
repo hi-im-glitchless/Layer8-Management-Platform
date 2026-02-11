@@ -75,7 +75,7 @@ Plans:
   3. Sanitization mappings are stored per-session in Redis with automatic TTL-based expiration
   4. Mappings are never sent to the LLM, only placeholder tokens
   5. System can desanitize content by restoring original values from session-scoped mappings
-**Plans:** 5 plans
+**Plans:** 6 plans
 
 Plans:
 - [x] 02-01-PLAN.md — Python FastAPI microservice scaffold with spaCy model loading and health endpoint
@@ -83,6 +83,7 @@ Plans:
 - [x] 02-03-PLAN.md — Core sanitization pipeline: custom recognizers, deny list, mapping operator, sanitize/desanitize endpoints
 - [x] 02-04-PLAN.md — Node backend integration: sanitization proxy routes, Redis mapping storage
 - [x] 02-05-PLAN.md — TDD: synthetic test data, recognizer unit tests, round-trip integration tests
+- [ ] 02-06-PLAN.md — Gap closure: fix Presidio model loading crash, add Dockerfile.test for test execution
 
 ### Phase 02.1: Profile page completion (INSERTED)
 
@@ -238,7 +239,7 @@ Phases execute in numeric order: 1 → 1.1 → 2 → 2.1 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Foundation, Security & Web UI Design | 6/6 | Complete | 2026-02-11 |
 | 1.1 UI/UX Visual Polish (INSERTED) | 3/3 | Complete | 2026-02-11 |
-| 2. Sanitization Infrastructure | 5/5 | Complete | 2026-02-11 |
+| 2. Sanitization Infrastructure | 5/6 | Gap closure | - |
 | 2.1 Profile Page Completion (INSERTED) | 2/2 | Complete | 2026-02-11 |
 | 3. LLM Integration | 0/3 | Not started | - |
 | 4. Document Processing | 0/TBD | Not started | - |
