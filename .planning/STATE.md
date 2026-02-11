@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-11)
 ## Current Position
 
 Phase: 02 of 9 (Sanitization Infrastructure)
-Plan: 2 of 5 (02-02 complete)
-Status: Plan 02-02 Complete — Deny list CRUD API and database ready
-Last activity: 2026-02-11 — Completed 02-02-PLAN.md
+Plan: 4 of 5 (02-04 complete)
+Status: Plan 02-04 Complete — Node backend sanitization proxy with Redis mapping storage
+Last activity: 2026-02-11 — Completed 02-04-PLAN.md
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: 12 minutes
-- Total execution time: ~2.75 hours
+- Total plans completed: 13
+- Average duration: 11.5 minutes
+- Total execution time: ~2.8 hours
 
 **By Phase:**
 
@@ -29,18 +29,18 @@ Progress: [██░░░░░░░░] 20%
 |-------|-------|-------|----------|
 | 01    | 6     | ~120m | ~20m     |
 | 01.1  | 3     | 13m   | 4.3m     |
-| 02    | 2     | 5.6m  | 2.8m     |
+| 02    | 3     | 9.5m  | 3.2m     |
 
 **Recent Trend:**
 - Phase 01: 01-01 (7m), 01-02 (10m), 01-03 (13m), 01-04 (41m), 01-05 (20m), 01-06 (30m)
 - Phase 01.1: 01.1-01 (8m), 01.1-02 (3m), 01.1-03 (2m)
-- Phase 02: 02-01 (3m), 02-02 (2.6m)
+- Phase 02: 02-01 (3m), 02-02 (2.6m), 02-04 (3.8m)
 - Post-execution bugfix session: ~45m (audit black screen, session dialogs, sidebar visibility, CSRF)
 
 **Latest Plan Details:**
 | Plan    | Duration | Tasks | Files |
 |---------|----------|-------|-------|
-| 02-02   | 2.6m     | 2     | 4     |
+| 02-04   | 3.8m     | 2     | 4     |
 
 *Updated after each plan completion*
 
@@ -124,6 +124,11 @@ Recent decisions affecting current work:
 - getAllActiveTerms() returns string[] for efficient sanitization pipeline integration (hot path optimization)
 - Admin-only deny list management with authenticated read access for sanitization (security model)
 - Bulk create skips duplicates for improved CSV import UX
+- Mappings stored server-side in Redis, never exposed to frontend (PII security - original values must not be sent to client)
+- Session-scoped mapping TTL matches session expiry (30 days - mappings survive as long as user session)
+- Global deny list terms merged with per-request terms (supports both org-wide and session-specific terms)
+- Optional startup health check for sanitizer service (non-blocking - server starts anyway, routes return 503 until ready)
+- Native fetch() for HTTP client instead of axios (Node 18+ has built-in fetch, no dependency needed)
 
 ### Roadmap Evolution
 
@@ -140,7 +145,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Phase 02, Plan 02 complete)
-Stopped at: Completed 02-02-PLAN.md — Deny list CRUD API and database ready
-Next: Phase 02, Plan 03 — Sanitization service proxy
+Last session: 2026-02-11 (Phase 02, Plan 04 complete)
+Stopped at: Completed 02-04-PLAN.md — Node backend sanitization proxy
+Next: Phase 02, Plan 05 — Integration testing
 Resume file: None
