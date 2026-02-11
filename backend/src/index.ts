@@ -11,6 +11,7 @@ import authRouter from './routes/auth.js';
 import auditRouter from './routes/audit.js';
 import usersRouter from './routes/users.js';
 import adminRouter from './routes/admin.js';
+import denyListRouter from './routes/denyList.js';
 
 const app = express();
 
@@ -90,6 +91,9 @@ async function startServer() {
 
     // Mount admin routes
     app.use('/api/admin', adminRouter);
+
+    // Mount deny list routes
+    app.use('/api/deny-list', denyListRouter);
 
     app.listen(config.PORT, () => {
       console.log(`Server running on port ${config.PORT}`);
