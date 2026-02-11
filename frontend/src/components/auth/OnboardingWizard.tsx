@@ -5,7 +5,6 @@
 
 import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PasswordChange } from './PasswordChange';
 import { TOTPSetup } from './TOTPSetup';
@@ -75,12 +74,16 @@ export function OnboardingWizard({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="space-y-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="w-full max-w-2xl glass rounded-2xl">
+        <div className="p-8 pb-0 space-y-4">
           {/* Logo */}
           <div className="flex justify-center">
-            <div className="text-2xl font-bold">Layer8</div>
+            <img
+              src="/layer8_logo_dark.jpg"
+              alt="Layer8"
+              className="h-10 w-auto mx-auto object-contain"
+            />
           </div>
 
           {/* Step indicator */}
@@ -90,10 +93,10 @@ export function OnboardingWizard({
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors ${
                     index < currentStepIndex
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'border-blue-500 bg-blue-500 text-white'
                       : index === currentStepIndex
-                      ? 'border-primary text-primary'
-                      : 'border-muted-foreground/30 text-muted-foreground'
+                      ? 'border-blue-500 text-blue-500'
+                      : 'border-white/30 text-white/50'
                   }`}
                 >
                   {index < currentStepIndex ? (
@@ -106,8 +109,8 @@ export function OnboardingWizard({
                   <div
                     className={`h-0.5 w-12 transition-colors ${
                       index < currentStepIndex
-                        ? 'bg-primary'
-                        : 'bg-muted-foreground/30'
+                        ? 'bg-blue-500'
+                        : 'bg-white/20'
                     }`}
                   />
                 )}
@@ -116,21 +119,21 @@ export function OnboardingWizard({
           </div>
 
           <div className="text-center">
-            <h1 className="text-2xl font-semibold">Welcome to Layer8</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-2xl font-semibold text-white">Welcome to Layer8</h1>
+            <p className="text-sm text-slate-400">
               Let's secure your account in a few simple steps
             </p>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="space-y-6">
+        <div className="p-8 pt-6 space-y-6">
           {/* Step content */}
           <div className="min-h-[400px]">
             {currentStep === 'password' && (
               <div className="space-y-4 fade-in">
                 <div className="space-y-2">
-                  <h2 className="text-xl font-semibold">Set Your Password</h2>
-                  <p className="text-sm text-muted-foreground">
+                  <h2 className="text-xl font-semibold text-white">Set Your Password</h2>
+                  <p className="text-sm text-slate-400">
                     Choose a strong password to protect your account
                   </p>
                 </div>
@@ -158,20 +161,20 @@ export function OnboardingWizard({
                   <CheckCircle2 className="h-16 w-16 text-green-600 dark:text-green-500" />
                 </div>
                 <div className="space-y-2 text-center">
-                  <h2 className="text-2xl font-semibold">You're All Set!</h2>
-                  <p className="text-muted-foreground max-w-md">
+                  <h2 className="text-2xl font-semibold text-white">You're All Set!</h2>
+                  <p className="text-slate-400 max-w-md">
                     Your account is now secured with two-factor authentication.
                     You can now use Layer8 to streamline your security reporting workflow.
                   </p>
                 </div>
-                <Button onClick={handleComplete} size="lg" className="mt-4">
+                <Button onClick={handleComplete} variant="gradient" size="lg" className="mt-4">
                   Get Started
                 </Button>
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
