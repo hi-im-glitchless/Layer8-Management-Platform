@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
-import { 
-  LayoutDashboard, 
-  FileCode, 
-  FileText, 
-  ScrollText, 
-  User, 
+import {
+  LayoutDashboard,
+  FileCode,
+  FileText,
+  ScrollText,
+  User,
   Shield,
   ChevronLeft,
   ChevronRight
@@ -14,8 +14,22 @@ import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/features/auth/hooks'
 
-const navigationGroups = [
+interface NavItem {
+  to: string
+  icon: typeof LayoutDashboard
+  label: string
+  adminOnly?: boolean
+}
+
+interface NavGroup {
+  label: string
+  items: NavItem[]
+  adminOnly?: boolean
+}
+
+const navigationGroups: NavGroup[] = [
   {
     label: 'Main',
     items: [
@@ -38,6 +52,7 @@ const navigationGroups = [
   },
   {
     label: 'Admin',
+    adminOnly: true,
     items: [
       { to: '/admin', icon: Shield, label: 'Admin Panel' },
     ],
@@ -47,6 +62,12 @@ const navigationGroups = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const { resolvedTheme } = useTheme()
+  const { user } = useAuth()
+
+  const visibleGroups = useMemo(
+    () => navigationGroups.filter((group) => !group.adminOnly || user?.isAdmin),
+    [user?.isAdmin]
+  )
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -90,7 +111,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
-        {navigationGroups.map((group, groupIndex) => (
+        {visibleGroups.map((group, groupIndex) => (
           <div key={group.label}>
             {groupIndex > 0 && (
               <Separator className="my-2 mx-3" />

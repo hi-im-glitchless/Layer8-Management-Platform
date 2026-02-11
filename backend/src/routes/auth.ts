@@ -91,6 +91,9 @@ router.post('/login', loginRateLimiter, auditMiddleware('auth.login'), async (re
     req.session.userId = user.id;
     req.session.username = user.username;
     req.session.isAdmin = user.isAdmin;
+    req.session.createdAt = Date.now();
+    req.session.lastActivity = Date.now();
+    req.session.ipAddress = req.ip || req.socket.remoteAddress || null;
 
     // Check if user must reset password
     if (user.mustResetPassword) {

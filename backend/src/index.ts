@@ -63,6 +63,16 @@ async function startServer() {
 
     app.use(sessionMiddleware);
 
+    // Track session activity (lastActivity, ipAddress) for admin session monitoring
+    app.use((req, res, next) => {
+      const sess = req.session as any;
+      if (sess?.userId) {
+        sess.lastActivity = Date.now();
+        sess.ipAddress = req.ip || req.socket.remoteAddress || null;
+      }
+      next();
+    });
+
     // Apply CSRF protection to all routes (after session middleware)
     app.use(csrfProtection);
 

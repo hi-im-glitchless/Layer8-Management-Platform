@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -7,6 +8,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSessions, useTerminateSession, useCleanupSessions } from '@/features/admin/hooks'
 import type { ActiveSession } from '@/features/admin/types'
@@ -17,32 +29,20 @@ export function SessionManagement() {
   const { data, isLoading } = useSessions()
   const terminateSession = useTerminateSession()
   const cleanupSessions = useCleanupSessions()
+  const [terminatingId, setTerminatingId] = useState<string | null>(null)
 
-  const handleTerminate = async (sessionId: string, username: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to terminate the session for "${username}"? They will be logged out immediately.`
-      )
-    ) {
-      return
-    }
-
+  const handleTerminate = async (sessionId: string) => {
+    setTerminatingId(sessionId)
     try {
       await terminateSession.mutateAsync(sessionId)
     } catch (error) {
       // Error handled by mutation hook
+    } finally {
+      setTerminatingId(null)
     }
   }
 
   const handleCleanup = async () => {
-    if (
-      !confirm(
-        'Are you sure you want to cleanup expired sessions and devices?'
-      )
-    ) {
-      return
-    }
-
     try {
       await cleanupSessions.mutateAsync()
     } catch (error) {
@@ -59,14 +59,31 @@ export function SessionManagement() {
             Monitor and manage active user sessions
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={handleCleanup}
-          disabled={cleanupSessions.isPending}
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          {cleanupSessions.isPending ? 'Cleaning...' : 'Cleanup Expired'}
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              disabled={cleanupSessions.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {cleanupSessions.isPending ? 'Cleaning...' : 'Cleanup Expired'}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cleanup expired sessions?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove all expired sessions and trusted devices from the system. Active sessions will not be affected.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCleanup}>
+                Cleanup
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {isLoading ? (
@@ -118,16 +135,33 @@ export function SessionManagement() {
                     })}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() =>
-                        handleTerminate(session.sessionId, session.username)
-                      }
-                      disabled={terminateSession.isPending}
-                    >
-                      Terminate
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={terminatingId === session.sessionId}
+                        >
+                          {terminatingId === session.sessionId ? 'Ending...' : 'Terminate'}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Terminate session?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will immediately log out <span className="font-semibold">{session.username}</span>. They will need to sign in again.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleTerminate(session.sessionId)}
+                          >
+                            Terminate
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               ))}

@@ -40,8 +40,22 @@ router.get('/', requireAuth, async (req, res) => {
 
     const result = await queryAuditLogs(filter);
 
+    // Transform to match frontend AuditLog interface
+    const logs = result.logs.map((log) => ({
+      id: log.id,
+      userId: log.userId,
+      username: log.user?.username ?? null,
+      action: log.action,
+      details: JSON.parse(log.details),
+      ipAddress: log.ipAddress,
+      userAgent: null, // Not tracked in current schema
+      timestamp: log.createdAt.toISOString(),
+      previousHash: log.previousHash,
+      currentHash: log.hash,
+    }));
+
     res.json({
-      logs: result.logs,
+      logs,
       total: result.total,
       page,
       pageSize,
@@ -94,7 +108,13 @@ router.get('/export', requireAdmin, async (req, res) => {
 router.get('/verify', requireAdmin, async (req, res) => {
   try {
     const result = await verifyAuditChain();
-    res.json(result);
+    // Transform to match frontend VerifyChainResult interface
+    res.json({
+      valid: result.valid,
+      totalEntries: result.entries,
+      verifiedEntries: result.valid ? result.entries : 0,
+      firstInvalidIndex: result.brokenAt ?? undefined,
+    });
   } catch (error) {
     console.error('[audit routes] Error verifying audit chain:', error);
     res.status(500).json({ error: 'Failed to verify audit chain' });

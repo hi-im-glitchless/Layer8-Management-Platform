@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -32,7 +32,7 @@ interface AuditLogViewerProps {
 }
 
 const ACTION_TYPES = [
-  { value: '', label: 'All Actions' },
+  { value: 'all', label: 'All Actions' },
   { value: 'login', label: 'Login' },
   { value: 'logout', label: 'Logout' },
   { value: 'totp.setup', label: 'TOTP Setup' },
@@ -61,7 +61,7 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
   })
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
-  const { data: auditData, isLoading } = useAuditLogs(filters)
+  const { data: auditData, isLoading, error: auditError } = useAuditLogs(filters)
   const { data: usersData } = useUsers()
   const exportLogs = useExportAuditLogs()
   const verifyChain = useVerifyChain()
@@ -151,16 +151,16 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
             <div>
               <Label htmlFor="filter-user">User</Label>
               <Select
-                value={filters.userId || ''}
+                value={filters.userId || 'all'}
                 onValueChange={(value) =>
-                  handleFilterChange('userId', value || undefined)
+                  handleFilterChange('userId', value === 'all' ? undefined : value)
                 }
               >
                 <SelectTrigger id="filter-user">
                   <SelectValue placeholder="All Users" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Users</SelectItem>
+                  <SelectItem value="all">All Users</SelectItem>
                   {usersData?.users.map((user: AdminUser) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.username}
@@ -174,9 +174,9 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
           <div>
             <Label htmlFor="filter-action">Action Type</Label>
             <Select
-              value={filters.action || ''}
+              value={filters.action || 'all'}
               onValueChange={(value) =>
-                handleFilterChange('action', value || undefined)
+                handleFilterChange('action', value === 'all' ? undefined : value)
               }
             >
               <SelectTrigger id="filter-action">
@@ -229,7 +229,15 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
       </div>
 
       {/* Table */}
-      {isLoading ? (
+      {auditError ? (
+        <div className="text-center py-12 border rounded-lg border-destructive/50">
+          <FileText className="h-12 w-12 mx-auto text-destructive mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Failed to load audit logs</h3>
+          <p className="text-muted-foreground">
+            {auditError.message || 'An error occurred while fetching audit logs'}
+          </p>
+        </div>
+      ) : isLoading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-16 w-full" />
@@ -260,9 +268,8 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
                 {auditData?.logs.map((log: AuditLog, index: number) => {
                   const isExpanded = expandedRows.has(log.id)
                   return (
-                    <>
+                    <Fragment key={log.id}>
                       <TableRow
-                        key={log.id}
                         className={index % 2 === 0 ? 'bg-muted/50' : ''}
                       >
                         <TableCell>
@@ -333,7 +340,7 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   )
                 })}
               </TableBody>

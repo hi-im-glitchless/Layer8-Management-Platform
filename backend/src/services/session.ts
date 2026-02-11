@@ -133,7 +133,7 @@ export async function getActiveSessions(): Promise<ActiveSession[]> {
             userId: parsed.userId,
             username: user?.username || 'Unknown',
             ipAddress: parsed.ipAddress || null,
-            lastActivity: parsed.cookie?.expires ? new Date(parsed.cookie.expires) : new Date(),
+            lastActivity: parsed.lastActivity ? new Date(parsed.lastActivity) : new Date(),
             createdAt: parsed.createdAt ? new Date(parsed.createdAt) : new Date(),
           });
         }

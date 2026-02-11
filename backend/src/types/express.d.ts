@@ -9,5 +9,8 @@ declare module 'express-session' {
     pendingTOTPSecret?: string;
     awaitingTOTP?: boolean;
     mustResetPassword?: boolean;
+    createdAt?: number;
+    lastActivity?: number;
+    ipAddress?: string | null;
   }
 }

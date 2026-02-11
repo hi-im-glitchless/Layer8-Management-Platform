@@ -59,9 +59,11 @@ export async function apiClient<T>(
     ...(options?.headers as Record<string, string>),
   };
 
-  // Add Content-Type for JSON payloads
-  if (options?.method && ['POST', 'PUT', 'PATCH'].includes(options.method)) {
-    headers['Content-Type'] = 'application/json';
+  // Add CSRF and Content-Type for state-changing requests
+  if (options?.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method)) {
+    if (options.body) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     // Ensure CSRF token exists before state-changing requests
     await ensureCsrfToken();
