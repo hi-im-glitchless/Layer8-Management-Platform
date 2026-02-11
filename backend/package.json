@@ -10,7 +10,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -22,10 +24,14 @@
     "@types/express-session": "^1.18.2",
     "@types/node": "^25.2.3",
     "@types/qrcode": "^1.5.6",
+    "@vitest/coverage-v8": "^4.0.18",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "@prisma/adapter-libsql": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "argon2": "^0.44.0",
     "connect-redis": "^9.0.0",
