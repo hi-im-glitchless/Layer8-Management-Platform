@@ -33,18 +33,14 @@ export function useAuth() {
 
 /**
  * Hook for login mutation
- * Invalidates auth query on success
  */
 export function useLogin() {
-  const queryClient = useQueryClient();
-
   const mutation = useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       authApi.login(username, password),
-    onSuccess: () => {
-      // Invalidate and refetch auth query
-      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
-    },
+    // Don't invalidate auth here — login may return intermediate states
+    // (requiresTOTP, requiresPasswordChange) before full authentication.
+    // The caller refetches auth after the full flow completes.
   });
 
   return {
@@ -58,7 +54,6 @@ export function useLogin() {
 
 /**
  * Hook for logout mutation
- * Invalidates auth query and navigates to login on success
  */
 export function useLogout() {
   const queryClient = useQueryClient();
@@ -67,11 +62,8 @@ export function useLogout() {
   const mutation = useMutation({
     mutationFn: authApi.logout,
     onSuccess: () => {
-      // Clear auth cache
       queryClient.setQueryData(AUTH_QUERY_KEY, null);
       queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
-
-      // Navigate to login
       navigate('/login');
     },
   });
@@ -84,22 +76,18 @@ export function useLogout() {
 }
 
 /**
- * Hook for TOTP verification
+ * Hook for TOTP verification (login flow)
  */
 export function useVerifyTOTP() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ code, rememberDevice }: { code: string; rememberDevice?: boolean }) =>
       authApi.verifyTOTP(code, rememberDevice),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
-    },
+    // Caller refetches auth after full flow completes
   });
 }
 
 /**
- * Hook for TOTP setup
+ * Hook for TOTP setup (generates QR code)
  */
 export function useSetupTOTP() {
   return useMutation({
@@ -108,16 +96,12 @@ export function useSetupTOTP() {
 }
 
 /**
- * Hook for TOTP setup verification
+ * Hook for TOTP setup verification (enables TOTP on account)
  */
 export function useVerifyTOTPSetup() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (code: string) => authApi.verifyTOTPSetup(code),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
-    },
+    // Caller refetches auth after full flow completes
   });
 }
 
@@ -125,13 +109,9 @@ export function useVerifyTOTPSetup() {
  * Hook for password change
  */
 export function useChangePassword() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: ({ newPassword, currentPassword }: { newPassword: string; currentPassword?: string }) =>
       authApi.changePassword(newPassword, currentPassword),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
-    },
+    // Caller refetches auth after full flow completes
   });
 }

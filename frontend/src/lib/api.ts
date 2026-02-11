@@ -25,6 +25,27 @@ function getCsrfToken(): string | null {
 }
 
 /**
+ * Ensure a CSRF cookie exists by calling the token endpoint
+ */
+let csrfInitPromise: Promise<void> | null = null;
+
+async function ensureCsrfToken(): Promise<void> {
+  if (getCsrfToken()) return;
+
+  if (!csrfInitPromise) {
+    csrfInitPromise = fetch(`${API_BASE_URL}/api/csrf-token`, {
+      credentials: 'include',
+    }).then(() => {
+      csrfInitPromise = null;
+    }).catch(() => {
+      csrfInitPromise = null;
+    });
+  }
+
+  await csrfInitPromise;
+}
+
+/**
  * Generic API client with credentials and CSRF support
  */
 export async function apiClient<T>(
@@ -42,7 +63,9 @@ export async function apiClient<T>(
   if (options?.method && ['POST', 'PUT', 'PATCH'].includes(options.method)) {
     headers['Content-Type'] = 'application/json';
 
-    // Add CSRF token for state-changing requests
+    // Ensure CSRF token exists before state-changing requests
+    await ensureCsrfToken();
+
     const csrfToken = getCsrfToken();
     if (csrfToken) {
       headers['X-CSRF-Token'] = csrfToken;

@@ -17,8 +17,8 @@ const {
   },
   cookieName: '__csrf',
   cookieOptions: {
-    httpOnly: true,
-    sameSite: 'strict',
+    httpOnly: false, // Must be readable by frontend JS for double-submit pattern
+    sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
   },
