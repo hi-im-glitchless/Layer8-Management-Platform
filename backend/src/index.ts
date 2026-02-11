@@ -9,6 +9,8 @@ import { csrfProtection } from './middleware/csrf.js';
 import { generalRateLimiter } from './middleware/rateLimit.js';
 import authRouter from './routes/auth.js';
 import auditRouter from './routes/audit.js';
+import usersRouter from './routes/users.js';
+import adminRouter from './routes/admin.js';
 
 const app = express();
 
@@ -72,6 +74,12 @@ async function startServer() {
 
     // Mount audit routes
     app.use('/api/audit', auditRouter);
+
+    // Mount user management routes
+    app.use('/api/users', usersRouter);
+
+    // Mount admin routes
+    app.use('/api/admin', adminRouter);
 
     app.listen(config.PORT, () => {
       console.log(`Server running on port ${config.PORT}`);

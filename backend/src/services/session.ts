@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { prisma } from '@/db/prisma.js';
+import { redisClient } from '@/db/redis.js';
 
 /**
  * Create a trusted device for a user (30-day "remember me" functionality)
@@ -84,4 +85,109 @@ export async function cleanupExpiredDevices(): Promise<number> {
   });
 
   return result.count;
+}
+
+/**
+ * Active session information
+ */
+export interface ActiveSession {
+  sessionId: string;
+  userId: string;
+  username: string;
+  ipAddress: string | null;
+  lastActivity: Date;
+  createdAt: Date;
+}
+
+/**
+ * Get all active sessions from Redis
+ * @returns Array of active sessions with user info
+ */
+export async function getActiveSessions(): Promise<ActiveSession[]> {
+  try {
+    // Get all session keys from Redis
+    const keys = await redisClient.keys('layer8:sess:*');
+
+    const sessions: ActiveSession[] = [];
+
+    for (const key of keys) {
+      const sessionData = await redisClient.get(key);
+      if (!sessionData) continue;
+
+      try {
+        const parsed = JSON.parse(sessionData);
+
+        // Extract session ID from Redis key (remove prefix)
+        const sessionId = key.replace('layer8:sess:', '');
+
+        // Only include sessions with userId (logged in sessions)
+        if (parsed.userId) {
+          // Get username from database
+          const user = await prisma.user.findUnique({
+            where: { id: parsed.userId },
+            select: { username: true },
+          });
+
+          sessions.push({
+            sessionId,
+            userId: parsed.userId,
+            username: user?.username || 'Unknown',
+            ipAddress: parsed.ipAddress || null,
+            lastActivity: parsed.cookie?.expires ? new Date(parsed.cookie.expires) : new Date(),
+            createdAt: parsed.createdAt ? new Date(parsed.createdAt) : new Date(),
+          });
+        }
+      } catch (parseError) {
+        // Skip sessions that can't be parsed
+        continue;
+      }
+    }
+
+    return sessions;
+  } catch (error) {
+    console.error('[session service] Error getting active sessions:', error);
+    return [];
+  }
+}
+
+/**
+ * Terminate a specific session
+ * @param sessionId - Session ID to terminate
+ * @returns True if session was terminated
+ */
+export async function terminateSession(sessionId: string): Promise<boolean> {
+  try {
+    const key = `layer8:sess:${sessionId}`;
+    const result = await redisClient.del(key);
+    return result > 0;
+  } catch (error) {
+    console.error('[session service] Error terminating session:', error);
+    return false;
+  }
+}
+
+/**
+ * Clean up expired sessions from Redis
+ * Note: Redis sessions expire automatically, but this provides manual cleanup
+ * @returns Number of sessions cleaned up
+ */
+export async function cleanupExpiredSessions(): Promise<number> {
+  try {
+    const keys = await redisClient.keys('layer8:sess:*');
+    let cleaned = 0;
+
+    for (const key of keys) {
+      const ttl = await redisClient.ttl(key);
+      // If TTL is -1 (no expiry) or -2 (doesn't exist), or expired
+      if (ttl <= 0) {
+        await redisClient.del(key);
+        cleaned++;
+      }
+    }
+
+    return cleaned;
+  } catch (error) {
+    console.error('[session service] Error cleaning up sessions:', error);
+    return 0;
+  }
 }
