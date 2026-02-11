@@ -121,14 +121,24 @@ class IPAddressRecognizer(PatternRecognizer):
 
     def _is_version_string(self, text: str, start_pos: int) -> bool:
         """Check if IP-like pattern is actually a version string."""
+        import re
+
         # Look back up to 20 characters before the match
         lookback_start = max(0, start_pos - 20)
         lookback_text = text[lookback_start:start_pos]
 
-        # Check for version indicators
+        # Check for version indicators with word boundaries
+        # Single-letter indicators like "v" need to be at word boundaries or followed by digits
         for indicator in self.VERSION_INDICATORS:
-            if indicator in lookback_text:
-                return True
+            if len(indicator) == 1:
+                # Single character - check for word boundary + digit pattern (e.g., "v1.2.3")
+                pattern = r'\b' + re.escape(indicator) + r'\d'
+                if re.search(pattern, lookback_text, re.IGNORECASE):
+                    return True
+            else:
+                # Multi-character indicators can use simple substring match
+                if indicator in lookback_text:
+                    return True
 
         return False
 
