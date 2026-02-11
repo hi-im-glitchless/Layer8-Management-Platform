@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-11)
 
 **Core value:** Pentesters spend their time on security work, not on manual template adaptation and executive report writing
-**Current focus:** Phase 2 Complete — Ready for Phase 3
+**Current focus:** Phase 02.1 in progress — Profile page completion
 
 ## Current Position
 
-Phase: 02 of 9 (Sanitization Infrastructure) — COMPLETE
-Plan: 5 of 5 (all complete)
-Status: Phase Complete — Verified (5/5 must-haves passed)
-Last activity: 2026-02-11 — Phase 02 verified and complete
+Phase: 02.1 of 9 (Profile Page Completion)
+Plan: 2 of 2 (1 complete)
+Status: In Progress
+Last activity: 2026-02-11 — Completed plan 02.1-01 (Profile API backend)
 
 Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
-- Average duration: 10.5 minutes
-- Total execution time: ~3.0 hours
+- Total plans completed: 16
+- Average duration: 9.8 minutes
+- Total execution time: ~3.05 hours
 
 **By Phase:**
 
@@ -30,6 +30,7 @@ Progress: [████░░░░░░] 40%
 | 01    | 6     | ~120m | ~20m     |
 | 01.1  | 3     | 13m   | 4.3m     |
 | 02    | 5     | 17.5m | 3.5m     |
+| 02.1  | 1     | 3m    | 3m       |
 
 **Recent Trend:**
 - Phase 01: 01-01 (7m), 01-02 (10m), 01-03 (13m), 01-04 (41m), 01-05 (20m), 01-06 (30m)
@@ -38,9 +39,9 @@ Progress: [████░░░░░░] 40%
 - Post-execution bugfix session: ~45m (audit black screen, session dialogs, sidebar visibility, CSRF)
 
 **Latest Plan Details:**
-| Plan    | Duration | Tasks | Files |
-|---------|----------|-------|-------|
-| 02-05   | 4m       | 2     | 11    |
+| Plan     | Duration | Tasks | Files |
+|----------|----------|-------|-------|
+| 02.1-01  | 3m       | 2     | 6     |
 
 *Updated after each plan completion*
 
@@ -134,6 +135,7 @@ Recent decisions affecting current work:
 - Glassmorphism across auth flows (login, TOTP, onboarding)
 - Use layer8_logo_dark.png (wide horizontal PNG) for dark mode, not the JPG
 - Login page left side pure black, gradient flows to the right only
+- TOTP re-setup allowed only for fully authenticated users (totpVerified=true) to enable regeneration from profile page while preventing abuse during login flow
 - Python 3.12 for sanitization service (3.14+ has spaCy/Pydantic v1 incompatibility)
 - Flexible version constraints in requirements.txt for dependency resolution
 - FastAPI lifespan context for async startup/shutdown over deprecated @app.on_event
@@ -149,6 +151,7 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - Phase 1.1 inserted after Phase 1: UI/UX Visual Polish - dark theme, logo integration, login aesthetics (URGENT)
+- Phase 02.1 inserted after Phase 2: Profile page completion (URGENT)
 
 ### Pending Todos
 
@@ -161,7 +164,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-11 (Phase 02 complete, verified)
-Stopped at: Phase 02 verified — 5/5 must-haves passed
-Next: Phase 3 — LLM Integration
+Last session: 2026-02-11 (Phase 02.1 plan 01 complete)
+Stopped at: Completed 02.1-01-PLAN.md (Profile API backend)
+Next: Phase 02.1 plan 02 — Profile page UI
 Resume file: None
