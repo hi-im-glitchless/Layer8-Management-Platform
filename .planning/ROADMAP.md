@@ -12,7 +12,7 @@ Layer8 automates two time-consuming tasks for offensive security teams: converti
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation, Security & Web UI Design** - Frontend scaffold, design system, auth UI, authentication, session management, audit logging, and security scanning
+- [x] **Phase 1: Foundation, Security & Web UI Design** - Frontend scaffold, design system, auth UI, authentication, session management, audit logging, and security scanning
 - [ ] **Phase 2: Sanitization Infrastructure** - Presidio-based PII sanitization with custom pentest recognizers
 - [ ] **Phase 3: LLM Integration** - Multi-provider LLM client with SSE streaming and compliance logging
 - [ ] **Phase 4: Document Processing** - DOCX parsing, PDF generation, and Ghostwriter integration
@@ -45,12 +45,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 6 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Frontend scaffold, design system, app shell (sidebar, header, theme toggle, routing)
-- [ ] 01-02-PLAN.md — Backend scaffold, Prisma schema, Redis session store, env config
-- [ ] 01-03-PLAN.md — Authentication backend (Argon2, TOTP, sessions, rate limiting, CSRF)
-- [ ] 01-04-PLAN.md — Authentication frontend (split-screen login, TOTP setup/verify, onboarding wizard)
-- [ ] 01-05-PLAN.md — Audit logging (hash-chain service, middleware, query/export API)
-- [ ] 01-06-PLAN.md — Admin panel (user CRUD, session management, audit viewer, template scanner)
+- [x] 01-01-PLAN.md — Frontend scaffold, design system, app shell (sidebar, header, theme toggle, routing)
+- [x] 01-02-PLAN.md — Backend scaffold, Prisma schema, Redis session store, env config
+- [x] 01-03-PLAN.md — Authentication backend (Argon2, TOTP, sessions, rate limiting, CSRF)
+- [x] 01-04-PLAN.md — Authentication frontend (split-screen login, TOTP setup/verify, onboarding wizard)
+- [x] 01-05-PLAN.md — Audit logging (hash-chain service, middleware, query/export API)
+- [x] 01-06-PLAN.md — Admin panel (user CRUD, session management, audit viewer, template scanner)
 
 ### Phase 2: Sanitization Infrastructure
 **Goal**: Production-grade PII sanitization pipeline with custom pentest recognizers and session-scoped reversible mappings
@@ -207,7 +207,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation, Security & Web UI Design | 0/6 | Planned | - |
+| 1. Foundation, Security & Web UI Design | 6/6 | Complete | 2026-02-11 |
 | 2. Sanitization Infrastructure | 0/TBD | Not started | - |
 | 3. LLM Integration | 0/TBD | Not started | - |
 | 4. Document Processing | 0/TBD | Not started | - |
