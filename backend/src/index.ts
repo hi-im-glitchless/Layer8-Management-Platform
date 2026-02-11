@@ -8,6 +8,7 @@ import { connectRedis, createRedisStore } from './db/redis.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { generalRateLimiter } from './middleware/rateLimit.js';
 import authRouter from './routes/auth.js';
+import auditRouter from './routes/audit.js';
 
 const app = express();
 
@@ -69,9 +70,13 @@ async function startServer() {
     // Mount auth routes
     app.use('/api/auth', authRouter);
 
+    // Mount audit routes
+    app.use('/api/audit', auditRouter);
+
     app.listen(config.PORT, () => {
       console.log(`Server running on port ${config.PORT}`);
       console.log(`Environment: ${config.NODE_ENV}`);
+      console.log(`Audit chain verification available via: GET /api/audit/verify`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
