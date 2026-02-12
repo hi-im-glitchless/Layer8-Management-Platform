@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { queryAuditLogs, exportAuditLogs, verifyAuditChain } from '../services/audit.js';
+import { queryAuditLogs, exportAuditLogs, verifyAuditChain, purgeAllAuditLogs } from '../services/audit.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
@@ -118,6 +118,21 @@ router.get('/verify', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('[audit routes] Error verifying audit chain:', error);
     res.status(500).json({ error: 'Failed to verify audit chain' });
+  }
+});
+
+/**
+ * DELETE /api/audit/purge
+ * Purge all audit logs so the chain restarts from genesis
+ * Admin only
+ */
+router.delete('/purge', requireAdmin, async (req, res) => {
+  try {
+    const deletedCount = await purgeAllAuditLogs();
+    res.json({ purged: deletedCount });
+  } catch (error) {
+    console.error('[audit routes] Error purging audit logs:', error);
+    res.status(500).json({ error: 'Failed to purge audit logs' });
   }
 });
 

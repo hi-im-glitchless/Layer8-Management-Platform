@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { auditApi, type AuditFilters } from './api'
 
@@ -17,6 +17,20 @@ export function useExportAuditLogs() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to export audit logs')
+    },
+  })
+}
+
+export function usePurgeAuditLogs() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => auditApi.purgeAuditLogs(),
+    onSuccess: (data) => {
+      toast.success(`Purged ${data.purged} audit log${data.purged !== 1 ? 's' : ''}`)
+      queryClient.invalidateQueries({ queryKey: ['audit', 'logs'] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to purge audit logs')
     },
   })
 }

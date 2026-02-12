@@ -271,16 +271,16 @@ export function Profile() {
             <div className="flex gap-2">
               {isEditing ? (
                 <>
-                  <Button type="submit" disabled={updateProfile.isPending}>
+                  <Button key="save" type="submit" disabled={updateProfile.isPending}>
                     {updateProfile.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save
                   </Button>
-                  <Button type="button" variant="outline" onClick={handleEditToggle}>
+                  <Button key="cancel" type="button" variant="outline" onClick={handleEditToggle}>
                     Cancel
                   </Button>
                 </>
               ) : (
-                <Button type="button" onClick={handleEditToggle}>
+                <Button key="edit" type="button" onClick={handleEditToggle}>
                   Edit Profile
                 </Button>
               )}

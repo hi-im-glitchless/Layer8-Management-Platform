@@ -83,4 +83,10 @@ export const auditApi = {
   async verifyAuditChain() {
     return apiClient<VerifyChainResult>('/api/audit/verify')
   },
+
+  async purgeAuditLogs() {
+    return apiClient<{ purged: number }>('/api/audit/purge', {
+      method: 'DELETE',
+    })
+  },
 }

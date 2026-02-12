@@ -20,11 +20,11 @@ import {
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Pagination } from '@/components/ui/pagination'
-import { useAuditLogs, useExportAuditLogs, useVerifyChain } from '@/features/audit/hooks'
+import { useAuditLogs, useExportAuditLogs, useVerifyChain, usePurgeAuditLogs } from '@/features/audit/hooks'
 import { useUsers } from '@/features/admin/hooks'
 import type { AuditFilters, AuditLog } from '@/features/audit/api'
 import type { AdminUser } from '@/features/admin/types'
-import { Download, ShieldCheck, ChevronDown, ChevronRight, FileText } from 'lucide-react'
+import { Download, ShieldCheck, ChevronDown, ChevronRight, FileText, Trash2, AlertTriangle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface AuditLogViewerProps {
@@ -60,17 +60,20 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
     pageSize: 25,
   })
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [confirmPurge, setConfirmPurge] = useState(false)
 
   const { data: auditData, isLoading, error: auditError } = useAuditLogs(filters)
   const { data: usersData } = useUsers()
   const exportLogs = useExportAuditLogs()
   const verifyChain = useVerifyChain()
+  const purgeLogs = usePurgeAuditLogs()
 
   const handleFilterChange = (key: keyof AuditFilters, value: any) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
-      page: 1, // Reset to page 1 when filters change
+      // Reset to page 1 when filters change, but not when navigating pages
+      ...(key !== 'page' && key !== 'pageSize' ? { page: 1 } : {}),
     }))
   }
 
@@ -92,6 +95,15 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
   const handleVerifyChain = async () => {
     try {
       await verifyChain.mutateAsync()
+    } catch (error) {
+      // Error handled by mutation hook
+    }
+  }
+
+  const handlePurge = async () => {
+    try {
+      await purgeLogs.mutateAsync()
+      setConfirmPurge(false)
     } catch (error) {
       // Error handled by mutation hook
     }
@@ -124,6 +136,36 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
         </div>
         {adminMode && (
           <div className="flex gap-2">
+            {confirmPurge ? (
+              <div className="flex items-center gap-2 border border-destructive rounded-lg px-3 py-1.5">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <span className="text-sm text-destructive font-medium">Delete all logs?</span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handlePurge}
+                  disabled={purgeLogs.isPending}
+                >
+                  {purgeLogs.isPending ? 'Purging...' : 'Confirm'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmPurge(false)}
+                  disabled={purgeLogs.isPending}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setConfirmPurge(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Purge All
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={handleVerifyChain}

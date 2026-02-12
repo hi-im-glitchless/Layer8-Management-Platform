@@ -249,3 +249,13 @@ export async function exportAuditLogs(
     hash: log.hash,
   }));
 }
+
+/**
+ * Purges all audit logs (admin only)
+ * This deletes every entry so the chain restarts cleanly from genesis.
+ * Returns the count of deleted entries.
+ */
+export async function purgeAllAuditLogs(): Promise<number> {
+  const result = await prisma.auditLog.deleteMany();
+  return result.count;
+}
