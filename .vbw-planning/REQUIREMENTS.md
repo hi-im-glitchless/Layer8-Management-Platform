@@ -15,17 +15,17 @@ Defined: 2026-02-10 | Core value: Pentesters spend their time on security work, 
 ### Security & Compliance
 - [x] **SECR-01**: Uploaded templates scanned for Jinja2 injection (defense-in-depth)
 - [x] **SECR-02**: All user actions logged in tamper-evident hash-chain audit trail
-- [ ] **SECR-03**: All LLM interactions logged in audit trail
+- [x] **SECR-03**: All LLM interactions logged in audit trail
 - [x] **SECR-04**: Audit logs exportable for compliance auditors
 - [x] **SECR-05**: Sanitization mappings stored per-session, never sent to LLM
 - [x] **SECR-06**: Admin can manually trigger cleanup of expired sessions
 
 ### LLM Infrastructure
-- [ ] **LLMI-01**: System connects to Claude via CLIProxyAPI (OpenAI-compatible)
-- [ ] **LLMI-02**: System can fall back to Anthropic API if CLIProxyAPI unavailable
-- [ ] **LLMI-03**: LLM responses streamed via SSE for real-time display
-- [ ] **LLMI-04**: LLM client handles retries with exponential backoff
-- [ ] **LLMI-05**: Clear error state when LLM unavailable, with retry option
+- [x] **LLMI-01**: System connects to Claude via CLIProxyAPI (OpenAI-compatible)
+- [x] **LLMI-02**: System can fall back to Anthropic API if CLIProxyAPI unavailable
+- [x] **LLMI-03**: LLM responses streamed via SSE for real-time display
+- [x] **LLMI-04**: LLM client handles retries with exponential backoff
+- [x] **LLMI-05**: Clear error state when LLM unavailable, with retry option
 
 ### Template Adapter - Core
 - [ ] **TMPL-01** through **TMPL-11**: Upload, analyze, preview, annotate, download adapted templates
@@ -53,7 +53,7 @@ Defined: 2026-02-10 | Core value: Pentesters spend their time on security work, 
 
 ### UI/UX
 - [x] **UIUX-01** through **UIUX-04**: Foundation (scaffold, shell, login, admin)
-- [ ] **UIUX-05** through **UIUX-06**: LLM streaming UI (Phase 3)
+- [x] **UIUX-05** through **UIUX-06**: LLM streaming UI (Phase 3)
 - [ ] **UIUX-07** through **UIUX-08**: Document processing UI (Phase 4)
 - [ ] **UIUX-09** through **UIUX-10**: Template adapter UI (Phase 5)
 - [ ] **UIUX-11**: Translation UI (Phase 6)

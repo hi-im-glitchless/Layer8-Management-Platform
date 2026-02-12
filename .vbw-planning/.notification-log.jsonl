@@ -4,3 +4,21 @@
   "title": "",
   "message": "Claude Code needs your attention"
 }
+{
+  "timestamp": "2026-02-12T18:29:54Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-02-12T18:43:36Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-02-12T18:46:56Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}

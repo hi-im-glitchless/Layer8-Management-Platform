@@ -46,3 +46,131 @@
     "other": 2467
   }
 }
+{
+  "timestamp": "2026-02-12T18:28:04Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-02-12T18:28:04Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 1682
+  }
+}
+{
+  "timestamp": "2026-02-12T18:33:07Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-02-12T18:33:07Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 5119
+  }
+}
+{
+  "timestamp": "2026-02-12T18:37:23Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-02-12T18:37:23Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 360
+  }
+}
+{
+  "timestamp": "2026-02-12T18:37:39Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-02-12T18:37:39Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 58
+  }
+}
+{
+  "timestamp": "2026-02-12T18:37:42Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-02-12T18:37:42Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 8
+  }
+}
+{
+  "timestamp": "2026-02-12T18:42:33Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-02-12T18:42:33Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 228
+  }
+}
+{
+  "timestamp": "2026-02-12T18:42:36Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-02-12T18:42:36Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 8
+  }
+}
+{
+  "timestamp": "2026-02-12T18:45:55Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-02-12T18:45:55Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 184
+  }
+}
