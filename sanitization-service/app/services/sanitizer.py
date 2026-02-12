@@ -77,7 +77,9 @@ class SanitizationService:
         custom_recognizers = get_all_recognizers()
         for recognizer in custom_recognizers:
             self.analyzer.registry.add_recognizer(recognizer)
-            logger.debug(f"Registered custom recognizer: {recognizer.supported_entities}")
+            # supported_entities is a list property on recognizers
+            entities_str = ", ".join(recognizer.supported_entities) if hasattr(recognizer, 'supported_entities') else str(recognizer)
+            logger.debug(f"Registered custom recognizer: {entities_str}")
 
         logger.info(f"Analyzer initialized with {len(custom_recognizers)} custom recognizers for languages: {list(nlp_models.keys())}")
 
@@ -213,39 +215,23 @@ class SanitizationService:
         """
         import re
 
-        desanitized_text = text
         unresolved_placeholders = []
 
-        # Find all placeholders in text
+        # Single-pass regex replacement using callback
         placeholder_pattern = re.compile(r'\[([A-Z_]+_\d+)\]')
 
-        # Replace each placeholder
-        for match in placeholder_pattern.finditer(text):
+        def replace_match(match):
             placeholder = match.group(0)
-
             if placeholder in reverse_mappings:
-                # Replace placeholder with original text
-                desanitized_text = desanitized_text.replace(
-                    placeholder,
-                    reverse_mappings[placeholder],
-                    1  # Replace only first occurrence
-                )
+                return reverse_mappings[placeholder]
             else:
-                # Track unresolved placeholder
                 if placeholder not in unresolved_placeholders:
                     unresolved_placeholders.append(placeholder)
+                return placeholder  # Leave unresolved as-is
 
-        # Check if desanitization is complete
+        desanitized_text = placeholder_pattern.sub(replace_match, text)
+
         complete = len(unresolved_placeholders) == 0
-
-        # Double-check: scan for any remaining placeholders
-        remaining = placeholder_pattern.findall(desanitized_text)
-        if remaining:
-            complete = False
-            for placeholder_inner in remaining:
-                full_placeholder = f"[{placeholder_inner}]"
-                if full_placeholder not in unresolved_placeholders:
-                    unresolved_placeholders.append(full_placeholder)
 
         logger.info(
             f"Desanitization {'complete' if complete else 'incomplete'}, "
