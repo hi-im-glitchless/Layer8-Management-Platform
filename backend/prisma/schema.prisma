@@ -75,3 +75,15 @@ model DenyListTerm {
   @@unique([term])
   @@index([isActive])
 }
+
+model LlmSettings {
+  id                   String   @id @default("singleton")
+  cliproxyBaseUrl      String   @default("http://localhost:8080")
+  anthropicApiKey      String?
+  defaultModel         String   @default("claude-sonnet-4-5-20250929")
+  templateAdapterModel String   @default("claude-sonnet-4-5-20250929")
+  executiveReportModel String   @default("claude-opus-4-6")
+  fallbackEnabled      Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
