@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation, Security & Web UI Design** - Frontend scaffold, design system, auth UI, authentication, session management, audit logging, and security scanning
 - [x] **Phase 1.1: UI/UX Visual Polish** - Dark theme improvements, logo integration, login aesthetics (INSERTED)
-- [ ] **Phase 2: Sanitization Infrastructure** - Presidio-based PII sanitization with custom pentest recognizers
+- [x] **Phase 2: Sanitization Infrastructure** - Presidio-based PII sanitization with custom pentest recognizers
 - [x] **Phase 02.1: Profile Page Completion** - User profile with avatar, display name, security settings (INSERTED)
 - [ ] **Phase 3: LLM Integration** - Multi-provider LLM client with SSE streaming and compliance logging
 - [ ] **Phase 4: Document Processing** - DOCX parsing, PDF generation, and Ghostwriter integration
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 1.1 → 2 → 2.1 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Foundation, Security & Web UI Design | 6/6 | Complete | 2026-02-11 |
 | 1.1 UI/UX Visual Polish (INSERTED) | 3/3 | Complete | 2026-02-11 |
-| 2. Sanitization Infrastructure | 6/8 | Gap closure | - |
+| 2. Sanitization Infrastructure | 8/8 | Complete | 2026-02-12 |
 | 2.1 Profile Page Completion (INSERTED) | 2/2 | Complete | 2026-02-11 |
 | 3. LLM Integration | 0/3 | Not started | - |
 | 4. Document Processing | 0/TBD | Not started | - |
