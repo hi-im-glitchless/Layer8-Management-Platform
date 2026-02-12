@@ -42,8 +42,7 @@ class TestRoundTrip:
         # Desanitize using reverse mappings
         from app.operators.mapping_replace import MappingReplaceOperator
         operator = MappingReplaceOperator()
-        operator.entity_map = sanitize_response.mappings
-        operator.counters = sanitize_response.counters
+        operator.load_mappings(sanitize_response.mappings, sanitize_response.counters)
 
         reverse_mappings = operator.get_reverse_mappings()
         desanitize_response = sanitization_service.desanitize(
@@ -80,8 +79,7 @@ class TestRoundTrip:
         # Desanitize
         from app.operators.mapping_replace import MappingReplaceOperator
         operator = MappingReplaceOperator()
-        operator.entity_map = sanitize_response.mappings
-        operator.counters = sanitize_response.counters
+        operator.load_mappings(sanitize_response.mappings, sanitize_response.counters)
 
         reverse_mappings = operator.get_reverse_mappings()
         desanitize_response = sanitization_service.desanitize(
@@ -112,8 +110,7 @@ class TestRoundTrip:
         # Desanitize
         from app.operators.mapping_replace import MappingReplaceOperator
         operator = MappingReplaceOperator()
-        operator.entity_map = sanitize_response.mappings
-        operator.counters = sanitize_response.counters
+        operator.load_mappings(sanitize_response.mappings, sanitize_response.counters)
 
         reverse_mappings = operator.get_reverse_mappings()
         desanitize_response = sanitization_service.desanitize(
@@ -216,8 +213,7 @@ class TestRoundTrip:
         # Desanitize
         from app.operators.mapping_replace import MappingReplaceOperator
         operator = MappingReplaceOperator()
-        operator.entity_map = sanitize_response.mappings
-        operator.counters = sanitize_response.counters
+        operator.load_mappings(sanitize_response.mappings, sanitize_response.counters)
 
         reverse_mappings = operator.get_reverse_mappings()
         desanitize_response = sanitization_service.desanitize(

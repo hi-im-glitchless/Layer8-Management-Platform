@@ -87,8 +87,7 @@ class TestSanitizationIntegration:
         # Desanitize
         from app.operators.mapping_replace import MappingReplaceOperator
         operator = MappingReplaceOperator()
-        operator.entity_map = sanitize_response.mappings
-        operator.counters = sanitize_response.counters
+        operator.load_mappings(sanitize_response.mappings, sanitize_response.counters)
 
         reverse_mappings = operator.get_reverse_mappings()
         desanitize_response = sanitization_service.desanitize(
@@ -218,8 +217,7 @@ class TestSanitizationIntegration:
         # Generate reverse mappings
         from app.operators.mapping_replace import MappingReplaceOperator
         operator = MappingReplaceOperator()
-        operator.entity_map = forward
-        operator.counters = response.counters
+        operator.load_mappings(forward, response.counters)
 
         reverse = operator.get_reverse_mappings()
 

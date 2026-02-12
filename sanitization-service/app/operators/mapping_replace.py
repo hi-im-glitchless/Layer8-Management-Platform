@@ -97,3 +97,10 @@ class MappingReplaceOperator:
                     if entity_type not in self.mappings:
                         self.mappings[entity_type] = {}
                     self.mappings[entity_type][original] = placeholder
+
+    @classmethod
+    def from_response(cls, mappings: dict[str, str], counters: dict[str, int]) -> "MappingReplaceOperator":
+        """Create operator with state from a sanitize response."""
+        op = cls()
+        op.load_mappings(mappings, counters)
+        return op
