@@ -246,7 +246,14 @@ class SanitizationService:
 
     def _merge_overlapping_results(self, results):
         """
-        Merge overlapping entity results, keeping higher-scoring ones.
+        Merge overlapping entity results with smart containment handling.
+
+        Priority rules when entities overlap:
+        1. Identical spans: higher score wins (including CUSTOM with score 1.0)
+        2. CUSTOM contained in larger entity: keep larger entity (more context)
+        3. CUSTOM contains other entity: keep CUSTOM (user-specified)
+        4. Containment (non-CUSTOM): prefer containing entity (more context)
+        5. Partial overlap: higher score wins
 
         Args:
             results: List of RecognizerResult objects (already sorted by start)
@@ -264,10 +271,62 @@ class SanitizationService:
 
             # Check for overlap
             if current.start < last.end:
-                # Overlapping - keep higher score
-                if current.score > last.score:
-                    merged[-1] = current
-                # else: keep last (already in merged)
+                # Check if spans are identical
+                if last.start == current.start and last.end == current.end:
+                    # Identical spans - keep higher score (CUSTOM has score 1.0)
+                    if current.score > last.score:
+                        merged[-1] = current
+                    # else: keep last (already in merged)
+                else:
+                    # Determine containment relationship
+                    last_contains_current = (last.start <= current.start and last.end >= current.end)
+                    current_contains_last = (current.start <= last.start and current.end >= last.end)
+
+                    # Special handling for CUSTOM entities
+                    # Structured/technical entities that should override CUSTOM when containing it
+                    structured_entities = {"AD_OBJECT", "EMAIL_ADDRESS", "NETWORK_PATH", "HOSTNAME", "IP_ADDR", "IP_ADDRESS"}
+
+                    if current.entity_type == "CUSTOM" and last.entity_type != "CUSTOM":
+                        if current_contains_last:
+                            # CUSTOM contains other - keep CUSTOM (user wants this redacted)
+                            merged[-1] = current
+                        elif last_contains_current:
+                            # Other contains CUSTOM
+                            if last.entity_type in structured_entities:
+                                # Structured entity (AD_OBJECT, EMAIL, etc.) - keep it (more specific)
+                                pass
+                            else:
+                                # Generic entity (PERSON, ORGANIZATION) - prefer CUSTOM
+                                merged[-1] = current
+                        else:
+                            # Partial overlap - CUSTOM wins (score 1.0)
+                            merged[-1] = current
+                    elif last.entity_type == "CUSTOM" and current.entity_type != "CUSTOM":
+                        if last_contains_current:
+                            # CUSTOM contains other - keep CUSTOM
+                            pass
+                        elif current_contains_last:
+                            # Other contains CUSTOM
+                            if current.entity_type in structured_entities:
+                                # Structured entity - keep it (more specific)
+                                merged[-1] = current
+                            else:
+                                # Generic entity - keep CUSTOM
+                                pass
+                        else:
+                            # Partial overlap - keep CUSTOM (already in merged)
+                            pass
+                    elif current_contains_last:
+                        # Current fully contains last - replace with containing entity
+                        merged[-1] = current
+                    elif last_contains_current:
+                        # Last fully contains current - keep last (do nothing)
+                        pass
+                    else:
+                        # Partial overlap (neither fully contains the other) - use score
+                        if current.score > last.score:
+                            merged[-1] = current
+                        # else: keep last (already in merged)
             else:
                 # No overlap
                 merged.append(current)

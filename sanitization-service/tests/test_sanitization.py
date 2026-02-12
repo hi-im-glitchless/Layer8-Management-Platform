@@ -34,8 +34,14 @@ class TestSanitizationIntegration:
         # Should have email addresses
         assert counts.get("EMAIL_ADDRESS", 0) >= 2
 
-        # Should have person names
-        assert counts.get("PERSON", 0) >= 2
+        # Should detect person names (either as PERSON or within AD_OBJECT/EMAIL_ADDRESS)
+        # Note: With smart overlap resolution, person names inside AD DNs are kept as AD_OBJECT
+        # This is correct behavior - the AD DN is more specific than standalone PERSON
+        person_count = counts.get("PERSON", 0)
+        ad_count = counts.get("AD_OBJECT", 0)
+        # Accept either: 2+ PERSON entities, OR 2+ AD_OBJECT containing names, OR combination
+        assert person_count + ad_count >= 2, \
+            f"Expected names detected (PERSON + AD_OBJECT >= 2), got PERSON={person_count}, AD_OBJECT={ad_count}"
 
         # Should have hostnames
         assert counts.get("HOSTNAME", 0) >= 1

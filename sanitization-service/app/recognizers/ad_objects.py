@@ -20,9 +20,11 @@ class ActiveDirectoryRecognizer(PatternRecognizer):
         """Initialize Active Directory recognizer."""
         patterns = [
             # AD Distinguished Name format: CN=...,OU=...,DC=...
+            # Character class [^,\\\n\r] excludes comma, backslash, and newlines
+            # This prevents matching across multiple lines
             Pattern(
                 name="ad_dn",
-                regex=r"\b(?:CN|OU|DC)=(?:[^,\\]|\\.)+(?:,(?:CN|OU|DC)=(?:[^,\\]|\\.)+)*",
+                regex=r"\b(?:CN|OU|DC)=(?:[^,\\\n\r]|\\.)+(?:,(?:CN|OU|DC)=(?:[^,\\\n\r]|\\.)+)*",
                 score=0.8,
             ),
         ]
