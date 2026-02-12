@@ -45,13 +45,20 @@ const ACTION_TYPES = [
   { value: 'admin.user.totp-reset', label: 'Admin: TOTP Reset' },
   { value: 'admin.session.terminate', label: 'Admin: Session Terminate' },
   { value: 'admin.session.cleanup', label: 'Admin: Session Cleanup' },
+  { value: 'admin.llm.settings.update', label: 'Admin: LLM Settings Update' },
+  { value: 'llm.generate', label: 'LLM Generate' },
 ]
 
 function getActionBadgeVariant(action: string): 'default' | 'secondary' | 'destructive' {
   if (action.startsWith('login')) return 'default'
+  if (action.startsWith('llm.')) return 'default'
   if (action.startsWith('admin')) return 'destructive'
   if (action.includes('error') || action.includes('fail')) return 'destructive'
   return 'secondary'
+}
+
+function isLLMGenerateAction(log: AuditLog): boolean {
+  return log.action === 'llm.generate'
 }
 
 export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
@@ -350,10 +357,41 @@ export function AuditLogViewer({ adminMode }: AuditLogViewerProps) {
                         <TableRow key={`${log.id}-details`}>
                           <TableCell colSpan={adminMode ? 5 : 4}>
                             <div className="p-4 bg-muted/30 rounded-lg space-y-2">
-                              <div className="text-sm font-semibold">Details:</div>
-                              <pre className="text-xs bg-background p-3 rounded border overflow-x-auto">
-                                {JSON.stringify(log.details, null, 2)}
-                              </pre>
+                              {isLLMGenerateAction(log) ? (
+                                <>
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div className="text-sm font-semibold mb-1">Prompt Sent</div>
+                                      <pre className="text-xs bg-background p-3 rounded border overflow-x-auto whitespace-pre-wrap font-mono max-h-64 overflow-y-auto">
+                                        {log.details.promptSanitized as string || 'N/A'}
+                                      </pre>
+                                    </div>
+                                    <div>
+                                      <div className="text-sm font-semibold mb-1">LLM Response</div>
+                                      <pre className="text-xs bg-background p-3 rounded border overflow-x-auto whitespace-pre-wrap font-mono max-h-64 overflow-y-auto">
+                                        {log.details.responseFull as string || 'N/A'}
+                                      </pre>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                      <div>
+                                        <span className="font-semibold">Model:</span>{' '}
+                                        {log.details.model as string || 'N/A'}
+                                      </div>
+                                      <div>
+                                        <span className="font-semibold">Tokens:</span>{' '}
+                                        {log.details.inputTokens as number ?? 0} input / {log.details.outputTokens as number ?? 0} output
+                                      </div>
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="text-sm font-semibold">Details:</div>
+                                  <pre className="text-xs bg-background p-3 rounded border overflow-x-auto">
+                                    {JSON.stringify(log.details, null, 2)}
+                                  </pre>
+                                </>
+                              )}
                               <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mt-2">
                                 <div>
                                   <span className="font-semibold">Log ID:</span>{' '}

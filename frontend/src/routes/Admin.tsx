@@ -6,7 +6,8 @@ import { SessionManagement } from '@/components/admin/SessionManagement'
 import { AuditLogViewer } from '@/components/admin/AuditLogViewer'
 import { useAuth } from '@/features/auth/hooks'
 import { toast } from 'sonner'
-import { Shield, Users, Activity, FileText } from 'lucide-react'
+import { LLMSettings } from '@/components/admin/LLMSettings'
+import { Shield, Users, Activity, FileText, Bot } from 'lucide-react'
 
 export function Admin() {
   const navigate = useNavigate()
@@ -45,6 +46,10 @@ export function Admin() {
             <Activity className="h-4 w-4" />
             Sessions
           </TabsTrigger>
+          <TabsTrigger value="llm" className="gap-2">
+            <Bot className="h-4 w-4" />
+            LLM
+          </TabsTrigger>
           <TabsTrigger value="audit" className="gap-2">
             <FileText className="h-4 w-4" />
             Audit
@@ -57,6 +62,10 @@ export function Admin() {
 
         <TabsContent value="sessions">
           <SessionManagement />
+        </TabsContent>
+
+        <TabsContent value="llm">
+          <LLMSettings />
         </TabsContent>
 
         <TabsContent value="audit">
