@@ -3,9 +3,9 @@ import logging
 from typing import Any, Tuple
 
 try:
-    from fastlangdetect import detect
+    from fast_langdetect import detect
 except ImportError:
-    # Fallback if fastlangdetect not available
+    # Fallback if fast_langdetect not available
     def detect(text: str) -> dict:
         return {"lang": "en", "score": 1.0}
 
@@ -30,6 +30,9 @@ def detect_language(text: str) -> Tuple[str, float]:
 
     try:
         result = detect(sample)
+        # fast_langdetect returns a list with one dict element
+        if isinstance(result, list) and len(result) > 0:
+            result = result[0]
         lang_code = result.get("lang", "en")
         confidence = result.get("score", 0.0)
 
