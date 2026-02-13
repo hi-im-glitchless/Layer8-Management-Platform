@@ -2,6 +2,7 @@
 
 POST /analyze  -- Prepare analysis prompt from client DOCX (LLM call done by Node.js)
 POST /validate-mapping -- Validate raw LLM JSON response into a MappingPlan
+POST /validate-batch-mapping -- Validate batch mapping LLM response for interactive selections
 POST /apply -- Apply instructions to a DOCX template (validate + enrich + apply)
 POST /enrich -- Enrich an instruction set via rules engine (no DOCX modification)
 POST /build-insertion-prompt -- Build LLM Pass 2 prompt from doc structure + mapping plan
@@ -22,6 +23,9 @@ from app.models.adapter import (
     AnnotateResponse,
     ApplyRequest,
     ApplyResponse,
+    BatchMappingEntry,
+    BatchMappingRequest,
+    BatchMappingResponse,
     DocumentStructureRequest,
     DocumentStructureResponse,
     InstructionSet,
@@ -562,6 +566,158 @@ async def get_document_structure(body: DocumentStructureRequest) -> DocumentStru
         paragraphs=paragraphs,
         total_count=len(paragraphs),
         empty_count=empty_count,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plan 05.2-03 endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/validate-batch-mapping", response_model=BatchMappingResponse)
+async def validate_batch_mapping(body: BatchMappingRequest) -> BatchMappingResponse:
+    """Validate LLM JSON response for batch mapping of interactive selections.
+
+    Parses the LLM response text as a JSON array, validates each entry's
+    selectionNumber against the input selections, checks gwField validity,
+    and returns validated mappings or errors.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    # Build lookup of valid selection numbers
+    valid_selection_numbers: set[int] = {s.selection_number for s in body.selections}
+
+    # Strip markdown code fences if present
+    llm_text = body.llm_response.strip()
+    if llm_text.startswith("```"):
+        first_newline = llm_text.index("\n") if "\n" in llm_text else len(llm_text)
+        llm_text = llm_text[first_newline + 1:]
+        if llm_text.rstrip().endswith("```"):
+            llm_text = llm_text.rstrip()[:-3].rstrip()
+
+    # Parse JSON
+    try:
+        raw = json.loads(llm_text)
+    except json.JSONDecodeError as exc:
+        return BatchMappingResponse(
+            valid=False,
+            errors=[f"Invalid JSON from LLM: {exc}"],
+        )
+
+    # Normalize: accept both array and object with entries/mappings key
+    if isinstance(raw, dict):
+        raw_entries = raw.get("mappings", raw.get("entries", []))
+        if not isinstance(raw_entries, list):
+            return BatchMappingResponse(
+                valid=False,
+                errors=["LLM response must be a JSON array or object with 'mappings' array."],
+            )
+    elif isinstance(raw, list):
+        raw_entries = raw
+    else:
+        return BatchMappingResponse(
+            valid=False,
+            errors=["LLM response must be a JSON array."],
+        )
+
+    # Validate each entry
+    valid_entries: list[BatchMappingEntry] = []
+    resolved_numbers: set[int] = set()
+
+    for i, entry in enumerate(raw_entries):
+        prefix = f"Entry[{i}]"
+
+        if not isinstance(entry, dict):
+            errors.append(f"{prefix}: must be a JSON object.")
+            continue
+
+        # selectionNumber (accept camelCase or snake_case)
+        sel_num = entry.get("selectionNumber", entry.get("selection_number"))
+        if sel_num is None:
+            errors.append(f"{prefix}: missing 'selectionNumber'.")
+            continue
+
+        try:
+            sel_num = int(sel_num)
+        except (TypeError, ValueError):
+            errors.append(f"{prefix}: selectionNumber must be an integer.")
+            continue
+
+        if sel_num not in valid_selection_numbers:
+            errors.append(
+                f"{prefix}: selectionNumber {sel_num} does not match any input selection."
+            )
+            continue
+
+        # gwField (accept camelCase or snake_case)
+        gw_field = entry.get("gwField", entry.get("gw_field", ""))
+        if not gw_field:
+            errors.append(f"{prefix}: missing 'gwField'.")
+            continue
+
+        gw_field = str(gw_field)
+
+        # Warn if unknown field (not an error)
+        if gw_field not in _VALID_GW_FIELDS:
+            warnings.append(f"{prefix}: unknown gwField '{gw_field}'.")
+
+        # markerType (accept camelCase or snake_case)
+        marker_type = entry.get("markerType", entry.get("marker_type", "text"))
+        marker_type = str(marker_type)
+        valid_markers = {"text", "paragraph_rt", "run_rt", "table_row_loop", "control_flow"}
+        if marker_type not in valid_markers:
+            errors.append(
+                f"{prefix}: invalid markerType '{marker_type}'. "
+                f"Must be one of: {', '.join(sorted(valid_markers))}."
+            )
+            continue
+
+        # confidence
+        confidence = entry.get("confidence", 0.5)
+        try:
+            confidence = float(confidence)
+            confidence = max(0.0, min(1.0, confidence))
+        except (TypeError, ValueError):
+            confidence = 0.5
+
+        # rationale
+        rationale = str(entry.get("rationale", ""))
+
+        valid_entries.append(
+            BatchMappingEntry(
+                selection_number=sel_num,
+                gw_field=gw_field,
+                marker_type=marker_type,
+                confidence=confidence,
+                rationale=rationale,
+            )
+        )
+        resolved_numbers.add(sel_num)
+
+    # Check for unresolved selections
+    unresolved = valid_selection_numbers - resolved_numbers
+    if unresolved:
+        sorted_nums = sorted(unresolved)
+        errors.append(
+            f"Unresolved selections: {', '.join(f'#{n}' for n in sorted_nums)}"
+        )
+
+    # Determine overall validity
+    is_valid = len(valid_entries) > 0 and len(errors) == 0
+
+    logger.info(
+        "Validated batch mapping: %d entries, %d errors, %d warnings",
+        len(valid_entries),
+        len(errors),
+        len(warnings),
+    )
+
+    return BatchMappingResponse(
+        valid=is_valid,
+        mappings=valid_entries,
+        errors=errors,
+        warnings=warnings,
     )
 
 

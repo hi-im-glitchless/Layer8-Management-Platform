@@ -272,3 +272,46 @@ class AnnotateResponse(BaseModel):
         default_factory=dict,
         description="Gap detection summary with counts and coverage",
     )
+
+
+# ---------------------------------------------------------------------------
+# Batch mapping models (consumed by Plan 05.2-03)
+# ---------------------------------------------------------------------------
+
+
+class BatchSelectionInput(BaseModel):
+    """A single user-selected text passage for batch mapping."""
+
+    selection_number: int = Field(..., description="The #N reference number")
+    text: str = Field(..., description="Selected text content")
+    paragraph_index: int = Field(..., description="Paragraph index in the document")
+
+
+class BatchMappingRequest(BaseModel):
+    """Request body for POST /adapter/validate-batch-mapping."""
+
+    llm_response: str = Field(..., description="Raw JSON text from LLM response")
+    selections: list[BatchSelectionInput] = Field(
+        ..., description="The original selections sent to the LLM"
+    )
+    template_type: TemplateType
+    language: TemplateLanguage
+
+
+class BatchMappingEntry(BaseModel):
+    """A single resolved mapping from the LLM batch mapping response."""
+
+    selection_number: int = Field(..., description="The #N reference number")
+    gw_field: str = Field(..., description="Target GW field path")
+    marker_type: str = Field(..., description="Marker type for this field")
+    confidence: float = Field(..., ge=0, le=1, description="Confidence score 0-1")
+    rationale: str = Field("", description="LLM reasoning for this mapping")
+
+
+class BatchMappingResponse(BaseModel):
+    """Response from POST /adapter/validate-batch-mapping."""
+
+    valid: bool
+    mappings: list[BatchMappingEntry] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
