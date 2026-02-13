@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useId } from 'react'
 import { Upload, File, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -71,8 +71,12 @@ export function FileUpload({
   const [isDragOver, setIsDragOver] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
   const dragCounter = useRef(0)
+  const instanceId = useId()
 
+  const errorId = `${instanceId}-error`
+  const statusId = `${instanceId}-status`
   const displayError = externalError || validationError
   const isDisabled = disabled || isUploading
 
@@ -172,14 +176,23 @@ export function FileUpload({
     .join(',')
   const inputAccept = [accept, acceptMimes].filter(Boolean).join(',')
 
+  // Build aria-describedby list
+  const describedByParts: string[] = []
+  if (displayError) describedByParts.push(errorId)
+  if (isUploading) describedByParts.push(statusId)
+  const ariaDescribedBy = describedByParts.length > 0 ? describedByParts.join(' ') : undefined
+
   return (
     <div className={cn('w-full', className)}>
+      {/* Drop zone */}
       <div
+        ref={dropZoneRef}
         role="button"
         tabIndex={isDisabled ? -1 : 0}
         aria-label={`Upload file. Accepted formats: ${accept}. Maximum size: ${maxSizeMB} MB`}
-        aria-describedby={displayError ? 'file-upload-error' : undefined}
+        aria-describedby={ariaDescribedBy}
         aria-disabled={isDisabled}
+        aria-busy={isUploading}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onDragEnter={handleDragEnter}
@@ -193,7 +206,7 @@ export function FileUpload({
             ? 'border-primary bg-primary/5 text-primary'
             : 'border-muted-foreground/25 hover:border-muted-foreground/50',
           isDisabled && 'pointer-events-none opacity-50 cursor-not-allowed',
-          displayError && 'border-destructive/50',
+          displayError && !isDragOver && 'border-destructive/50',
         )}
       >
         <input
@@ -207,9 +220,10 @@ export function FileUpload({
         />
 
         {isUploading ? (
-          <File className="h-10 w-10 text-muted-foreground" />
+          <File className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
         ) : (
           <Upload
+            aria-hidden="true"
             className={cn(
               'h-10 w-10',
               isDragOver ? 'text-primary' : 'text-muted-foreground',
@@ -239,9 +253,9 @@ export function FileUpload({
         </div>
       </div>
 
-      {/* Upload progress bar */}
+      {/* Upload progress bar -- announced to screen readers */}
       {isUploading && (
-        <div className="mt-3" aria-live="polite">
+        <div id={statusId} className="mt-3" aria-live="polite" aria-atomic="true">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
             <span>Uploading</span>
             <span>{Math.round(progress)}%</span>
@@ -254,19 +268,20 @@ export function FileUpload({
               aria-valuenow={Math.round(progress)}
               aria-valuemin={0}
               aria-valuemax={100}
+              aria-label="Upload progress"
             />
           </div>
         </div>
       )}
 
-      {/* Error display */}
+      {/* Error display -- linked to drop zone via aria-describedby */}
       {displayError && (
         <div
-          id="file-upload-error"
+          id={errorId}
           className="flex items-center gap-2 mt-3 text-sm text-destructive"
           role="alert"
         >
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
           <span>{displayError}</span>
         </div>
       )}

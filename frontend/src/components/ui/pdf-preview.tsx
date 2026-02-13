@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo, useId } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css'
 import 'react-pdf/dist/esm/Page/TextLayer.css'
@@ -30,14 +30,6 @@ interface PdfPreviewProps {
   onPageChange?: (page: number, totalPages: number) => void
 }
 
-const ZOOM_PRESETS = [
-  { label: 'Fit width', value: 0 },
-  { label: '75%', value: 0.75 },
-  { label: '100%', value: 1.0 },
-  { label: '125%', value: 1.25 },
-  { label: '150%', value: 1.5 },
-] as const
-
 const ZOOM_STEP = 0.25
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 3.0
@@ -56,8 +48,15 @@ export function PdfPreview({
   const [pageInputValue, setPageInputValue] = useState('1')
   const [pageLoading, setPageLoading] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const viewerRef = useRef<HTMLDivElement>(null)
+  const prevBtnRef = useRef<HTMLButtonElement>(null)
+  const nextBtnRef = useRef<HTMLButtonElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
-  const navRef = useRef<HTMLDivElement>(null)
+
+  const instanceId = useId()
+  const pageInputId = `${instanceId}-page-input`
+  const pageStatusId = `${instanceId}-page-status`
+  const zoomStatusId = `${instanceId}-zoom-status`
 
   const displayError = externalError || loadError
 
@@ -108,8 +107,16 @@ export function PdfPreview({
     [numPages, onPageChange],
   )
 
-  const prevPage = useCallback(() => goToPage(pageNumber - 1), [goToPage, pageNumber])
-  const nextPage = useCallback(() => goToPage(pageNumber + 1), [goToPage, pageNumber])
+  const prevPage = useCallback(() => {
+    goToPage(pageNumber - 1)
+    // Keep focus on nav controls after page change
+    prevBtnRef.current?.focus()
+  }, [goToPage, pageNumber])
+
+  const nextPage = useCallback(() => {
+    goToPage(pageNumber + 1)
+    nextBtnRef.current?.focus()
+  }, [goToPage, pageNumber])
 
   const handlePageInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,15 +171,20 @@ export function PdfPreview({
     setPageInputValue('1')
   }, [])
 
-  // Keyboard navigation
+  // Scoped keyboard navigation -- only active when focus is within the viewer
   useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle keys when focus is within our component or nothing specific is focused
+      // Skip if focus is on an input element
       const activeEl = document.activeElement
       const isInputFocused =
         activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement
-
       if (isInputFocused) return
+
+      // Only handle if focus is within our component
+      if (!viewer.contains(activeEl)) return
 
       switch (e.key) {
         case 'ArrowLeft':
@@ -195,8 +207,8 @@ export function PdfPreview({
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    viewer.addEventListener('keydown', handleKeyDown)
+    return () => viewer.removeEventListener('keydown', handleKeyDown)
   }, [goToPage, pageNumber, zoomIn, zoomOut])
 
   // Compute page width for fit-width mode
@@ -207,7 +219,12 @@ export function PdfPreview({
   // Loading state (no URL yet)
   if (isLoading && !url) {
     return (
-      <div className={cn('flex flex-col rounded-lg border bg-card', className)}>
+      <div
+        className={cn('flex flex-col rounded-lg border bg-card', className)}
+        role="region"
+        aria-label="PDF preview"
+        aria-busy="true"
+      >
         <div className="p-4 border-b">
           <Skeleton className="h-9 w-full" />
         </div>
@@ -224,15 +241,22 @@ export function PdfPreview({
   // Error state
   if (displayError && !url) {
     return (
-      <div className={cn('flex flex-col rounded-lg border bg-card', className)}>
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
-          <AlertCircle className="h-12 w-12 text-destructive" />
+      <div
+        className={cn('flex flex-col rounded-lg border bg-card', className)}
+        role="region"
+        aria-label="PDF preview"
+      >
+        <div
+          className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center"
+          role="alert"
+        >
+          <AlertCircle className="h-12 w-12 text-destructive" aria-hidden="true" />
           <div>
             <p className="text-sm font-medium text-destructive">Failed to load PDF</p>
             <p className="text-xs text-muted-foreground mt-1">{displayError}</p>
           </div>
           <Button variant="outline" size="sm" onClick={handleRetry}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
             Retry
           </Button>
         </div>
@@ -243,7 +267,11 @@ export function PdfPreview({
   // No URL provided
   if (!url) {
     return (
-      <div className={cn('flex flex-col rounded-lg border bg-card', className)}>
+      <div
+        className={cn('flex flex-col rounded-lg border bg-card', className)}
+        role="region"
+        aria-label="PDF preview"
+      >
         <div className="flex-1 flex items-center justify-center p-8 text-center">
           <p className="text-sm text-muted-foreground">No PDF to display</p>
         </div>
@@ -252,15 +280,24 @@ export function PdfPreview({
   }
 
   return (
-    <div className={cn('flex flex-col rounded-lg border bg-card overflow-hidden', className)}>
+    <div
+      ref={viewerRef}
+      className={cn('flex flex-col rounded-lg border bg-card overflow-hidden', className)}
+      role="region"
+      aria-label="PDF preview"
+      aria-roledescription="PDF document viewer"
+      tabIndex={-1}
+    >
       {/* Toolbar */}
       <div
-        ref={navRef}
         className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30 flex-wrap"
+        role="toolbar"
+        aria-label="PDF navigation and zoom controls"
       >
-        {/* Page navigation */}
-        <div className="flex items-center gap-1">
+        {/* Page navigation group */}
+        <div className="flex items-center gap-1" role="group" aria-label="Page navigation">
           <Button
+            ref={prevBtnRef}
             variant="ghost"
             size="icon"
             onClick={prevPage}
@@ -268,15 +305,15 @@ export function PdfPreview({
             aria-label="Previous page"
             className="h-8 w-8"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
 
           <div className="flex items-center gap-1 text-sm">
-            <label htmlFor="pdf-page-input" className="sr-only">
+            <label htmlFor={pageInputId} className="sr-only">
               Page number
             </label>
             <Input
-              id="pdf-page-input"
+              id={pageInputId}
               type="number"
               min={1}
               max={numPages || 1}
@@ -285,13 +322,20 @@ export function PdfPreview({
               onKeyDown={handlePageInputKeyDown}
               onBlur={handlePageInputBlur}
               className="h-7 w-14 text-center text-xs"
+              aria-label={`Page number, ${pageNumber} of ${numPages}`}
             />
-            <span aria-live="polite" className="text-muted-foreground whitespace-nowrap">
+            <span
+              id={pageStatusId}
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-muted-foreground whitespace-nowrap"
+            >
               of {numPages}
             </span>
           </div>
 
           <Button
+            ref={nextBtnRef}
             variant="ghost"
             size="icon"
             onClick={nextPage}
@@ -299,15 +343,15 @@ export function PdfPreview({
             aria-label="Next page"
             className="h-8 w-8"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
 
-        {/* Separator */}
-        <div className="h-6 w-px bg-border mx-1" />
+        {/* Separator (decorative) */}
+        <div className="h-6 w-px bg-border mx-1" aria-hidden="true" />
 
-        {/* Zoom controls */}
-        <div className="flex items-center gap-1">
+        {/* Zoom controls group */}
+        <div className="flex items-center gap-1" role="group" aria-label="Zoom controls">
           <Button
             variant="ghost"
             size="icon"
@@ -316,10 +360,15 @@ export function PdfPreview({
             aria-label="Zoom out"
             className="h-8 w-8"
           >
-            <ZoomOut className="h-4 w-4" />
+            <ZoomOut className="h-4 w-4" aria-hidden="true" />
           </Button>
 
-          <span className="text-xs text-muted-foreground w-12 text-center tabular-nums">
+          <span
+            id={zoomStatusId}
+            className="text-xs text-muted-foreground w-12 text-center tabular-nums"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             {displayZoom}
           </span>
 
@@ -331,7 +380,7 @@ export function PdfPreview({
             aria-label="Zoom in"
             className="h-8 w-8"
           >
-            <ZoomIn className="h-4 w-4" />
+            <ZoomIn className="h-4 w-4" aria-hidden="true" />
           </Button>
 
           <Button
@@ -342,7 +391,7 @@ export function PdfPreview({
             className="h-8 w-8"
             title="Fit to width"
           >
-            <Maximize className="h-4 w-4" />
+            <Maximize className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -357,27 +406,30 @@ export function PdfPreview({
           onLoadSuccess={onDocumentLoadSuccess}
           onLoadError={onDocumentLoadError}
           loading={
-            <div className="flex items-center justify-center p-8">
+            <div className="flex items-center justify-center p-8" aria-label="Loading PDF">
               <div className="space-y-4 w-full max-w-md">
                 <Skeleton className="h-[400px] w-full" />
               </div>
             </div>
           }
           error={
-            <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
-              <AlertCircle className="h-12 w-12 text-destructive" />
+            <div
+              className="flex flex-col items-center justify-center gap-4 p-8 text-center"
+              role="alert"
+            >
+              <AlertCircle className="h-12 w-12 text-destructive" aria-hidden="true" />
               <div>
                 <p className="text-sm font-medium text-destructive">Failed to load PDF</p>
                 <p className="text-xs text-muted-foreground mt-1">{loadError}</p>
               </div>
               <Button variant="outline" size="sm" onClick={handleRetry}>
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
                 Retry
               </Button>
             </div>
           }
         >
-          <div className="p-4">
+          <div className="p-4 relative">
             {pageLoading && (
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <Skeleton className="h-[400px] w-full max-w-md" />
@@ -394,6 +446,11 @@ export function PdfPreview({
             />
           </div>
         </Document>
+      </div>
+
+      {/* Screen reader only: page change announcement */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        Page {pageNumber} of {numPages}
       </div>
     </div>
   )
