@@ -20,7 +20,10 @@ import {
   getWizardSession,
   updateWizardSession,
   type WizardState,
+  type WizardAnnotatedPreview,
 } from './wizardState.js';
+import { addPdfConversionJob } from './pdfQueue.js';
+import { queryFewShotExamples, bulkUpsertMappings, type TemplateMappingInput } from './templateMapping.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -151,6 +154,26 @@ export async function analyzeTemplate(
 ): Promise<AnalysisResult> {
   const sanitizerUrl = config.SANITIZER_URL;
 
+  // Step 0: Query KB for few-shot examples (graceful degradation on failure)
+  let fewShotExamples: Array<{
+    normalized_section_text: string;
+    gw_field: string;
+    marker_type: string;
+    usage_count: number;
+  }> = [];
+
+  try {
+    const kbResults = await queryFewShotExamples(templateType, language);
+    fewShotExamples = kbResults.map((r) => ({
+      normalized_section_text: r.normalizedSectionText,
+      gw_field: r.gwField,
+      marker_type: r.markerType,
+      usage_count: r.usageCount,
+    }));
+  } catch (err) {
+    console.warn('[templateAdapter] KB query failed, continuing with empty examples:', err);
+  }
+
   // Step 1: Get analysis prompt from Python service
   const analyzeRes = await fetch(`${sanitizerUrl}/adapter/analyze`, {
     method: 'POST',
@@ -159,6 +182,7 @@ export async function analyzeTemplate(
       template_base64: templateBase64,
       template_type: templateType,
       language: language,
+      few_shot_examples: fewShotExamples,
     }),
   });
 
@@ -443,6 +467,155 @@ export async function generatePreview(
   });
 
   return updated;
+}
+
+// ---------------------------------------------------------------------------
+// Annotated Preview
+// ---------------------------------------------------------------------------
+
+/** Response from Python /adapter/annotate */
+interface AnnotateServiceResponse {
+  annotated_base64: string;
+  tooltip_data: Array<{
+    paragraph_index: number;
+    gw_field: string;
+    marker_type: string;
+    section_text: string;
+    status: 'mapped' | 'gap';
+  }>;
+  unmapped_paragraphs: Array<{
+    paragraph_index: number;
+    text: string;
+    heading_level: number | null;
+  }>;
+  gap_summary: {
+    mapped_field_count: number;
+    expected_field_count: number;
+    coverage_percent: number;
+  } | null;
+}
+
+/**
+ * Generate an annotated preview of the template with shading for mapped/gap paragraphs.
+ *
+ * 1. POST template + mapping plan to Python /adapter/annotate
+ * 2. Save annotated DOCX to disk
+ * 3. Queue PDF conversion via Gotenberg
+ * 4. Update wizard state with annotation metadata
+ */
+export async function generateAnnotatedPreview(
+  wizardState: WizardState,
+): Promise<WizardState> {
+  const sanitizerUrl = config.SANITIZER_URL;
+  const { userId, sessionId } = wizardState;
+  const mappingPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
+
+  if (!mappingPlan) {
+    throw new Error('No mapping plan in wizard state -- run analysis first');
+  }
+
+  const templateBase64 = wizardState.templateFile.base64;
+  if (!templateBase64) {
+    throw new Error('No template file in wizard state -- upload first');
+  }
+
+  // POST to Python /adapter/annotate
+  const annotateRes = await fetch(`${sanitizerUrl}/adapter/annotate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      template_base64: templateBase64,
+      mapping_plan: mappingPlanToSnakeCase(mappingPlan),
+    }),
+  });
+
+  if (!annotateRes.ok) {
+    const detail = await annotateRes.text();
+    throw new Error(`Sanitizer /adapter/annotate failed (${annotateRes.status}): ${detail}`);
+  }
+
+  const annotateData: AnnotateServiceResponse = await annotateRes.json() as AnnotateServiceResponse;
+
+  // Save annotated DOCX to disk
+  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+  const annotatedFilename = `${randomUUID()}_annotated.docx`;
+  const annotatedPath = path.join(DOCUMENTS_DIR, annotatedFilename);
+  const annotatedBuffer = Buffer.from(annotateData.annotated_base64, 'base64');
+  fs.writeFileSync(annotatedPath, annotatedBuffer);
+
+  // Queue PDF conversion via Gotenberg
+  const jobId = await addPdfConversionJob(annotatedPath, annotatedFilename);
+
+  // Convert snake_case response to camelCase for wizard state
+  const tooltipData = annotateData.tooltip_data.map((t) => ({
+    paragraphIndex: t.paragraph_index,
+    gwField: t.gw_field,
+    markerType: t.marker_type,
+    sectionText: t.section_text,
+    status: t.status,
+  }));
+
+  const unmappedParagraphs = annotateData.unmapped_paragraphs.map((u) => ({
+    paragraphIndex: u.paragraph_index,
+    text: u.text,
+    headingLevel: u.heading_level,
+  }));
+
+  const gapSummary = annotateData.gap_summary
+    ? {
+        mappedFieldCount: annotateData.gap_summary.mapped_field_count,
+        expectedFieldCount: annotateData.gap_summary.expected_field_count,
+        coveragePercent: annotateData.gap_summary.coverage_percent,
+      }
+    : null;
+
+  // Update wizard state with annotated preview data
+  const updated = await updateWizardSession(userId, sessionId, {
+    annotatedPreview: {
+      pdfJobId: jobId,
+      pdfUrl: null,
+      tooltipData,
+      unmappedParagraphs,
+      gapSummary,
+    },
+  });
+
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// KB Persistence
+// ---------------------------------------------------------------------------
+
+/**
+ * Persist confirmed mappings from the wizard state to the knowledge base.
+ *
+ * Called fire-and-forget after download. Reads the final mapping plan,
+ * converts entries to KB format, and bulk upserts them. Errors are logged
+ * but never propagated to the caller.
+ */
+export async function persistMappingsToKB(wizardState: WizardState): Promise<void> {
+  const mappingPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
+
+  if (!mappingPlan || !mappingPlan.entries || mappingPlan.entries.length === 0) {
+    console.log('[templateAdapter] No mappings to persist to KB');
+    return;
+  }
+
+  const kbEntries: TemplateMappingInput[] = mappingPlan.entries.map((entry) => ({
+    templateType: mappingPlan.templateType,
+    language: mappingPlan.language,
+    sectionText: entry.sectionText,
+    gwField: entry.gwField,
+    markerType: entry.markerType,
+    confidence: entry.confidence,
+  }));
+
+  const result = await bulkUpsertMappings(kbEntries);
+  console.log(
+    `[templateAdapter] KB persistence: ${result.created} created, ${result.updated} updated ` +
+    `(${kbEntries.length} total entries)`,
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -46,6 +46,28 @@ export interface WizardPreview {
   docxUrl: string | null;
 }
 
+export interface WizardAnnotatedPreview {
+  pdfJobId: string | null;
+  pdfUrl: string | null;
+  tooltipData: Array<{
+    paragraphIndex: number;
+    gwField: string;
+    markerType: string;
+    sectionText: string;
+    status: 'mapped' | 'gap';
+  }>;
+  unmappedParagraphs: Array<{
+    paragraphIndex: number;
+    text: string;
+    headingLevel: number | null;
+  }>;
+  gapSummary: {
+    mappedFieldCount: number;
+    expectedFieldCount: number;
+    coveragePercent: number;
+  } | null;
+}
+
 export interface WizardChatMessage {
   role: string;
   content: string;
@@ -66,6 +88,7 @@ export interface WizardState {
   analysis: WizardAnalysis;
   adaptation: WizardAdaptation;
   preview: WizardPreview;
+  annotatedPreview: WizardAnnotatedPreview;
   chat: WizardChat;
   createdAt: string;
   updatedAt: string;
@@ -129,6 +152,13 @@ export async function createWizardSession(userId: string): Promise<WizardState> 
       pdfJobId: null,
       pdfUrl: null,
       docxUrl: null,
+    },
+    annotatedPreview: {
+      pdfJobId: null,
+      pdfUrl: null,
+      tooltipData: [],
+      unmappedParagraphs: [],
+      gapSummary: null,
     },
     chat: {
       iterationCount: 0,
@@ -210,6 +240,10 @@ export async function updateWizardSession(
     preview: {
       ...existing.preview,
       ...(updates.preview ?? {}),
+    },
+    annotatedPreview: {
+      ...existing.annotatedPreview,
+      ...(updates.annotatedPreview ?? {}),
     },
     chat: {
       ...existing.chat,
