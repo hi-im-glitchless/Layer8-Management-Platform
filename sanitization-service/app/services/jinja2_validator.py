@@ -148,11 +148,16 @@ def _parse_jinja2_expression(expr: str) -> dict:
     for m in filter_matches:
         result["filters"].append(m.group(1))
 
+    # Remove string literals before extracting variables to avoid false positives
+    # e.g., default("N/A") should not flag "A" as a variable
+    no_strings = re.sub(r'"[^"]*"', '""', stripped)
+    no_strings = re.sub(r"'[^']*'", "''", no_strings)
+
     # Extract variable references -- dot-separated paths or bracket access
     # Skip string literals and numeric constants
     var_matches = re.finditer(
         r"(?<!['\"])\b([a-zA-Z_]\w*(?:\.\w+|\[\d+\]|\['\w+'\])*)",
-        stripped,
+        no_strings,
     )
     for m in var_matches:
         var = m.group(1)

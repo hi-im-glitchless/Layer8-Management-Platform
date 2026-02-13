@@ -49,27 +49,27 @@ def _rewrite_marker(replacement_text: str, gw_field: str) -> str:
     if marker_type is None or marker_type == "text":
         return replacement_text
 
-    # Check if it's already correctly marked
+    # Check if it's already marked with {{p ...}} or {{r ...}}
     marked_match = _MARKED_VAR_RE.match(replacement_text.strip())
     if marked_match:
         existing_marker = marked_match.group(1)
+        var_expr = marked_match.group(2).strip()
+        # Already correct -- leave as-is
         if marker_type == "paragraph_rt" and existing_marker == "p":
             return replacement_text
         if marker_type == "run_rt" and existing_marker == "r":
             return replacement_text
-
-    # Check if it's a plain variable expression
-    plain_match = _PLAIN_VAR_RE.match(replacement_text.strip())
-    if plain_match:
-        var_expr = plain_match.group(1).strip()
+        # Wrong marker -- rewrite with correct one
         if marker_type == "paragraph_rt":
             return "{{p " + var_expr + " }}"
         elif marker_type == "run_rt":
             return "{{r " + var_expr + " }}"
+        return replacement_text
 
-    # If already marked but with wrong marker, fix it
-    if marked_match:
-        var_expr = marked_match.group(2).strip()
+    # Check if it's a plain variable expression {{ var }}
+    plain_match = _PLAIN_VAR_RE.match(replacement_text.strip())
+    if plain_match:
+        var_expr = plain_match.group(1).strip()
         if marker_type == "paragraph_rt":
             return "{{p " + var_expr + " }}"
         elif marker_type == "run_rt":
