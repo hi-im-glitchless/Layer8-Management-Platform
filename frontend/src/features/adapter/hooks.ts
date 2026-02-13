@@ -7,6 +7,7 @@ import type {
   TemplateLanguage,
   ChatMessage,
   ChatSSEEvent,
+  MappingEntry,
   MappingPlan,
   MappingUpdateRequest,
   SelectionEntry,
@@ -388,6 +389,106 @@ export function useSelectionState() {
     resetSelections,
     getPendingSelections,
     getRejectedSelections,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Selection-to-MappingPlan Sync (Phase 5.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a confirmed SelectionEntry into a MappingEntry.
+ * Only valid for selections with gwField/markerType/confidence set.
+ */
+function selectionToMappingEntry(sel: SelectionEntry): MappingEntry | null {
+  if (!sel.gwField || !sel.markerType || sel.confidence === null) return null
+  return {
+    sectionIndex: sel.paragraphIndex,
+    sectionText: sel.text,
+    gwField: sel.gwField,
+    placeholderTemplate: `{{ ${sel.gwField} }}`,
+    confidence: sel.confidence,
+    markerType: sel.markerType,
+    rationale: `User-confirmed mapping from selection #${sel.selectionNumber}`,
+  }
+}
+
+/**
+ * Convert an array of confirmed selections into MappingEntry objects.
+ * Filters out selections missing required mapping fields.
+ */
+export function confirmedSelectionsToMappingEntries(
+  selections: SelectionEntry[],
+): MappingEntry[] {
+  return selections
+    .filter((s) => s.status === 'confirmed')
+    .map(selectionToMappingEntry)
+    .filter((entry): entry is MappingEntry => entry !== null)
+}
+
+/**
+ * Merge new entries into an existing MappingPlan, deduplicating by sectionIndex (paragraphIndex).
+ * New entries overwrite existing entries at the same sectionIndex.
+ */
+function mergeIntoMappingPlan(
+  existing: MappingPlan,
+  newEntries: MappingEntry[],
+): MappingPlan {
+  const byIndex = new Map<number, MappingEntry>()
+
+  // Existing entries first
+  for (const entry of existing.entries) {
+    byIndex.set(entry.sectionIndex, entry)
+  }
+  // New entries overwrite
+  for (const entry of newEntries) {
+    byIndex.set(entry.sectionIndex, entry)
+  }
+
+  return {
+    ...existing,
+    entries: Array.from(byIndex.values()).sort((a, b) => a.sectionIndex - b.sectionIndex),
+  }
+}
+
+/**
+ * Hook that bridges confirmed selections into MappingPlan entries.
+ * Call syncConfirmedSelections() after accepting/confirming selections
+ * to merge them into the current mapping plan.
+ */
+export function useSelectionToMappingSync(currentPlan: MappingPlan | null) {
+  const [mergedPlan, setMergedPlan] = useState<MappingPlan | null>(currentPlan)
+
+  // Update merged plan when the upstream plan changes
+  const syncConfirmedSelections = useCallback(
+    (selections: SelectionEntry[]) => {
+      const newEntries = confirmedSelectionsToMappingEntries(selections)
+      if (newEntries.length === 0) return
+
+      const basePlan: MappingPlan = mergedPlan ?? currentPlan ?? {
+        entries: [],
+        templateType: 'web',
+        language: 'en',
+        warnings: [],
+      }
+
+      setMergedPlan(mergeIntoMappingPlan(basePlan, newEntries))
+    },
+    [mergedPlan, currentPlan],
+  )
+
+  // Reset when upstream plan changes (e.g., after re-analysis)
+  const resetMergedPlan = useCallback(() => {
+    setMergedPlan(currentPlan)
+  }, [currentPlan])
+
+  return {
+    /** The merged mapping plan including confirmed selections */
+    mergedPlan: mergedPlan ?? currentPlan,
+    /** Sync confirmed selections into the merged plan */
+    syncConfirmedSelections,
+    /** Reset the merged plan back to the upstream plan */
+    resetMergedPlan,
   }
 }
 
