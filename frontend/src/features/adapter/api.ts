@@ -1,0 +1,138 @@
+import { apiClient, apiUpload } from '@/lib/api'
+import type {
+  TemplateType,
+  TemplateLanguage,
+  UploadResponse,
+  AnalyzeResponse,
+  ApplyResponse,
+  PreviewResponse,
+  PreviewStatusResponse,
+  WizardState,
+  ActiveSessionResponse,
+} from './types'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
+/**
+ * Template Adapter feature API.
+ * Maps 1:1 to backend/src/routes/templateAdapter.ts endpoints.
+ */
+export const adapterApi = {
+  /**
+   * Upload a DOCX template and create a new wizard session.
+   * Multipart POST to /api/adapter/upload with file + type + language.
+   */
+  async uploadTemplate(
+    file: File,
+    templateType: TemplateType,
+    language: TemplateLanguage,
+  ): Promise<UploadResponse> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('type', templateType)
+    formData.append('language', language)
+    return apiUpload<UploadResponse>('/api/adapter/upload', formData)
+  },
+
+  /**
+   * Run LLM Pass 1 analysis on an uploaded template.
+   * Multipart POST to /api/adapter/analyze with file + type + language.
+   */
+  async analyzeTemplate(
+    file: File,
+    templateType: TemplateType,
+    language: TemplateLanguage,
+  ): Promise<AnalyzeResponse> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('type', templateType)
+    formData.append('language', language)
+    return apiUpload<AnalyzeResponse>('/api/adapter/analyze', formData)
+  },
+
+  /**
+   * Apply LLM Pass 2 instructions to the template.
+   * POST to /api/adapter/apply with sessionId.
+   */
+  async applyInstructions(sessionId: string): Promise<ApplyResponse> {
+    return apiClient<ApplyResponse>('/api/adapter/apply', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  },
+
+  /**
+   * Request preview of the adapted template with GW dummy data.
+   * POST to /api/adapter/preview with sessionId.
+   */
+  async requestPreview(sessionId: string): Promise<PreviewResponse> {
+    return apiClient<PreviewResponse>('/api/adapter/preview', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  },
+
+  /**
+   * Poll preview status (PDF conversion progress).
+   * GET /api/adapter/preview/:sessionId
+   */
+  async getPreviewStatus(sessionId: string): Promise<PreviewStatusResponse> {
+    return apiClient<PreviewStatusResponse>(`/api/adapter/preview/${sessionId}`)
+  },
+
+  /**
+   * Build the download URL for the adapted DOCX (with Jinja2 placeholders).
+   * Used with <a download> for browser download.
+   */
+  downloadUrl(sessionId: string): string {
+    return `${API_BASE_URL}/api/adapter/download/${sessionId}`
+  },
+
+  /**
+   * Get full wizard state for a session.
+   * GET /api/adapter/session/:sessionId
+   */
+  async getSession(sessionId: string): Promise<WizardState> {
+    return apiClient<WizardState>(`/api/adapter/session/${sessionId}`)
+  },
+
+  /**
+   * Get the user's active wizard session (most recent).
+   * GET /api/adapter/session
+   */
+  async getActiveSession(): Promise<ActiveSessionResponse> {
+    return apiClient<ActiveSessionResponse>('/api/adapter/session')
+  },
+
+  /**
+   * Open an SSE stream for iterative chat feedback.
+   * POST /api/adapter/chat with { sessionId, message }.
+   * Returns a ReadableStream that emits SSE events.
+   *
+   * Must use fetch + ReadableStream (not EventSource, which only supports GET).
+   */
+  async streamChat(
+    sessionId: string,
+    message: string,
+    signal?: AbortSignal,
+  ): Promise<Response> {
+    // Read CSRF token from cookie
+    const csrfMatch = document.cookie.match(/(?:^|; )__csrf=([^;]*)/)
+    const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : undefined
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
+    }
+
+    return fetch(`${API_BASE_URL}/api/adapter/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ sessionId, message }),
+      credentials: 'include',
+      signal,
+    })
+  },
+}
