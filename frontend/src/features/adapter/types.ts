@@ -195,3 +195,54 @@ export interface MappingUpdateRequest {
     }>
   }
 }
+
+// ---------------------------------------------------------------------------
+// Interactive PDF Mapping Types (Phase 5.2)
+// ---------------------------------------------------------------------------
+
+/** Status of a user text selection on the PDF */
+export type SelectionStatus = 'pending' | 'confirmed' | 'rejected'
+
+/** Bounding rectangle for a selection, relative to its PDF page */
+export interface SelectionBoundingRect {
+  top: number
+  left: number
+  width: number
+  height: number
+  pageNumber: number
+}
+
+/** A single numbered text selection on the PDF */
+export interface SelectionEntry {
+  id: string                          // crypto.randomUUID()
+  selectionNumber: number             // auto-incremented #1, #2, #3...
+  paragraphIndex: number              // pdfjs text layer paragraph mapping
+  text: string                        // selected text content
+  boundingRect: SelectionBoundingRect
+  pageNumber: number
+  status: SelectionStatus
+  gwField: string | null              // set after LLM resolution
+  markerType: string | null           // set after LLM resolution
+  confidence: number | null           // set after LLM resolution
+}
+
+/** Discriminated union of actions for the selection state reducer */
+export type SelectionAction =
+  | { type: 'add'; entry: Omit<SelectionEntry, 'id' | 'selectionNumber' | 'status' | 'gwField' | 'markerType' | 'confidence'> }
+  | { type: 'remove'; id: string }
+  | { type: 'confirm'; id: string }
+  | { type: 'reject'; id: string }
+  | { type: 'reset' }
+  | { type: 'update_mapping'; selectionNumber: number; gwField: string; markerType: string; confidence: number }
+
+/** Single result item from LLM batch mapping resolution */
+export interface BatchMappingResultEntry {
+  selectionNumber: number
+  gwField: string
+  markerType: string
+  confidence: number
+  rationale: string
+}
+
+/** LLM batch mapping response */
+export type BatchMappingResult = BatchMappingResultEntry[]
