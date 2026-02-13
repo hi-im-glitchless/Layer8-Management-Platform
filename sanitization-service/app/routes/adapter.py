@@ -5,6 +5,7 @@ POST /validate-mapping -- Validate raw LLM JSON response into a MappingPlan
 POST /apply -- Apply instructions to a DOCX template (validate + enrich + apply)
 POST /enrich -- Enrich an instruction set via rules engine (no DOCX modification)
 POST /build-insertion-prompt -- Build LLM Pass 2 prompt from doc structure + mapping plan
+POST /annotate -- Generate annotated DOCX preview with paragraph shading + metadata
 """
 import base64
 import json
@@ -17,6 +18,8 @@ from app.models.adapter import (
     FIELD_MARKER_MAP,
     AnalyzeRequest,
     AnalyzeResponse,
+    AnnotateRequest,
+    AnnotateResponse,
     ApplyRequest,
     ApplyResponse,
     InstructionSet,
@@ -25,6 +28,11 @@ from app.models.adapter import (
     ValidateMappingRequest,
     ValidateMappingResponse,
 )
+from app.services.annotated_preview import (
+    apply_paragraph_shading,
+    generate_annotation_metadata,
+)
+from app.services.gap_detector import detect_gaps
 from app.models.docx import DocxStructure
 from app.services.analysis_prompt import (
     build_analysis_prompt,
@@ -480,4 +488,87 @@ async def build_insertion_prompt_endpoint(
     return BuildInsertionPromptResponse(
         prompt=prompt,
         system_prompt=system_prompt,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plan 05.1-02 endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/annotate", response_model=AnnotateResponse)
+async def annotate_template(body: AnnotateRequest) -> AnnotateResponse:
+    """Generate an annotated DOCX preview with paragraph shading and metadata.
+
+    Decodes the base64 template, runs gap detection against the reference
+    template, applies green (mapped) and yellow (gap) paragraph shading,
+    and returns the annotated DOCX plus tooltip and unmapped-paragraph metadata.
+    """
+    # Decode base64 template
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded template is empty.")
+
+    # Validate DOCX magic bytes
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    # Run gap detection
+    try:
+        gap_result = detect_gaps(
+            body.mapping_plan,
+            body.mapping_plan.template_type,
+            body.mapping_plan.language,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=422, detail=f"Gap detection failed: {exc}")
+    except Exception as exc:
+        logger.error("Gap detection failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error during gap detection.")
+
+    # Apply paragraph shading
+    try:
+        annotated_bytes = apply_paragraph_shading(
+            template_bytes, body.mapping_plan, gap_result.gaps
+        )
+    except Exception as exc:
+        logger.error("Paragraph shading failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to apply paragraph shading: {exc}",
+        )
+
+    # Generate annotation metadata (tooltips + unmapped paragraphs)
+    try:
+        metadata = generate_annotation_metadata(
+            template_bytes, body.mapping_plan, gap_result.gaps
+        )
+    except Exception as exc:
+        logger.error("Annotation metadata generation failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate annotation metadata: {exc}",
+        )
+
+    annotated_base64 = base64.b64encode(annotated_bytes).decode("ascii")
+
+    logger.info(
+        "Annotated template: %d tooltips, %d unmapped, %.1f%% coverage",
+        len(metadata.tooltip_data),
+        len(metadata.unmapped_paragraphs),
+        gap_result.coverage_percent,
+    )
+
+    return AnnotateResponse(
+        annotated_base64=annotated_base64,
+        tooltip_data=[t.model_dump() for t in metadata.tooltip_data],
+        unmapped_paragraphs=[u.model_dump() for u in metadata.unmapped_paragraphs],
+        gap_summary=gap_result.model_dump(),
     )

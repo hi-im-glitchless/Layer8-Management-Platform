@@ -201,3 +201,33 @@ TEMPLATE_TYPE_FEATURES: dict[str, list[str]] = {
     "web": ["scope_loops", "affected_entities"],
     "mobile": ["scope_loops", "affected_entities"],
 }
+
+
+# ---------------------------------------------------------------------------
+# Annotated preview models (consumed by Plan 05.1-02)
+# ---------------------------------------------------------------------------
+
+
+class AnnotateRequest(BaseModel):
+    """Request body for POST /adapter/annotate."""
+
+    template_base64: str = Field(..., description="Base64-encoded client DOCX template")
+    mapping_plan: MappingPlan
+
+
+class AnnotateResponse(BaseModel):
+    """Response from POST /adapter/annotate."""
+
+    annotated_base64: str = Field(..., description="Base64-encoded annotated DOCX with shading")
+    tooltip_data: list[dict] = Field(
+        default_factory=list,
+        description="Tooltip metadata for each annotated paragraph",
+    )
+    unmapped_paragraphs: list[dict] = Field(
+        default_factory=list,
+        description="Paragraphs not in mapping plan or gap list",
+    )
+    gap_summary: dict = Field(
+        default_factory=dict,
+        description="Gap detection summary with counts and coverage",
+    )
