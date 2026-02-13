@@ -313,9 +313,11 @@ export function useSelectionState() {
 
   const addSelection = useCallback(
     (entry: Omit<SelectionEntry, 'id' | 'selectionNumber' | 'status' | 'gwField' | 'markerType' | 'confidence'>) => {
+      const num = state.nextNumber
       dispatch({ type: 'add', entry })
+      toast.success(`#${num} added`)
     },
-    [],
+    [state.nextNumber],
   )
 
   const removeSelection = useCallback((id: string) => {
