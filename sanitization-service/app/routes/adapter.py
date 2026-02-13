@@ -107,7 +107,8 @@ async def analyze_template(body: AnalyzeRequest) -> AnalyzeResponse:
     # Build prompts
     system_prompt = build_analysis_system_prompt()
     prompt = build_analysis_prompt(
-        doc_structure, reference_info, body.template_type, body.language
+        doc_structure, reference_info, body.template_type, body.language,
+        few_shot_examples=body.few_shot_examples,
     )
 
     # Get reference template hash
@@ -127,12 +128,13 @@ async def analyze_template(body: AnalyzeRequest) -> AnalyzeResponse:
     }
 
     logger.info(
-        "Prepared analysis prompt: type=%s, lang=%s, paragraphs=%d/%d, prompt_len=%d",
+        "Prepared analysis prompt: type=%s, lang=%s, paragraphs=%d/%d, prompt_len=%d, few_shot_examples=%d",
         body.template_type,
         body.language,
         non_empty,
         total_paragraphs,
         len(prompt),
+        len(body.few_shot_examples),
     )
 
     return AnalyzeResponse(
