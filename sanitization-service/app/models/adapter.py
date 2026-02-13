@@ -225,6 +225,30 @@ TEMPLATE_TYPE_FEATURES: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 
 
+class DocumentStructureRequest(BaseModel):
+    """Request body for POST /adapter/document-structure."""
+
+    template_base64: str = Field(..., description="Base64-encoded client DOCX template")
+
+
+class ParagraphInfo(BaseModel):
+    """Metadata for a single paragraph in the document structure listing."""
+
+    paragraph_index: int = Field(..., description="Zero-based index in the document body")
+    text: str = Field(..., description="Paragraph text, truncated to 200 chars")
+    heading_level: int | None = Field(None, description="Heading level 1-9 or None")
+    is_empty: bool = Field(..., description="True if text.strip() is empty")
+    style_name: str | None = Field(None, description="Paragraph style name")
+
+
+class DocumentStructureResponse(BaseModel):
+    """Response from POST /adapter/document-structure."""
+
+    paragraphs: list[ParagraphInfo] = Field(default_factory=list)
+    total_count: int = Field(0, description="Total number of paragraphs")
+    empty_count: int = Field(0, description="Number of empty/whitespace-only paragraphs")
+
+
 class AnnotateRequest(BaseModel):
     """Request body for POST /adapter/annotate."""
 

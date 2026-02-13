@@ -22,9 +22,12 @@ from app.models.adapter import (
     AnnotateResponse,
     ApplyRequest,
     ApplyResponse,
+    DocumentStructureRequest,
+    DocumentStructureResponse,
     InstructionSet,
     MappingEntry,
     MappingPlan,
+    ParagraphInfo,
     ValidateMappingRequest,
     ValidateMappingResponse,
 )
@@ -490,6 +493,75 @@ async def build_insertion_prompt_endpoint(
     return BuildInsertionPromptResponse(
         prompt=prompt,
         system_prompt=system_prompt,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plan 05.2-02 endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/document-structure", response_model=DocumentStructureResponse)
+async def get_document_structure(body: DocumentStructureRequest) -> DocumentStructureResponse:
+    """Parse a DOCX and return a flat list of all paragraphs with metadata.
+
+    Includes empty and whitespace-only paragraphs so the frontend sidebar
+    can display items not visible in the PDF render.
+    """
+    # Decode base64 template
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=422, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=422, detail="Decoded template is empty.")
+
+    # Validate DOCX magic bytes
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=422,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    # Parse DOCX
+    try:
+        doc_structure = _parser.parse(template_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to parse DOCX: {exc}")
+    except Exception as exc:
+        logger.error("DOCX parse failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error while parsing DOCX.")
+
+    # Build paragraph list
+    paragraphs: list[ParagraphInfo] = []
+    empty_count = 0
+
+    for idx, para in enumerate(doc_structure.paragraphs):
+        is_empty = not para.text.strip()
+        if is_empty:
+            empty_count += 1
+
+        paragraphs.append(
+            ParagraphInfo(
+                paragraph_index=idx,
+                text=para.text[:200],
+                heading_level=para.heading_level,
+                is_empty=is_empty,
+                style_name=para.style_name,
+            )
+        )
+
+    logger.info(
+        "Document structure: %d total paragraphs, %d empty",
+        len(paragraphs),
+        empty_count,
+    )
+
+    return DocumentStructureResponse(
+        paragraphs=paragraphs,
+        total_count=len(paragraphs),
+        empty_count=empty_count,
     )
 
 
