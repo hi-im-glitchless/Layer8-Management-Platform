@@ -1,12 +1,30 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, Send, ArrowRight, RefreshCw } from 'lucide-react'
+import { Loader2, Send, ArrowRight, RefreshCw, Eye, Table2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useAnalyzeTemplate, useAnalyzeFromSession, useAdapterChat, useWizardSession } from '../hooks'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { PdfPreview } from '@/components/ui/pdf-preview'
+import {
+  useAnalyzeTemplate,
+  useAnalyzeFromSession,
+  useAdapterChat,
+  useWizardSession,
+  useAnnotatedPreview,
+  useAnnotatedPreviewStatus,
+  useCachedAnnotatedPreview,
+} from '../hooks'
 import { MappingTable } from './MappingTable'
-import type { TemplateType, TemplateLanguage, MappingPlan } from '../types'
+import type {
+  TemplateType,
+  TemplateLanguage,
+  MappingPlan,
+  TooltipEntry,
+  UnmappedParagraph,
+  GapSummary,
+} from '../types'
 
 interface StepAnalysisProps {
   sessionId: string
@@ -38,11 +56,28 @@ export function StepAnalysis({
   const [mappingPlan, setMappingPlan] = useState<MappingPlan | null>(initialMappingPlan)
   const [chatInput, setChatInput] = useState('')
   const [elapsed, setElapsed] = useState(0)
+  const [previewOutdated, setPreviewOutdated] = useState(false)
+  const [tooltipData, setTooltipData] = useState<TooltipEntry[]>([])
+  const [unmappedParagraphs, setUnmappedParagraphs] = useState<UnmappedParagraph[]>([])
+  const [gapSummary, setGapSummary] = useState<GapSummary | null>(null)
+  const [annotatedPdfJobId, setAnnotatedPdfJobId] = useState<string | null>(null)
+
   const analyzeMutation = useAnalyzeTemplate()
   const analyzeFromSessionMutation = useAnalyzeFromSession()
+  const annotatedPreviewMutation = useAnnotatedPreview()
   const chat = useAdapterChat(sessionId)
   const hasTriggeredAnalysis = useRef(false)
+  const hasTriggeredPreview = useRef(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // Poll annotated preview PDF status
+  const annotatedStatus = useAnnotatedPreviewStatus(sessionId, annotatedPdfJobId)
+  const annotatedPdfUrl = annotatedStatus.data?.pdfUrl ?? null
+  const isAnnotatedPdfReady = annotatedStatus.data?.status === 'completed'
+  const isAnnotatedPdfFailed = annotatedStatus.data?.status === 'failed'
+
+  // Restore cached annotated preview on page reload
+  const cachedPreview = useCachedAnnotatedPreview(sessionId)
 
   // The active mutation (either file-based or session-based)
   const isAnalyzing = analyzeMutation.isPending || analyzeFromSessionMutation.isPending
@@ -57,7 +92,7 @@ export function StepAnalysis({
     return () => clearInterval(interval)
   }, [isAnalyzing, mappingPlan])
 
-  // Poll session as fallback — if the HTTP response is lost (e.g. timeout),
+  // Poll session as fallback -- if the HTTP response is lost (e.g. timeout),
   // the server-side session still has the mapping plan from the completed analysis.
   // Start polling after 30s, check every 10s.
   const sessionPoll = useWizardSession(
@@ -90,7 +125,7 @@ export function StepAnalysis({
       hasTriggeredAnalysis.current = true
 
       if (file) {
-        // File available (same session) — use multipart upload
+        // File available (same session) -- use multipart upload
         analyzeMutation.mutate(
           { file, templateType, language },
           {
@@ -102,7 +137,7 @@ export function StepAnalysis({
           },
         )
       } else if (sessionId) {
-        // No file (page refresh) — use session-based analysis
+        // No file (page refresh) -- use session-based analysis
         analyzeFromSessionMutation.mutate(sessionId, {
           onSuccess: (data) => {
             setMappingPlan(data.mappingPlan)
@@ -114,11 +149,41 @@ export function StepAnalysis({
     }
   }, [mappingPlan, file, sessionId, templateType, language, analyzeMutation, analyzeFromSessionMutation, isAnalyzing, onMappingUpdate])
 
+  // Auto-trigger annotated preview after mapping plan is received
+  useEffect(() => {
+    if (mappingPlan && !hasTriggeredPreview.current && !annotatedPreviewMutation.isPending) {
+      hasTriggeredPreview.current = true
+      annotatedPreviewMutation.mutate(sessionId, {
+        onSuccess: (data) => {
+          setAnnotatedPdfJobId(data.pdfJobId)
+          setTooltipData(data.tooltipData)
+          setUnmappedParagraphs(data.unmappedParagraphs)
+          setGapSummary(data.gapSummary)
+          setPreviewOutdated(false)
+        },
+      })
+    }
+  }, [mappingPlan, sessionId, annotatedPreviewMutation])
+
+  // Restore cached annotated preview on page reload
+  useEffect(() => {
+    if (cachedPreview.data && !annotatedPdfJobId) {
+      const cached = cachedPreview.data
+      if (cached.pdfUrl) {
+        // We have a cached PDF -- no need to regenerate
+        setTooltipData(cached.tooltipData)
+        setUnmappedParagraphs(cached.unmappedParagraphs)
+        if (cached.gapSummary) setGapSummary(cached.gapSummary)
+      }
+    }
+  }, [cachedPreview.data, annotatedPdfJobId])
+
   // Watch for mapping updates from chat
   useEffect(() => {
     if (chat.latestMappingUpdate) {
       setMappingPlan(chat.latestMappingUpdate)
       onMappingUpdate(chat.latestMappingUpdate)
+      setPreviewOutdated(true)
     }
   }, [chat.latestMappingUpdate, onMappingUpdate])
 
@@ -154,6 +219,9 @@ export function StepAnalysis({
             setMappingPlan(data.mappingPlan)
             onMappingUpdate(data.mappingPlan)
             toast.success('Re-analysis complete')
+            // Reset preview state for regeneration
+            hasTriggeredPreview.current = false
+            setPreviewOutdated(true)
           },
         },
       )
@@ -163,10 +231,39 @@ export function StepAnalysis({
           setMappingPlan(data.mappingPlan)
           onMappingUpdate(data.mappingPlan)
           toast.success('Re-analysis complete')
+          hasTriggeredPreview.current = false
+          setPreviewOutdated(true)
         },
       })
     }
   }, [file, sessionId, templateType, language, analyzeMutation, analyzeFromSessionMutation, onMappingUpdate])
+
+  const handleRegeneratePreview = useCallback(() => {
+    annotatedPreviewMutation.mutate(sessionId, {
+      onSuccess: (data) => {
+        setAnnotatedPdfJobId(data.pdfJobId)
+        setTooltipData(data.tooltipData)
+        setUnmappedParagraphs(data.unmappedParagraphs)
+        setGapSummary(data.gapSummary)
+        setPreviewOutdated(false)
+      },
+    })
+  }, [sessionId, annotatedPreviewMutation])
+
+  // Callback for mapping edits from MappingTable (wired in Task 5)
+  const handleMappingPlanChange = useCallback((updatedPlan: MappingPlan) => {
+    setMappingPlan(updatedPlan)
+    onMappingUpdate(updatedPlan)
+    setPreviewOutdated(true)
+  }, [onMappingUpdate])
+
+  // Determine the annotated PDF URL to display
+  const displayPdfUrl = annotatedPdfUrl ?? cachedPreview.data?.pdfUrl ?? null
+  const isPreviewLoading = annotatedPreviewMutation.isPending ||
+    (!!annotatedPdfJobId && !isAnnotatedPdfReady && !isAnnotatedPdfFailed)
+
+  // Compute gap entries from tooltip data
+  const gapEntries = tooltipData.filter((t) => t.status === 'gap')
 
   // Loading state
   if (isAnalyzing && !mappingPlan) {
@@ -211,7 +308,7 @@ export function StepAnalysis({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-      {/* Left: Mapping Table */}
+      {/* Left: Tabbed View (Preview + Mappings) */}
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Mapping Plan</CardTitle>
@@ -236,16 +333,95 @@ export function StepAnalysis({
           </div>
         </CardHeader>
         <CardContent>
-          {mappingPlan ? (
-            <MappingTable mappingPlan={mappingPlan} />
-          ) : (
-            <p className="text-sm text-muted-foreground">No mapping data available.</p>
-          )}
+          <Tabs defaultValue="preview">
+            <TabsList>
+              <TabsTrigger value="preview">
+                <Eye className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                Preview
+                {previewOutdated && (
+                  <span className="ml-1.5 h-2 w-2 rounded-full bg-yellow-500" title="Preview outdated" />
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="mappings">
+                <Table2 className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                Mappings
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Preview Tab */}
+            <TabsContent value="preview">
+              <div className="space-y-4">
+                {/* Coverage Summary */}
+                {gapSummary && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium">
+                        {gapSummary.mappedFieldCount}/{gapSummary.expectedFieldCount} fields mapped
+                        <span className="text-muted-foreground ml-1">
+                          ({gapSummary.coveragePercent}% coverage)
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-[10px]">
+                        Mapped
+                      </Badge>
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 text-[10px]">
+                        Gap
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+
+                {/* Annotated PDF */}
+                <PdfPreview
+                  url={displayPdfUrl}
+                  isLoading={isPreviewLoading}
+                  error={isAnnotatedPdfFailed ? 'Failed to generate annotated preview' : undefined}
+                  className="min-h-[500px]"
+                />
+
+                {/* Regenerate Preview Button */}
+                {mappingPlan && (
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRegeneratePreview}
+                      disabled={annotatedPreviewMutation.isPending}
+                    >
+                      {annotatedPreviewMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" aria-hidden="true" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
+                      )}
+                      Regenerate Preview
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Mappings Tab */}
+            <TabsContent value="mappings">
+              {mappingPlan ? (
+                <MappingTable
+                  mappingPlan={mappingPlan}
+                  gaps={gapEntries}
+                  unmappedParagraphs={unmappedParagraphs}
+                  isEditable={true}
+                  onMappingPlanChange={handleMappingPlanChange}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">No mapping data available.</p>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
       {/* Right: Chat Panel */}
-      <Card className="flex flex-col max-h-[600px]">
+      <Card className="flex flex-col max-h-[700px]">
         <CardHeader>
           <CardTitle className="text-base">Refinement Chat</CardTitle>
         </CardHeader>
