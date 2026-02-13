@@ -2,6 +2,7 @@ import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import { CheckCheck } from 'lucide-react'
 import { PdfPreview } from '@/components/ui/pdf-preview'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
   TooltipTrigger,
@@ -129,7 +130,7 @@ export function InteractivePdfViewer({
   onReject,
   onConfirmAll,
   isStreaming,
-  mappedCount: _mappedCount,
+  mappedCount,
 }: InteractivePdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastSelectionTimeRef = useRef<number>(0)
@@ -267,19 +268,28 @@ export function InteractivePdfViewer({
       className={cn('relative overflow-auto', className)}
       onMouseUp={handleMouseUp}
     >
-      {/* Toolbar: Confirm All button */}
-      {unconfirmedResolvedCount > 0 && (
-        <div className="sticky top-0 z-10 flex items-center justify-end px-3 py-1.5 bg-background/80 backdrop-blur-sm border-b">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800"
-            disabled={isStreaming}
-            onClick={onConfirmAll}
-          >
-            <CheckCheck className="h-4 w-4 mr-1" />
-            Confirm All ({unconfirmedResolvedCount})
-          </Button>
+      {/* Toolbar: Coverage counter + Confirm All button */}
+      {(unconfirmedResolvedCount > 0 || (mappedCount != null && mappedCount > 0)) && (
+        <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-1.5 bg-background/80 backdrop-blur-sm border-b">
+          <div className="flex items-center gap-2">
+            {mappedCount != null && mappedCount > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {mappedCount} mapped
+              </Badge>
+            )}
+          </div>
+          {unconfirmedResolvedCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800"
+              disabled={isStreaming}
+              onClick={onConfirmAll}
+            >
+              <CheckCheck className="h-4 w-4 mr-1" />
+              Confirm All ({unconfirmedResolvedCount})
+            </Button>
+          )}
         </div>
       )}
 
