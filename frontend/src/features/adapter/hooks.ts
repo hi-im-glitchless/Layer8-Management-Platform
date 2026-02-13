@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ChatSSEEvent,
   MappingPlan,
+  MappingUpdateRequest,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -159,6 +160,77 @@ export function useResetSession() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to reset session')
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Annotated Preview & Mapping Update Hooks (Phase 5.1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Request annotated preview generation (POST mutation).
+ * Returns pdfJobId + tooltipData + unmappedParagraphs + gapSummary.
+ */
+export function useAnnotatedPreview() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (sessionId: string) => adapterApi.requestAnnotatedPreview(sessionId),
+    onSuccess: (_data, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['adapter', 'annotated-preview', sessionId] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to generate annotated preview')
+    },
+  })
+}
+
+/**
+ * Poll annotated preview PDF status.
+ * Reuses the same preview status endpoint (PDF conversion is shared).
+ * Stops polling when status is 'completed' or 'failed'.
+ */
+export function useAnnotatedPreviewStatus(sessionId: string | null, pdfJobId: string | null) {
+  return useQuery({
+    queryKey: ['adapter', 'annotated-preview-status', sessionId, pdfJobId],
+    queryFn: () => adapterApi.getPreviewStatus(sessionId!),
+    enabled: !!sessionId && !!pdfJobId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      if (status === 'completed' || status === 'failed') {
+        return false
+      }
+      return 2000
+    },
+  })
+}
+
+/**
+ * Fetch cached annotated preview metadata (for page reload restoration).
+ * GET /api/adapter/annotated-preview/:sessionId
+ */
+export function useCachedAnnotatedPreview(sessionId: string | null) {
+  return useQuery({
+    queryKey: ['adapter', 'annotated-preview', sessionId],
+    queryFn: () => adapterApi.getAnnotatedPreview(sessionId!),
+    enabled: !!sessionId,
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * Update mapping plan with inline edits or added entries.
+ * On success, invalidates session query to refresh mapping plan.
+ */
+export function useUpdateMapping() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: MappingUpdateRequest) => adapterApi.updateMapping(request),
+    onSuccess: (_data, request) => {
+      queryClient.invalidateQueries({ queryKey: ['adapter', 'session', request.sessionId] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update mapping')
     },
   })
 }
