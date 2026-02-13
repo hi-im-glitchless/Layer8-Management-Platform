@@ -27,10 +27,12 @@ function isCliproxyTrackedAndRunning(): boolean {
   return true;
 }
 
-async function pollHealthCheck(baseUrl: string, attempts = 10, intervalMs = 500): Promise<boolean> {
+async function pollHealthCheck(baseUrl: string, attempts = 15, intervalMs = 1000): Promise<boolean> {
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(`${baseUrl}/models`);
+      const res = await fetch(`${baseUrl}/v1/models`, {
+        headers: { Authorization: `Bearer ${config.CLIPROXY_API_KEY}` },
+      });
       if (res.ok) return true;
     } catch {
       // not ready yet
@@ -293,24 +295,34 @@ router.post('/llm-start-cliproxy', async (req, res) => {
 
 /**
  * POST /api/admin/llm-stop-cliproxy
- * Kills the tracked CLIProxyAPI process
+ * Kills the CLIProxyAPI process (tracked or discovered via pgrep)
  */
 router.post('/llm-stop-cliproxy', async (req, res) => {
   try {
-    if (!isCliproxyTrackedAndRunning()) {
-      return res.json({ success: false, message: 'No tracked CLIProxyAPI process to stop. If it was started externally, stop it manually.' });
+    // Try tracked process first
+    if (isCliproxyTrackedAndRunning()) {
+      try {
+        process.kill(-cliproxyProcess!.pid!, 'SIGTERM');
+      } catch {
+        cliproxyProcess!.kill('SIGTERM');
+      }
+      cliproxyProcess = null;
+      return res.json({ success: true, message: 'CLIProxyAPI process stopped' });
     }
 
-    // Kill the process group (negative PID kills the group since we used detached)
+    // No tracked process — find it by scanning for the binary name
+    const binName = path.basename(config.CLIPROXY_BIN_PATH);
+    const { execSync } = await import('node:child_process');
     try {
-      process.kill(-cliproxyProcess!.pid!, 'SIGTERM');
+      const pids = execSync(`pgrep -f "${binName}"`, { encoding: 'utf-8' }).trim().split('\n').filter(Boolean);
+      for (const pid of pids) {
+        process.kill(Number(pid), 'SIGTERM');
+      }
+      cliproxyProcess = null;
+      res.json({ success: true, message: `CLIProxyAPI stopped (killed ${pids.length} process${pids.length > 1 ? 'es' : ''})` });
     } catch {
-      // Fallback: kill just the process
-      cliproxyProcess!.kill('SIGTERM');
+      res.json({ success: false, message: 'No CLIProxyAPI process found to stop' });
     }
-    cliproxyProcess = null;
-
-    res.json({ success: true, message: 'CLIProxyAPI process stopped' });
   } catch (error) {
     console.error('[admin routes] Error stopping CLIProxyAPI:', error);
     res.status(500).json({ error: 'Failed to stop CLIProxyAPI' });

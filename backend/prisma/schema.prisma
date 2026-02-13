@@ -78,7 +78,7 @@ model DenyListTerm {
 
 model LlmSettings {
   id                   String   @id @default("singleton")
-  cliproxyBaseUrl      String   @default("http://localhost:8080")
+  cliproxyBaseUrl      String   @default("http://localhost:8317")
   anthropicApiKey      String?
   defaultModel         String   @default("claude-sonnet-4-5-20250929")
   templateAdapterModel String   @default("claude-sonnet-4-5-20250929")

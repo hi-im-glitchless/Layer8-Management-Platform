@@ -1,15 +1,16 @@
 import OpenAI from 'openai';
 import type { LLMMessage, LLMStreamChunk } from '../../../types/llm.js';
+import { config } from '../../../config.js';
 
 export class CLIProxyProvider {
   private client: OpenAI;
   private baseUrl: string;
 
-  constructor(baseUrl = 'http://localhost:8080') {
+  constructor(baseUrl = 'http://localhost:8317') {
     this.baseUrl = baseUrl;
     this.client = new OpenAI({
-      baseURL: baseUrl,
-      apiKey: 'not-needed',
+      baseURL: `${baseUrl}/v1`,
+      apiKey: config.CLIPROXY_API_KEY,
     });
   }
 
@@ -56,7 +57,9 @@ export class CLIProxyProvider {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/models`);
+      const res = await fetch(`${this.baseUrl}/v1/models`, {
+        headers: { Authorization: `Bearer ${config.CLIPROXY_API_KEY}` },
+      });
       return res.ok;
     } catch {
       return false;

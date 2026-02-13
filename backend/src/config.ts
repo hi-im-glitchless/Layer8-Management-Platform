@@ -9,6 +9,7 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().default('http://localhost:5173'),
   SANITIZER_URL: z.string().default('http://localhost:8000'),
   CLIPROXY_BIN_PATH: z.string().default('/usr/local/bin/cli-proxy-api'),
+  CLIPROXY_API_KEY: z.string().default('sk-FDnrGKjkakDDsxRcKDByt9hFJiFZSDM7bBz0JkcRytNuD'),
 });
 
 const parsed = envSchema.safeParse(process.env);
