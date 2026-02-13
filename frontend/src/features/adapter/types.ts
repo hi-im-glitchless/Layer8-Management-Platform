@@ -132,3 +132,63 @@ export type ChatSSEEvent =
   | { type: 'mapping_update'; mappingPlan: MappingPlan }
   | { type: 'done'; usage: Record<string, unknown> }
   | { type: 'error'; message: string; retryable: boolean }
+
+// ---------------------------------------------------------------------------
+// Annotated Preview & Mapping Update Types (Phase 5.1)
+// ---------------------------------------------------------------------------
+
+/** Single tooltip entry for annotated PDF overlay */
+export interface TooltipEntry {
+  paragraphIndex: number
+  gwField: string
+  markerType: string
+  sectionText: string
+  status: 'mapped' | 'gap'
+}
+
+/** Unmapped paragraph available for manual mapping */
+export interface UnmappedParagraph {
+  paragraphIndex: number
+  text: string
+  headingLevel: number | null
+}
+
+/** Coverage statistics from gap detection */
+export interface GapSummary {
+  mappedFieldCount: number
+  expectedFieldCount: number
+  coveragePercent: number
+}
+
+/** POST /api/adapter/annotated-preview response */
+export interface AnnotatedPreviewResponse {
+  pdfJobId: string
+  tooltipData: TooltipEntry[]
+  unmappedParagraphs: UnmappedParagraph[]
+  gapSummary: GapSummary
+}
+
+/** GET /api/adapter/annotated-preview/:sessionId response */
+export interface AnnotatedPreviewStatus {
+  pdfUrl: string | null
+  tooltipData: TooltipEntry[]
+  unmappedParagraphs: UnmappedParagraph[]
+  gapSummary: GapSummary | null
+}
+
+/** POST /api/adapter/update-mapping request */
+export interface MappingUpdateRequest {
+  sessionId: string
+  updates: {
+    editedEntries?: Array<{
+      sectionIndex: number
+      gwField: string
+      markerType: string
+    }>
+    addedEntries?: Array<{
+      paragraphIndex: number
+      gwField: string
+      markerType: string
+    }>
+  }
+}

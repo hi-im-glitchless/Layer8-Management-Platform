@@ -9,6 +9,10 @@ import type {
   PreviewStatusResponse,
   WizardState,
   ActiveSessionResponse,
+  AnnotatedPreviewResponse,
+  AnnotatedPreviewStatus,
+  MappingUpdateRequest,
+  MappingPlan,
 } from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -122,6 +126,36 @@ export const adapterApi = {
   async deleteSession(sessionId: string): Promise<{ success: boolean }> {
     return apiClient<{ success: boolean }>(`/api/adapter/session/${sessionId}`, {
       method: 'DELETE',
+    })
+  },
+
+  /**
+   * Request annotated preview generation (green/yellow paragraph shading).
+   * POST /api/adapter/annotated-preview with sessionId.
+   */
+  async requestAnnotatedPreview(sessionId: string): Promise<AnnotatedPreviewResponse> {
+    return apiClient<AnnotatedPreviewResponse>('/api/adapter/annotated-preview', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  },
+
+  /**
+   * Get cached annotated preview status (for page reload restoration).
+   * GET /api/adapter/annotated-preview/:sessionId
+   */
+  async getAnnotatedPreview(sessionId: string): Promise<AnnotatedPreviewStatus> {
+    return apiClient<AnnotatedPreviewStatus>(`/api/adapter/annotated-preview/${sessionId}`)
+  },
+
+  /**
+   * Update mapping plan with inline edits or added entries.
+   * POST /api/adapter/update-mapping with sessionId + updates.
+   */
+  async updateMapping(request: MappingUpdateRequest): Promise<{ mappingPlan: MappingPlan }> {
+    return apiClient<{ mappingPlan: MappingPlan }>('/api/adapter/update-mapping', {
+      method: 'POST',
+      body: JSON.stringify(request),
     })
   },
 
