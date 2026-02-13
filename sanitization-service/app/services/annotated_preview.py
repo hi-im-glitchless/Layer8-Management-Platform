@@ -34,6 +34,7 @@ def apply_paragraph_shading(
     doc_bytes: bytes,
     mapping_plan: MappingPlan,
     gaps: list[GapEntry],
+    green_only: bool = False,
 ) -> bytes:
     """Apply green/yellow paragraph background shading to a DOCX document.
 
@@ -41,6 +42,8 @@ def apply_paragraph_shading(
         doc_bytes: Raw bytes of the client DOCX template.
         mapping_plan: The validated mapping plan with section_index references.
         gaps: List of detected gaps with estimated paragraph indices.
+        green_only: When True, skip yellow gap shading and only apply green
+            to mapped paragraphs. Used in interactive mapping mode.
 
     Returns:
         Modified DOCX bytes with paragraph shading applied.
@@ -62,16 +65,17 @@ def apply_paragraph_shading(
                 len(paragraphs) - 1,
             )
 
-    # Apply yellow shading to gap paragraphs
-    for gap in gaps:
-        idx = gap.estimated_paragraph_index
-        if idx is not None and 0 <= idx < len(paragraphs) and idx not in mapped_indices:
-            _set_paragraph_shading(paragraphs[idx], YELLOW_SHADING)
-        elif idx is not None:
-            logger.debug(
-                "Gap paragraph index %d out of range or already mapped, skipping",
-                idx,
-            )
+    # Apply yellow shading to gap paragraphs (skip when green_only=True)
+    if not green_only:
+        for gap in gaps:
+            idx = gap.estimated_paragraph_index
+            if idx is not None and 0 <= idx < len(paragraphs) and idx not in mapped_indices:
+                _set_paragraph_shading(paragraphs[idx], YELLOW_SHADING)
+            elif idx is not None:
+                logger.debug(
+                    "Gap paragraph index %d out of range or already mapped, skipping",
+                    idx,
+                )
 
     # Save modified document to bytes
     output = BytesIO()

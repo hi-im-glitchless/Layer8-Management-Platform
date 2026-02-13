@@ -766,7 +766,8 @@ async def annotate_template(body: AnnotateRequest) -> AnnotateResponse:
     # Apply paragraph shading
     try:
         annotated_bytes = apply_paragraph_shading(
-            template_bytes, body.mapping_plan, gap_result.gaps
+            template_bytes, body.mapping_plan, gap_result.gaps,
+            green_only=body.green_only,
         )
     except Exception as exc:
         logger.error("Paragraph shading failed: %s", exc, exc_info=True)

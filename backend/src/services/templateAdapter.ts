@@ -506,6 +506,7 @@ interface AnnotateServiceResponse {
  */
 export async function generateAnnotatedPreview(
   wizardState: WizardState,
+  options?: { greenOnly?: boolean },
 ): Promise<WizardState> {
   const sanitizerUrl = config.SANITIZER_URL;
   const { userId, sessionId } = wizardState;
@@ -527,6 +528,7 @@ export async function generateAnnotatedPreview(
     body: JSON.stringify({
       template_base64: templateBase64,
       mapping_plan: mappingPlanToSnakeCase(mappingPlan),
+      green_only: options?.greenOnly ?? false,
     }),
   });
 

@@ -76,7 +76,7 @@ export function StepAnalysis({
 
   const analyzeMutation = useAnalyzeTemplate()
   const analyzeFromSessionMutation = useAnalyzeFromSession()
-  const annotatedPreviewMutation = useAnnotatedPreview()
+  const annotatedPreviewMutation = useAnnotatedPreview({ greenOnly: true })
   const updateMappingMutation = useUpdateMapping()
   const chat = useAdapterChat(sessionId)
   const hasTriggeredAnalysis = useRef(false)

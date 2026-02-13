@@ -176,10 +176,11 @@ export function useResetSession() {
  * Request annotated preview generation (POST mutation).
  * Returns pdfJobId + tooltipData + unmappedParagraphs + gapSummary.
  */
-export function useAnnotatedPreview() {
+export function useAnnotatedPreview(options?: { greenOnly?: boolean }) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (sessionId: string) => adapterApi.requestAnnotatedPreview(sessionId),
+    mutationFn: (sessionId: string) =>
+      adapterApi.requestAnnotatedPreview(sessionId, { greenOnly: options?.greenOnly }),
     onSuccess: (_data, sessionId) => {
       queryClient.invalidateQueries({ queryKey: ['adapter', 'annotated-preview', sessionId] })
     },

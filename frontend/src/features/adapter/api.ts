@@ -133,11 +133,18 @@ export const adapterApi = {
   /**
    * Request annotated preview generation (green/yellow paragraph shading).
    * POST /api/adapter/annotated-preview with sessionId.
+   * When greenOnly is true, only mapped paragraphs get green shading (no yellow gaps).
    */
-  async requestAnnotatedPreview(sessionId: string): Promise<AnnotatedPreviewResponse> {
+  async requestAnnotatedPreview(
+    sessionId: string,
+    options?: { greenOnly?: boolean },
+  ): Promise<AnnotatedPreviewResponse> {
     return apiClient<AnnotatedPreviewResponse>('/api/adapter/annotated-preview', {
       method: 'POST',
-      body: JSON.stringify({ sessionId }),
+      body: JSON.stringify({
+        sessionId,
+        ...(options?.greenOnly ? { greenOnly: true } : {}),
+      }),
     })
   },
 

@@ -254,6 +254,10 @@ class AnnotateRequest(BaseModel):
 
     template_base64: str = Field(..., description="Base64-encoded client DOCX template")
     mapping_plan: MappingPlan
+    green_only: bool = Field(
+        False,
+        description="When true, only apply green shading to mapped paragraphs (skip yellow gaps)",
+    )
 
 
 class AnnotateResponse(BaseModel):

@@ -86,6 +86,11 @@ const chatBodySchema = z.object({
   message: z.string().min(1, 'message is required').max(10000),
 });
 
+const annotatedPreviewSchema = z.object({
+  sessionId: z.string().uuid('sessionId must be a valid UUID'),
+  greenOnly: z.boolean().optional().default(false),
+});
+
 const updateMappingSchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
   updates: z.object({
@@ -519,7 +524,7 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
  */
 router.post('/annotated-preview', requireAuth, async (req: Request, res: Response) => {
   try {
-    const body = sessionIdSchema.safeParse(req.body);
+    const body = annotatedPreviewSchema.safeParse(req.body);
     if (!body.success) {
       return res.status(400).json({
         error: 'Invalid request',
@@ -528,7 +533,7 @@ router.post('/annotated-preview', requireAuth, async (req: Request, res: Respons
     }
 
     const userId = req.session.userId!;
-    const { sessionId } = body.data;
+    const { sessionId, greenOnly } = body.data;
 
     const state = await getWizardSession(userId, sessionId);
     if (!state) {
@@ -541,7 +546,7 @@ router.post('/annotated-preview', requireAuth, async (req: Request, res: Respons
       });
     }
 
-    const updated = await generateAnnotatedPreview(state);
+    const updated = await generateAnnotatedPreview(state, { greenOnly });
 
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     await logAuditEvent({
