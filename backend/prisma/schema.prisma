@@ -87,3 +87,20 @@ model LlmSettings {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }
+
+model TemplateMapping {
+  id                    String   @id @default(cuid())
+  templateType          String   // web|internal|mobile
+  language              String   // en|pt-pt
+  normalizedSectionText String   // lowercase, whitespace-collapsed section text
+  gwField               String   // target GW field path (e.g. "client.short_name")
+  markerType            String   // text|paragraph_rt|run_rt|table_row_loop|control_flow
+  confidence            Float    @default(1.0) // last-seen confidence from mapping plan
+  usageCount            Int      @default(1) // incremented on each duplicate upsert
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([templateType, language, normalizedSectionText, gwField])
+  @@index([templateType, language])
+  @@index([usageCount])
+}
