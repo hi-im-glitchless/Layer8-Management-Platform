@@ -11,7 +11,7 @@ const envSchema = z.object({
   CLIPROXY_BIN_PATH: z.string().default('/usr/local/bin/cli-proxy-api'),
   CLIPROXY_API_KEY: z.string().default('sk-FDnrGKjkakDDsxRcKDByt9hFJiFZSDM7bBz0JkcRytNuD'),
   GOTENBERG_URL: z.string().default('http://localhost:3000'),
-  GHOSTWRITER_URL: z.string().optional(),
+  GHOSTWRITER_URL: z.string().url('GHOSTWRITER_URL must be a valid URL').optional(),
   GHOSTWRITER_API_TOKEN: z.string().optional(),
   GHOSTWRITER_REPORT_ID: z.string().optional().transform((v) => v ? Number(v) : undefined),
 });
