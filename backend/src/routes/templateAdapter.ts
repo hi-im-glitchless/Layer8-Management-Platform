@@ -6,6 +6,9 @@
  * POST /api/adapter/apply     -- LLM Pass 2 + instruction application
  * POST /api/adapter/preview   -- Render adapted template + queue PDF
  * GET  /api/adapter/preview/:sessionId -- Poll preview status
+ * POST /api/adapter/annotated-preview -- Generate annotated preview with shading
+ * GET  /api/adapter/annotated-preview/:sessionId -- Get cached annotation data
+ * POST /api/adapter/update-mapping -- Merge inline edits into mapping plan
  * GET  /api/adapter/download/:sessionId -- Download adapted DOCX
  * POST /api/adapter/chat      -- Iterative feedback via SSE streaming
  * GET  /api/adapter/session/:sessionId -- Get full wizard state
@@ -24,8 +27,12 @@ import {
   uploadTemplate,
   applyInstructions,
   generatePreview,
+  generateAnnotatedPreview,
+  persistMappingsToKB,
   getDownloadPath,
   processChatFeedback,
+  type MappingEntry,
+  type MappingPlan,
 } from '@/services/templateAdapter.js';
 import {
   getWizardSession,
@@ -75,6 +82,22 @@ const sessionIdParamSchema = z.object({
 const chatBodySchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
   message: z.string().min(1, 'message is required').max(10000),
+});
+
+const updateMappingSchema = z.object({
+  sessionId: z.string().uuid('sessionId must be a valid UUID'),
+  updates: z.object({
+    editedEntries: z.array(z.object({
+      sectionIndex: z.number().int().min(0),
+      gwField: z.string().min(1),
+      markerType: z.string().min(1),
+    })).optional(),
+    addedEntries: z.array(z.object({
+      paragraphIndex: z.number().int().min(0),
+      gwField: z.string().min(1),
+      markerType: z.string().min(1),
+    })).optional(),
+  }),
 });
 
 // ---------------------------------------------------------------------------
@@ -479,6 +502,219 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
     res.json(response);
   } catch (error) {
     handleAdapterError(res, error, 'Preview status');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/adapter/annotated-preview
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate an annotated preview with paragraph shading for mapped/gap sections.
+ * Body: { sessionId }
+ * Requires session to have a mapping plan (analysis step).
+ * Returns 202 with { pdfJobId, tooltipData, unmappedParagraphs, gapSummary }
+ */
+router.post('/annotated-preview', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = sessionIdSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: body.error.issues,
+      });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = body.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    if (state.currentStep !== 'analysis') {
+      return res.status(400).json({
+        error: `Cannot generate annotated preview from step "${state.currentStep}". Must be in "analysis" step.`,
+      });
+    }
+
+    const updated = await generateAnnotatedPreview(state);
+
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.annotated_preview',
+      details: {
+        sessionId,
+        pdfJobId: updated.annotatedPreview.pdfJobId,
+        tooltipCount: updated.annotatedPreview.tooltipData.length,
+        unmappedCount: updated.annotatedPreview.unmappedParagraphs.length,
+        gapSummary: updated.annotatedPreview.gapSummary,
+      },
+      ipAddress,
+    });
+
+    res.status(202).json({
+      pdfJobId: updated.annotatedPreview.pdfJobId,
+      tooltipData: updated.annotatedPreview.tooltipData,
+      unmappedParagraphs: updated.annotatedPreview.unmappedParagraphs,
+      gapSummary: updated.annotatedPreview.gapSummary,
+    });
+  } catch (error) {
+    handleAdapterError(res, error, 'Annotated preview generation');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/adapter/annotated-preview/:sessionId
+// ---------------------------------------------------------------------------
+
+/**
+ * Get cached annotated preview data from wizard state (for page reload).
+ * Includes current PDF status if pdfJobId exists, plus tooltip and gap data.
+ */
+router.get('/annotated-preview/:sessionId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const params = sessionIdParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = params.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    const { annotatedPreview } = state;
+
+    const response: Record<string, unknown> = {
+      tooltipData: annotatedPreview.tooltipData,
+      unmappedParagraphs: annotatedPreview.unmappedParagraphs,
+      gapSummary: annotatedPreview.gapSummary,
+    };
+
+    // Include PDF status if a job exists
+    if (annotatedPreview.pdfJobId) {
+      const jobStatus = await getPdfJobStatus(annotatedPreview.pdfJobId);
+      response.pdfStatus = jobStatus.status;
+      response.pdfProgress = jobStatus.progress ?? 0;
+
+      if (jobStatus.status === 'completed' && jobStatus.pdfPath) {
+        response.pdfUrl = `/uploads/documents/${jobStatus.pdfPath}`;
+      }
+
+      if (jobStatus.status === 'failed') {
+        response.pdfError = jobStatus.error;
+      }
+    }
+
+    res.json(response);
+  } catch (error) {
+    handleAdapterError(res, error, 'Annotated preview status');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/adapter/update-mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Merge inline edits and added sections into the wizard state mapping plan.
+ * Body: { sessionId, updates: { editedEntries?, addedEntries? } }
+ * Returns the updated mapping plan.
+ */
+router.post('/update-mapping', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = updateMappingSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: body.error.issues,
+      });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId, updates } = body.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    const mappingPlan = state.analysis.mappingPlan as unknown as MappingPlan;
+    if (!mappingPlan || !mappingPlan.entries) {
+      return res.status(400).json({
+        error: 'No mapping plan in session. Run analysis first.',
+      });
+    }
+
+    // Apply edited entries -- find by sectionIndex and update gwField + markerType
+    if (updates.editedEntries) {
+      for (const edit of updates.editedEntries) {
+        const entry = mappingPlan.entries.find((e) => e.sectionIndex === edit.sectionIndex);
+        if (entry) {
+          entry.gwField = edit.gwField;
+          entry.markerType = edit.markerType;
+          entry.confidence = 1.0; // user-confirmed
+        }
+      }
+    }
+
+    // Apply added entries -- create new MappingEntry with confidence 1.0
+    if (updates.addedEntries) {
+      for (const added of updates.addedEntries) {
+        // Lookup section text from unmapped paragraphs in annotated preview
+        let sectionText = '';
+        const unmapped = state.annotatedPreview?.unmappedParagraphs?.find(
+          (u) => u.paragraphIndex === added.paragraphIndex,
+        );
+        if (unmapped) {
+          sectionText = unmapped.text;
+        }
+
+        const newEntry: MappingEntry = {
+          sectionIndex: added.paragraphIndex,
+          sectionText,
+          gwField: added.gwField,
+          placeholderTemplate: `{{ ${added.gwField} }}`,
+          confidence: 1.0,
+          markerType: added.markerType,
+          rationale: 'User-added mapping',
+        };
+        mappingPlan.entries.push(newEntry);
+      }
+    }
+
+    // Persist updated mapping plan to wizard state
+    const updated = await updateWizardSession(userId, sessionId, {
+      analysis: {
+        ...state.analysis,
+        mappingPlan: mappingPlan as unknown as Record<string, unknown>,
+      },
+    });
+
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.update_mapping',
+      details: {
+        sessionId,
+        editedCount: updates.editedEntries?.length ?? 0,
+        addedCount: updates.addedEntries?.length ?? 0,
+        totalEntries: mappingPlan.entries.length,
+      },
+      ipAddress,
+    });
+
+    res.json({
+      mappingPlan: (updated.analysis.mappingPlan as unknown as MappingPlan),
+    });
+  } catch (error) {
+    handleAdapterError(res, error, 'Mapping update');
   }
 });
 
