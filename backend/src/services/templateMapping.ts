@@ -191,3 +191,53 @@ export async function bulkUpsertMappings(
     return { created: 0, updated: 0 };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Few-Shot Query
+// ---------------------------------------------------------------------------
+
+/**
+ * Query the knowledge base for few-shot examples matching template type and language.
+ *
+ * Returns top entries ordered by usageCount DESC (most-confirmed patterns first).
+ * Default limit is 5.
+ */
+export async function queryFewShotExamples(
+  templateType: string,
+  language: string,
+  limit: number = 5,
+): Promise<TemplateMapping[]> {
+  const validated = fewShotQuerySchema.parse({ templateType, language, limit });
+
+  return prisma.templateMapping.findMany({
+    where: {
+      templateType: validated.templateType,
+      language: validated.language,
+    },
+    orderBy: { usageCount: 'desc' },
+    take: validated.limit,
+  });
+}
+
+/**
+ * Format few-shot examples into a prompt section for LLM injection.
+ *
+ * Produces a "## Previous Successful Mappings" section with numbered list.
+ * Returns empty string if no examples found (no section injected into prompt).
+ */
+export function formatFewShotExamples(examples: TemplateMapping[]): string {
+  if (examples.length === 0) {
+    return '';
+  }
+
+  const header =
+    '## Previous Successful Mappings\n\n' +
+    'These mappings were confirmed by users in previous template adaptations:\n\n';
+
+  const lines = examples.map(
+    (ex, i) =>
+      `${i + 1}. Section: "${ex.normalizedSectionText}" -> GW Field: ${ex.gwField} (confirmed ${ex.usageCount} times)`,
+  );
+
+  return header + lines.join('\n');
+}
