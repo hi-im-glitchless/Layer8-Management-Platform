@@ -1,7 +1,13 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useMemo } from 'react'
 import { PdfPreview } from '@/components/ui/pdf-preview'
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import type { SelectionEntry } from '../types'
+import type { SelectionEntry, SelectionStatus } from '../types'
 
 /** Payload emitted when the user selects text on the PDF */
 export interface TextSelectionPayload {
@@ -18,6 +24,13 @@ interface InteractivePdfViewerProps {
   onTextSelected: (selection: TextSelectionPayload) => void
   selections: SelectionEntry[]
   className?: string
+}
+
+// Status-based badge ring colors (Decision #8)
+const STATUS_RING_CLASSES: Record<SelectionStatus, string> = {
+  pending: 'ring-2 ring-blue-500 bg-blue-50 text-blue-700',
+  confirmed: 'ring-2 ring-green-500 bg-green-50 text-green-700',
+  rejected: 'ring-2 ring-orange-500 bg-orange-50 text-orange-700',
 }
 
 /**
@@ -58,6 +71,14 @@ function estimateParagraphIndex(node: Node): number {
 }
 
 /**
+ * Truncate text for tooltip display.
+ */
+function truncateText(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text
+  return text.slice(0, maxLen) + '...'
+}
+
+/**
  * Wraps PdfPreview with interactive text selection and numbered overlay badges.
  * Captures mouseup events on the pdfjs text layer and relays selection data upstream.
  */
@@ -66,7 +87,7 @@ export function InteractivePdfViewer({
   isLoading,
   error,
   onTextSelected,
-  selections: _selections,
+  selections,
   className,
 }: InteractivePdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -127,6 +148,21 @@ export function InteractivePdfViewer({
     selection.removeAllRanges()
   }, [onTextSelected])
 
+  // Memoize badge data to avoid re-computing on every render
+  const badgeData = useMemo(
+    () =>
+      selections.map((sel) => ({
+        id: sel.id,
+        number: sel.selectionNumber,
+        status: sel.status,
+        text: truncateText(sel.text, 80),
+        top: sel.boundingRect.top,
+        left: sel.boundingRect.left + sel.boundingRect.width,
+        ringClass: STATUS_RING_CLASSES[sel.status],
+      })),
+    [selections],
+  )
+
   return (
     <div
       ref={containerRef}
@@ -143,7 +179,42 @@ export function InteractivePdfViewer({
         className="h-full"
       />
 
-      {/* Selection overlay layer -- populated in Task 5 */}
+      {/* Selection overlay layer -- absolutely positioned badges */}
+      {badgeData.length > 0 && (
+        <TooltipProvider>
+          <div
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+            aria-hidden="true"
+          >
+            {badgeData.map((badge) => (
+              <Tooltip key={badge.id}>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn(
+                      'pointer-events-auto absolute rounded-full text-[10px] font-bold',
+                      'w-5 h-5 flex items-center justify-center cursor-default',
+                      'shadow-sm transition-colors',
+                      badge.ringClass,
+                    )}
+                    style={{
+                      top: badge.top,
+                      left: badge.left,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    {badge.number}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={4}>
+                  <span className="max-w-[240px] block break-words">
+                    #{badge.number}: {badge.text}
+                  </span>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </TooltipProvider>
+      )}
     </div>
   )
 }
