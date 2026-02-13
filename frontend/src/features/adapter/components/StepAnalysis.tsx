@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, Send, ArrowRight, RefreshCw, Eye, Table2 } from 'lucide-react'
+import { Loader2, Send, ArrowRight, RefreshCw, Table2, Brain } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { PdfPreview } from '@/components/ui/pdf-preview'
+import {
+  Tooltip as TooltipUI,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip'
 import {
   useAnalyzeTemplate,
   useAnalyzeFromSession,
@@ -16,10 +20,14 @@ import {
   useAnnotatedPreviewStatus,
   useCachedAnnotatedPreview,
   useUpdateMapping,
+  useSelectionState,
+  useSelectionToMappingSync,
 } from '../hooks'
 import { adapterApi } from '../api'
 import { MappingTable } from './MappingTable'
 import { AnalysisProgressDisplay } from './AnalysisProgress'
+import { InteractivePdfViewer, type TextSelectionPayload } from './InteractivePdfViewer'
+import { StructureBrowser } from './StructureBrowser'
 import type {
   TemplateType,
   TemplateLanguage,
@@ -74,6 +82,15 @@ export function StepAnalysis({
   const hasTriggeredAnalysis = useRef(false)
   const hasTriggeredPreview = useRef(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // Interactive selection state (Phase 5.2)
+  const selectionState = useSelectionState()
+  const mappingSync = useSelectionToMappingSync(mappingPlan)
+  const [structureBrowserOpen, setStructureBrowserOpen] = useState(false)
+  const [showMappingTable, setShowMappingTable] = useState(false)
+  const [kbPersisted, setKbPersisted] = useState(false)
+  const [kbAnimating, setKbAnimating] = useState(false)
+
   // Note: analysisStartRef removed — start time now persisted in sessionStorage
 
   // Poll annotated preview PDF status
@@ -329,6 +346,58 @@ export function StepAnalysis({
     })
   }, [sessionId, annotatedPreviewMutation])
 
+  // Handle text selection from InteractivePdfViewer
+  const handleTextSelected = useCallback(
+    (selection: TextSelectionPayload) => {
+      selectionState.addSelection({
+        paragraphIndex: selection.paragraphIndex,
+        text: selection.text,
+        boundingRect: {
+          top: selection.boundingRect.top,
+          left: selection.boundingRect.left,
+          width: selection.boundingRect.width,
+          height: selection.boundingRect.height,
+          pageNumber: selection.pageNumber,
+        },
+        pageNumber: selection.pageNumber,
+      })
+    },
+    [selectionState],
+  )
+
+  // Handle paragraph selection from StructureBrowser
+  const handleStructureSelect = useCallback(
+    (paragraphIndex: number, text: string) => {
+      selectionState.addSelection({
+        paragraphIndex,
+        text,
+        boundingRect: { top: 0, left: 0, width: 0, height: 0, pageNumber: 1 },
+        pageNumber: 1,
+      })
+    },
+    [selectionState],
+  )
+
+  // Handle confirm all resolved selections
+  const handleConfirmAll = useCallback(() => {
+    const pending = selectionState.selections.filter(
+      (s) => s.gwField && s.status === 'pending',
+    )
+    for (const sel of pending) {
+      selectionState.confirmSelection(sel.id)
+    }
+    if (pending.length > 0) {
+      mappingSync.syncConfirmedSelections(
+        pending.map((s) => ({ ...s, status: 'confirmed' as const })),
+      )
+      toast.success(`${pending.length} mappings confirmed`)
+    }
+  }, [selectionState, mappingSync])
+
+  // Compute mappedCount: confirmed selections + existing mapping plan entries
+  const mappedCount =
+    selectionState.counter.confirmed + (mappingPlan?.entries?.length ?? 0)
+
   // Optimistic mapping plan update with backend sync.
   // Compares the new plan against the previous to derive editedEntries / addedEntries,
   // then POSTs to /api/adapter/update-mapping. Reverts on failure.
@@ -446,180 +515,183 @@ export function StepAnalysis({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-      {/* Left: Tabbed View (Preview + Mappings) */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Mapping Plan</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReAnalyze}
-              disabled={isAnalyzing}
-            >
-              {isAnalyzing ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1" aria-hidden="true" />
-              ) : (
-                <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
-              )}
-              Re-analyze
-            </Button>
-            <Button variant="gradient" size="sm" onClick={onProceed} disabled={!mappingPlan}>
-              Proceed
-              <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="preview">
-            <TabsList>
-              <TabsTrigger value="preview">
-                <Eye className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-                Preview
-                {previewOutdated && (
-                  <span className="ml-1.5 h-2 w-2 rounded-full bg-yellow-500" title="Preview outdated" />
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="mappings">
-                <Table2 className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-                Mappings
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Preview Tab */}
-            <TabsContent value="preview">
-              <div className="space-y-4">
-                {/* Coverage Summary */}
-                {gapSummary && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">
-                        {gapSummary.mappedFieldCount}/{gapSummary.expectedFieldCount} fields mapped
-                        <span className="text-muted-foreground ml-1">
-                          ({gapSummary.coveragePercent}% coverage)
-                        </span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-[10px]">
-                        Mapped
-                      </Badge>
-                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 text-[10px]">
-                        Gap
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-
-                {/* Annotated PDF */}
-                <PdfPreview
-                  url={displayPdfUrl}
-                  isLoading={isPreviewLoading}
-                  error={isAnnotatedPdfFailed ? 'Failed to generate annotated preview' : undefined}
-                  className="min-h-[500px]"
-                />
-
-                {/* Regenerate Preview Button */}
-                {mappingPlan && (
-                  <div className="flex justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRegeneratePreview}
-                      disabled={annotatedPreviewMutation.isPending}
-                    >
-                      {annotatedPreviewMutation.isPending ? (
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" aria-hidden="true" />
-                      ) : (
-                        <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
-                      )}
-                      Regenerate Preview
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Mappings Tab */}
-            <TabsContent value="mappings">
-              {mappingPlan ? (
-                <MappingTable
-                  mappingPlan={mappingPlan}
-                  gaps={gapEntries}
-                  unmappedParagraphs={unmappedParagraphs}
-                  isEditable={true}
-                  onMappingPlanChange={handleMappingPlanChange}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">No mapping data available.</p>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      {/* Right: Chat Panel */}
-      <Card className="flex flex-col max-h-[700px]">
-        <CardHeader>
-          <CardTitle className="text-base">Refinement Chat</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col min-h-0">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-[200px]">
-            {chat.messages.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                Ask the AI to adjust mappings, add fields, or change confidence thresholds.
-              </p>
+    <div className="space-y-4">
+      {/* Toolbar: Re-analyze, Structure Browser toggle, KB badge, Proceed */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReAnalyze}
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
             )}
-            {chat.messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+            Re-analyze
+          </Button>
+          <StructureBrowser
+            sessionId={sessionId}
+            isOpen={structureBrowserOpen}
+            onToggle={() => setStructureBrowserOpen((prev) => !prev)}
+            onSelectParagraph={handleStructureSelect}
+          />
+          {elapsed > 0 && !mappingPlan && (
+            <span className="text-xs text-muted-foreground">{formatElapsed(elapsed)}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {/* KB Badge */}
+          <TooltipProvider>
+            <TooltipUI>
+              <TooltipTrigger asChild>
                 <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-foreground'
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground transition-transform ${
+                    kbAnimating ? 'scale-125 text-green-600' : ''
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <Brain className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>KB</span>
+                  {kbPersisted && (
+                    <span className="text-green-600 font-medium">+1</span>
+                  )}
                 </div>
-              </div>
-            ))}
-            {chat.isStreaming && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-lg px-3 py-2">
-                  <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse" />
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                Mappings saved to knowledge base for future template analyses
+              </TooltipContent>
+            </TooltipUI>
+          </TooltipProvider>
+          <Button variant="gradient" size="sm" onClick={onProceed} disabled={!mappingPlan}>
+            Proceed
+            <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
 
-          {/* Input */}
-          <div className="flex items-center gap-2">
-            <Input
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Refine the mapping..."
-              disabled={chat.isStreaming}
-              className="flex-1"
+      {/* Main grid: PDF viewer + Chat panel */}
+      <div className="grid gap-4 grid-cols-[1fr_320px]">
+        {/* Left: Interactive PDF Viewer */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <InteractivePdfViewer
+              url={displayPdfUrl}
+              isLoading={isPreviewLoading}
+              error={isAnnotatedPdfFailed ? 'Failed to generate annotated preview' : undefined}
+              onTextSelected={handleTextSelected}
+              selections={selectionState.selections}
+              onAccept={(id) => {
+                selectionState.confirmSelection(id)
+                const sel = selectionState.selections.find((s) => s.id === id)
+                if (sel) mappingSync.syncConfirmedSelections([{ ...sel, status: 'confirmed' }])
+              }}
+              onReject={(id) => selectionState.rejectSelection(id)}
+              onConfirmAll={handleConfirmAll}
+              isStreaming={chat.isStreaming}
+              mappedCount={mappedCount}
+              className="min-h-[600px]"
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSendMessage}
-              disabled={chat.isStreaming || !chatInput.trim()}
-              aria-label="Send message"
-            >
-              <Send className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Right: Chat Panel */}
+        <Card className="flex flex-col max-h-[700px]">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Mapping Chat</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col min-h-0">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-[200px]">
+              {chat.messages.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-8">
+                  Describe your selections, e.g. &apos;#1 is the executive summary, #2 is findings&apos;
+                </p>
+              )}
+              {chat.messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                      msg.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              {chat.isStreaming && (
+                <div className="flex justify-start">
+                  <div className="bg-muted rounded-lg px-3 py-2">
+                    <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse" />
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="flex items-center gap-2">
+              <Input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe your selections, e.g. '#1 is executive summary'"
+                disabled={chat.isStreaming}
+                className="flex-1"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSendMessage}
+                disabled={chat.isStreaming || !chatInput.trim()}
+                aria-label="Send message"
+              >
+                <Send className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* View as table toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline flex items-center gap-1"
+          onClick={() => setShowMappingTable((prev) => !prev)}
+        >
+          <Table2 className="h-3 w-3" aria-hidden="true" />
+          {showMappingTable ? 'Hide mapping table' : 'View as table'}
+        </button>
+      </div>
+
+      {/* Secondary: MappingTable (toggleable) */}
+      {showMappingTable && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Mapping Table</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {mappingPlan ? (
+              <MappingTable
+                mappingPlan={mappingPlan}
+                gaps={gapEntries}
+                unmappedParagraphs={unmappedParagraphs}
+                isEditable={true}
+                onMappingPlanChange={handleMappingPlanChange}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">No mapping data available.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
