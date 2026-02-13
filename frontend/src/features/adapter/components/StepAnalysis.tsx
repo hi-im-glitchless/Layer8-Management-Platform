@@ -15,6 +15,7 @@ import {
   useAnnotatedPreview,
   useAnnotatedPreviewStatus,
   useCachedAnnotatedPreview,
+  useUpdateMapping,
 } from '../hooks'
 import { MappingTable } from './MappingTable'
 import type {
@@ -65,6 +66,7 @@ export function StepAnalysis({
   const analyzeMutation = useAnalyzeTemplate()
   const analyzeFromSessionMutation = useAnalyzeFromSession()
   const annotatedPreviewMutation = useAnnotatedPreview()
+  const updateMappingMutation = useUpdateMapping()
   const chat = useAdapterChat(sessionId)
   const hasTriggeredAnalysis = useRef(false)
   const hasTriggeredPreview = useRef(false)
@@ -250,12 +252,79 @@ export function StepAnalysis({
     })
   }, [sessionId, annotatedPreviewMutation])
 
-  // Callback for mapping edits from MappingTable (wired in Task 5)
+  // Optimistic mapping plan update with backend sync.
+  // Compares the new plan against the previous to derive editedEntries / addedEntries,
+  // then POSTs to /api/adapter/update-mapping. Reverts on failure.
   const handleMappingPlanChange = useCallback((updatedPlan: MappingPlan) => {
+    if (!mappingPlan) return
+    const previousPlan = mappingPlan
+
+    // Optimistically apply the update
     setMappingPlan(updatedPlan)
     onMappingUpdate(updatedPlan)
     setPreviewOutdated(true)
-  }, [onMappingUpdate])
+
+    // Derive what changed: edited entries vs added entries
+    const previousIndices = new Set(previousPlan.entries.map((e) => e.sectionIndex))
+    const editedEntries: Array<{ sectionIndex: number; gwField: string; markerType: string }> = []
+    const addedEntries: Array<{ paragraphIndex: number; gwField: string; markerType: string }> = []
+
+    for (const entry of updatedPlan.entries) {
+      if (previousIndices.has(entry.sectionIndex)) {
+        // Check if it was actually edited
+        const prev = previousPlan.entries.find((e) => e.sectionIndex === entry.sectionIndex)
+        if (prev && (prev.gwField !== entry.gwField || prev.markerType !== entry.markerType)) {
+          editedEntries.push({
+            sectionIndex: entry.sectionIndex,
+            gwField: entry.gwField,
+            markerType: entry.markerType,
+          })
+        }
+      } else {
+        // New entry (added via inline edit or paragraph picker)
+        addedEntries.push({
+          paragraphIndex: entry.sectionIndex,
+          gwField: entry.gwField,
+          markerType: entry.markerType,
+        })
+      }
+    }
+
+    // Only call backend if there are actual changes
+    if (editedEntries.length > 0 || addedEntries.length > 0) {
+      updateMappingMutation.mutate(
+        {
+          sessionId,
+          updates: {
+            ...(editedEntries.length > 0 ? { editedEntries } : {}),
+            ...(addedEntries.length > 0 ? { addedEntries } : {}),
+          },
+        },
+        {
+          onSuccess: (data) => {
+            // Use the server's authoritative mapping plan
+            setMappingPlan(data.mappingPlan)
+            onMappingUpdate(data.mappingPlan)
+          },
+          onError: () => {
+            // Revert to previous plan on failure
+            setMappingPlan(previousPlan)
+            onMappingUpdate(previousPlan)
+            setPreviewOutdated(false)
+            toast.error('Failed to save mapping changes. Reverted.')
+          },
+        },
+      )
+
+      // Remove added paragraphs from unmapped list
+      if (addedEntries.length > 0) {
+        const addedIndices = new Set(addedEntries.map((a) => a.paragraphIndex))
+        setUnmappedParagraphs((prev) =>
+          prev.filter((p) => !addedIndices.has(p.paragraphIndex))
+        )
+      }
+    }
+  }, [mappingPlan, sessionId, onMappingUpdate, updateMappingMutation])
 
   // Determine the annotated PDF URL to display
   const displayPdfUrl = annotatedPdfUrl ?? cachedPreview.data?.pdfUrl ?? null
