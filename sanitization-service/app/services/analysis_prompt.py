@@ -10,6 +10,7 @@ import logging
 from app.models.adapter import (
     FIELD_MARKER_MAP,
     TEMPLATE_TYPE_FEATURES,
+    FewShotExample,
     ReferenceTemplateInfo,
     TemplateLanguage,
     TemplateType,
@@ -68,12 +69,14 @@ def build_analysis_prompt(
     reference_info: ReferenceTemplateInfo,
     template_type: TemplateType,
     language: TemplateLanguage,
+    few_shot_examples: list[FewShotExample] | None = None,
 ) -> str:
     """Build the full analysis prompt for LLM Pass 1.
 
-    The prompt contains five sections:
+    The prompt contains five sections (plus an optional few-shot section):
     1. Condensed client DOCX structure (numbered paragraphs)
     2. Reference template patterns
+    2b. Previous Successful Mappings (few-shot, only when examples provided)
     3. Available GW fields
     4. Output format specification (JSON schema + example)
     5. Mapping rules
@@ -83,6 +86,7 @@ def build_analysis_prompt(
         reference_info: Patterns from the matching reference template.
         template_type: web, internal, or mobile.
         language: en or pt-pt.
+        few_shot_examples: Optional list of confirmed mappings for few-shot learning.
 
     Returns:
         Complete prompt string ready for LLM consumption.
@@ -94,6 +98,12 @@ def build_analysis_prompt(
 
     # Section 2: Reference template patterns
     sections.append(_build_reference_patterns_section(reference_info))
+
+    # Section 2b: Few-shot examples (optional, between reference patterns and GW fields)
+    if few_shot_examples:
+        few_shot = _build_few_shot_section(few_shot_examples)
+        if few_shot:
+            sections.append(few_shot)
 
     # Section 3: Available GW fields
     sections.append(_build_gw_fields_section(template_type))
@@ -157,6 +167,36 @@ def _build_reference_patterns_section(ref: ReferenceTemplateInfo) -> str:
         lines.append(
             f"  {p.marker_type:15s} | {p.gw_field:35s} | {p.pattern:40s} | {ctx}"
         )
+
+    return "\n".join(lines)
+
+
+def _build_few_shot_section(examples: list[FewShotExample]) -> str | None:
+    """Build the optional few-shot examples section.
+
+    Returns None if examples list is empty (no section injected).
+    Inserted between Section 2 (reference patterns) and Section 3 (GW fields).
+    """
+    if not examples:
+        return None
+
+    lines = [
+        "## Previous Successful Mappings\n",
+        "These section-to-field mappings were confirmed correct in previous "
+        "template adaptations for this type and language:\n",
+    ]
+
+    for i, ex in enumerate(examples, start=1):
+        lines.append(
+            f"  {i}. Section: \"{ex.normalized_section_text}\" -> "
+            f"GW Field: {ex.gw_field} [{ex.marker_type}] "
+            f"(confirmed {ex.usage_count} times)"
+        )
+
+    lines.append(
+        "\nUse these as reference when mapping similar sections. "
+        "They represent high-confidence patterns.\n"
+    )
 
     return "\n".join(lines)
 
