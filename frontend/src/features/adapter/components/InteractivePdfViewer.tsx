@@ -1,5 +1,7 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
+import { CheckCheck } from 'lucide-react'
 import { PdfPreview } from '@/components/ui/pdf-preview'
+import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipTrigger,
@@ -125,8 +127,8 @@ export function InteractivePdfViewer({
   className,
   onAccept,
   onReject,
-  onConfirmAll: _onConfirmAll,
-  isStreaming: _isStreaming,
+  onConfirmAll,
+  isStreaming,
   mappedCount: _mappedCount,
 }: InteractivePdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -243,6 +245,12 @@ export function InteractivePdfViewer({
     [badgeSelections],
   )
 
+  // Count resolved but unconfirmed selections (pending status with gwField set)
+  const unconfirmedResolvedCount = useMemo(
+    () => selections.filter((s) => s.gwField && s.status === 'pending').length,
+    [selections],
+  )
+
   const handleAccept = useCallback(
     (id: string) => onAccept?.(id),
     [onAccept],
@@ -259,7 +267,21 @@ export function InteractivePdfViewer({
       className={cn('relative overflow-auto', className)}
       onMouseUp={handleMouseUp}
     >
-      {/* Toolbar slot -- Confirm All button added in Task 3 */}
+      {/* Toolbar: Confirm All button */}
+      {unconfirmedResolvedCount > 0 && (
+        <div className="sticky top-0 z-10 flex items-center justify-end px-3 py-1.5 bg-background/80 backdrop-blur-sm border-b">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800"
+            disabled={isStreaming}
+            onClick={onConfirmAll}
+          >
+            <CheckCheck className="h-4 w-4 mr-1" />
+            Confirm All ({unconfirmedResolvedCount})
+          </Button>
+        </div>
+      )}
 
       {/* PDF viewer */}
       <PdfPreview
