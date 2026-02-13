@@ -56,7 +56,9 @@ async function startServer() {
   try {
     // Ensure upload directories exist
     const uploadDir = path.join(process.cwd(), 'uploads', 'avatars');
+    const documentsDir = path.join(process.cwd(), 'uploads', 'documents');
     fs.mkdirSync(uploadDir, { recursive: true });
+    fs.mkdirSync(documentsDir, { recursive: true });
 
     // Connect to Redis first
     await connectRedis();

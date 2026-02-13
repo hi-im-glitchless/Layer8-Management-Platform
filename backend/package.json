@@ -39,6 +39,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/multer": "^2.0.0",
     "argon2": "^0.44.0",
+    "bullmq": "^5.69.1",
     "connect-redis": "^9.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
