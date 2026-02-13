@@ -1,0 +1,99 @@
+{
+  "data": {
+    "report_by_pk": {
+      "id": 1,
+      "title": "AI Template Engine Penetration Test (2026-02-13) Report",
+      "creation": "2026-02-13T09:00:00.000000+00:00",
+      "last_update": "2026-02-13T12:30:00.000000+00:00",
+      "project": {
+        "id": 1,
+        "codename": "AMBER YAK",
+        "startDate": "2026-02-13",
+        "endDate": "2026-12-11",
+        "client": {
+          "id": 1,
+          "name": "AI Template Engine",
+          "shortName": ""
+        },
+        "scopes": [
+          { "id": 1, "scope": "192.168.1.0/24", "name": "Internal Network" },
+          { "id": 2, "scope": "app.example.com", "name": "Web Application" }
+        ],
+        "assignments": [
+          {
+            "user": {
+              "username": "admin",
+              "email": "admin@example.com",
+              "name": "Admin User"
+            },
+            "projectRole": {
+              "projectRole": "Assessment Lead"
+            }
+          }
+        ]
+      },
+      "findings": [
+        {
+          "id": 1,
+          "title": "HSTS",
+          "position": 1,
+          "severity": { "severity": "High", "color": "#e74c3c", "weight": 3 },
+          "findingType": { "findingType": "Cloud" },
+          "cvssScore": 6.1,
+          "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+          "affectedEntities": "<p>app.example.com</p>",
+          "description": "<p>The application does not enforce HTTP Strict Transport Security (HSTS). This allows attackers to perform man-in-the-middle attacks by stripping TLS from connections.</p>",
+          "impact": "<p>An attacker on the same network could intercept sensitive data transmitted between the user and the application.</p>",
+          "mitigation": "<p>Configure the web server to include the Strict-Transport-Security header with an appropriate max-age value.</p>",
+          "replication_steps": "<p>1. Navigate to the application using HTTP<br/>2. Observe that no redirect to HTTPS occurs<br/>3. Check response headers for missing HSTS header</p>",
+          "references": "https://owasp.org/www-project-secure-headers/"
+        },
+        {
+          "id": 2,
+          "title": "mass form",
+          "position": 2,
+          "severity": { "severity": "Low", "color": "#2ecc71", "weight": 1 },
+          "findingType": { "findingType": "Cloud" },
+          "cvssScore": 2.2,
+          "cvssVector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:L/I:N/A:N",
+          "affectedEntities": "<p>api.example.com/forms</p>",
+          "description": "<p>Mass assignment vulnerability found in form submission endpoint. Attacker can modify fields not intended for user input.</p>",
+          "impact": "<p>Limited impact due to server-side validation, but could allow privilege escalation in certain conditions.</p>",
+          "mitigation": "<p>Implement strict allowlists for form parameters. Reject any unexpected fields.</p>",
+          "replication_steps": "<p>1. Intercept form submission request<br/>2. Add role=admin parameter<br/>3. Observe server processes the extra parameter</p>",
+          "references": "https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html"
+        },
+        {
+          "id": 3,
+          "title": "SQLI",
+          "position": 3,
+          "severity": { "severity": "Critical", "color": "#9b59b6", "weight": 4 },
+          "findingType": { "findingType": "Web" },
+          "cvssScore": 6.2,
+          "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+          "affectedEntities": "<p>api.example.com/search?q=</p>",
+          "description": "<p>SQL injection vulnerability discovered in the search parameter. The application concatenates user input directly into SQL queries without parameterisation.</p>",
+          "impact": "<p>An attacker could extract all data from the database, including user credentials and sensitive business data.</p>",
+          "mitigation": "<p>Use parameterised queries or prepared statements for all database interactions. Implement input validation as a defence-in-depth measure.</p>",
+          "replication_steps": "<p>1. Navigate to search functionality<br/>2. Enter payload: ' OR 1=1 --<br/>3. Observe that all records are returned</p>",
+          "references": "https://owasp.org/www-community/attacks/SQL_Injection"
+        },
+        {
+          "id": 4,
+          "title": "XSS Reflected",
+          "position": 4,
+          "severity": { "severity": "Medium", "color": "#f39c12", "weight": 2 },
+          "findingType": { "findingType": "Web" },
+          "cvssScore": 5.3,
+          "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+          "affectedEntities": "<p>app.example.com/search</p>",
+          "description": "<p>Reflected cross-site scripting (XSS) vulnerability found in the search results page. User input is reflected in the page without proper encoding.</p>",
+          "impact": "<p>An attacker could execute arbitrary JavaScript in the context of a victim's browser session, potentially stealing session tokens or performing actions on their behalf.</p>",
+          "mitigation": "<p>Encode all user-controlled output using context-appropriate encoding. Implement Content Security Policy headers.</p>",
+          "replication_steps": "<p>1. Navigate to search page<br/>2. Enter payload: &lt;script&gt;alert(1)&lt;/script&gt;<br/>3. Observe JavaScript execution in browser</p>",
+          "references": "https://owasp.org/www-community/attacks/xss/"
+        }
+      ]
+    }
+  }
+}
