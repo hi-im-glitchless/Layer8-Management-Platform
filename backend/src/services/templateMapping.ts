@@ -73,3 +73,121 @@ export function normalizeSectionText(text: string): string {
 
   return normalized;
 }
+
+// ---------------------------------------------------------------------------
+// Upsert Operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Upsert a single template mapping into the knowledge base.
+ *
+ * On create: sets usageCount=1, confidence=input.confidence
+ * On update (duplicate key): increments usageCount by 1, updates confidence
+ *
+ * @returns The upserted TemplateMapping record
+ */
+export async function upsertMapping(input: TemplateMappingInput): Promise<TemplateMapping> {
+  const validated = templateMappingSchema.parse(input);
+  const normalizedText = normalizeSectionText(validated.sectionText);
+
+  return prisma.templateMapping.upsert({
+    where: {
+      templateType_language_normalizedSectionText_gwField: {
+        templateType: validated.templateType,
+        language: validated.language,
+        normalizedSectionText: normalizedText,
+        gwField: validated.gwField,
+      },
+    },
+    create: {
+      templateType: validated.templateType,
+      language: validated.language,
+      normalizedSectionText: normalizedText,
+      gwField: validated.gwField,
+      markerType: validated.markerType,
+      confidence: validated.confidence,
+      usageCount: 1,
+    },
+    update: {
+      usageCount: { increment: 1 },
+      confidence: validated.confidence,
+      markerType: validated.markerType,
+    },
+  });
+}
+
+/**
+ * Bulk upsert template mappings into the knowledge base.
+ *
+ * Runs all upserts in a Prisma transaction for atomicity.
+ * Non-blocking: errors are logged but not thrown to the caller.
+ *
+ * @returns Count of created and updated records
+ */
+export async function bulkUpsertMappings(
+  mappings: TemplateMappingInput[],
+): Promise<{ created: number; updated: number }> {
+  if (mappings.length === 0) {
+    return { created: 0, updated: 0 };
+  }
+
+  try {
+    let created = 0;
+    let updated = 0;
+
+    await prisma.$transaction(async (tx) => {
+      for (const mapping of mappings) {
+        const validated = templateMappingSchema.parse(mapping);
+        const normalizedText = normalizeSectionText(validated.sectionText);
+
+        // Check if record exists to track created vs updated
+        const existing = await tx.templateMapping.findUnique({
+          where: {
+            templateType_language_normalizedSectionText_gwField: {
+              templateType: validated.templateType,
+              language: validated.language,
+              normalizedSectionText: normalizedText,
+              gwField: validated.gwField,
+            },
+          },
+        });
+
+        await tx.templateMapping.upsert({
+          where: {
+            templateType_language_normalizedSectionText_gwField: {
+              templateType: validated.templateType,
+              language: validated.language,
+              normalizedSectionText: normalizedText,
+              gwField: validated.gwField,
+            },
+          },
+          create: {
+            templateType: validated.templateType,
+            language: validated.language,
+            normalizedSectionText: normalizedText,
+            gwField: validated.gwField,
+            markerType: validated.markerType,
+            confidence: validated.confidence,
+            usageCount: 1,
+          },
+          update: {
+            usageCount: { increment: 1 },
+            confidence: validated.confidence,
+            markerType: validated.markerType,
+          },
+        });
+
+        if (existing) {
+          updated++;
+        } else {
+          created++;
+        }
+      }
+    });
+
+    return { created, updated };
+  } catch (error) {
+    console.error('[templateMapping] bulkUpsertMappings failed:', error);
+    return { created: 0, updated: 0 };
+  }
+}
