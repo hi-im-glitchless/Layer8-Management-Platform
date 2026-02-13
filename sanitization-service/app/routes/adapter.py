@@ -2,37 +2,53 @@
 
 POST /analyze  -- Prepare analysis prompt from client DOCX (LLM call done by Node.js)
 POST /validate-mapping -- Validate raw LLM JSON response into a MappingPlan
+POST /apply -- Apply instructions to a DOCX template (validate + enrich + apply)
+POST /enrich -- Enrich an instruction set via rules engine (no DOCX modification)
+POST /build-insertion-prompt -- Build LLM Pass 2 prompt from doc structure + mapping plan
 """
 import base64
 import json
 import logging
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from app.models.adapter import (
     FIELD_MARKER_MAP,
     AnalyzeRequest,
     AnalyzeResponse,
+    ApplyRequest,
+    ApplyResponse,
+    InstructionSet,
     MappingEntry,
     MappingPlan,
     ValidateMappingRequest,
     ValidateMappingResponse,
 )
+from app.models.docx import DocxStructure
 from app.services.analysis_prompt import (
     build_analysis_prompt,
     build_analysis_system_prompt,
 )
 from app.services.docx_parser import DocxParserService
+from app.services.insertion_prompt import (
+    build_insertion_prompt,
+    build_insertion_system_prompt,
+)
+from app.services.instruction_applier import InstructionApplier
+from app.services.jinja2_validator import validate_instruction_set
 from app.services.reference_loader import (
     get_reference_template_hash,
     load_reference_template,
 )
+from app.services.rules_engine import enrich_instructions
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 _parser = DocxParserService()
+_applier = InstructionApplier()
 
 # DOCX magic bytes: PK zip header
 _DOCX_MAGIC = b"PK\x03\x04"
@@ -258,3 +274,153 @@ def _validate_entry(
             errors.append(f"{prefix}: confidence must be a number.")
 
     return errors
+
+
+# ---------------------------------------------------------------------------
+# Plan 05-03 request models
+# ---------------------------------------------------------------------------
+
+
+class BuildInsertionPromptRequest(BaseModel):
+    """Request body for POST /adapter/build-insertion-prompt."""
+
+    doc_structure: DocxStructure
+    mapping_plan: MappingPlan
+
+
+class BuildInsertionPromptResponse(BaseModel):
+    """Response from POST /adapter/build-insertion-prompt."""
+
+    prompt: str
+    system_prompt: str
+
+
+class EnrichRequest(BaseModel):
+    """Request body for POST /adapter/enrich."""
+
+    instruction_set: InstructionSet
+
+
+class EnrichResponse(BaseModel):
+    """Response from POST /adapter/enrich."""
+
+    instruction_set: InstructionSet
+
+
+# ---------------------------------------------------------------------------
+# Plan 05-03 endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/apply", response_model=ApplyResponse)
+async def apply_instructions(body: ApplyRequest) -> ApplyResponse:
+    """Apply instructions to a DOCX template.
+
+    Pipeline: validate -> enrich -> apply.
+    Decodes the base64 template, validates the instruction set, enriches it
+    via the rules engine, then applies modifications to produce a new DOCX.
+    """
+    # Decode base64 template
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded template is empty.")
+
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    # Validate instruction set
+    validation = validate_instruction_set(body.instruction_set)
+    if not validation.valid:
+        logger.warning("Instruction validation failed: %s", validation.errors)
+        # Use sanitized instructions (valid subset) if available
+        if validation.sanitized_instructions and validation.sanitized_instructions.instructions:
+            instruction_set = validation.sanitized_instructions
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Instruction validation failed: {'; '.join(validation.errors)}",
+            )
+    else:
+        instruction_set = validation.sanitized_instructions or body.instruction_set
+
+    # Enrich instructions via rules engine
+    enriched = enrich_instructions(instruction_set)
+
+    # Apply instructions to DOCX
+    try:
+        output_bytes, applied_count, skipped_count, warnings = _applier.apply(
+            template_bytes, enriched
+        )
+    except Exception as exc:
+        logger.error("Instruction application failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to apply instructions: {exc}",
+        )
+
+    output_base64 = base64.b64encode(output_bytes).decode("ascii")
+
+    logger.info(
+        "Applied instructions: applied=%d, skipped=%d, warnings=%d",
+        applied_count,
+        skipped_count,
+        len(warnings),
+    )
+
+    return ApplyResponse(
+        output_base64=output_base64,
+        applied_count=applied_count,
+        skipped_count=skipped_count,
+        warnings=warnings,
+    )
+
+
+@router.post("/enrich", response_model=EnrichResponse)
+async def enrich_instruction_set(body: EnrichRequest) -> EnrichResponse:
+    """Enrich an instruction set via the rules engine.
+
+    Applies marker rewriting and template-type-specific feature injection
+    without modifying any DOCX file.
+    """
+    try:
+        enriched = enrich_instructions(body.instruction_set)
+    except Exception as exc:
+        logger.error("Instruction enrichment failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to enrich instructions: {exc}",
+        )
+
+    return EnrichResponse(instruction_set=enriched)
+
+
+@router.post("/build-insertion-prompt", response_model=BuildInsertionPromptResponse)
+async def build_insertion_prompt_endpoint(
+    body: BuildInsertionPromptRequest,
+) -> BuildInsertionPromptResponse:
+    """Build the LLM Pass 2 prompt for generating insertion instructions.
+
+    Takes a parsed document structure and an approved mapping plan, and returns
+    the system + user prompts for the LLM to generate InstructionSet JSON.
+    """
+    try:
+        system_prompt = build_insertion_system_prompt()
+        prompt = build_insertion_prompt(body.doc_structure, body.mapping_plan)
+    except Exception as exc:
+        logger.error("Insertion prompt build failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build insertion prompt: {exc}",
+        )
+
+    return BuildInsertionPromptResponse(
+        prompt=prompt,
+        system_prompt=system_prompt,
+    )
