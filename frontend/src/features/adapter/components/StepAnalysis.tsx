@@ -271,7 +271,7 @@ export function StepAnalysis({
     }
   }, [cachedPreview.data, annotatedPdfJobId])
 
-  // Watch for mapping updates from chat
+  // Watch for mapping updates from chat (standard chat flow)
   useEffect(() => {
     if (chat.latestMappingUpdate) {
       setMappingPlan(chat.latestMappingUpdate)
@@ -279,6 +279,27 @@ export function StepAnalysis({
       setPreviewOutdated(true)
     }
   }, [chat.latestMappingUpdate, onMappingUpdate])
+
+  // Watch for selection_mapping SSE events (batch mapping flow)
+  useEffect(() => {
+    if (chat.selectionMappings.size === 0) return
+    for (const [selNum, result] of chat.selectionMappings) {
+      selectionState.updateSelectionMapping(
+        selNum,
+        result.gwField,
+        result.markerType,
+        result.confidence,
+      )
+    }
+  }, [chat.selectionMappings, selectionState])
+
+  // Watch for batch_complete event
+  useEffect(() => {
+    if (chat.isBatchComplete) {
+      const resolvedCount = chat.selectionMappings.size
+      toast.success(`${resolvedCount} mappings resolved -- review and confirm`)
+    }
+  }, [chat.isBatchComplete, chat.selectionMappings.size])
 
   // Auto-scroll chat
   useEffect(() => {
@@ -288,6 +309,8 @@ export function StepAnalysis({
   const handleSendMessage = useCallback(() => {
     const trimmed = chatInput.trim()
     if (!trimmed) return
+    // Clear previous selection mappings before new batch
+    chat.clearSelectionMappings()
     chat.sendMessage(trimmed)
     setChatInput('')
   }, [chatInput, chat])
