@@ -139,6 +139,101 @@ class TestAnalyzeEndpoint:
         )
         assert response.status_code == 422  # Pydantic validation error
 
+    # ------ Few-shot integration tests ------
+
+    def test_few_shot_examples_included_in_prompt(self, client, minimal_docx_base64):
+        """POST /analyze with few_shot_examples includes the section in prompt."""
+        response = client.post(
+            "/adapter/analyze",
+            json={
+                "template_base64": minimal_docx_base64,
+                "template_type": "web",
+                "language": "en",
+                "few_shot_examples": [
+                    {
+                        "normalized_section_text": "client name: acme corp",
+                        "gw_field": "client.short_name",
+                        "marker_type": "text",
+                        "usage_count": 5,
+                    },
+                    {
+                        "normalized_section_text": "assessment period: january 2025",
+                        "gw_field": "project.start_date",
+                        "marker_type": "text",
+                        "usage_count": 3,
+                    },
+                    {
+                        "normalized_section_text": "detailed vulnerability description",
+                        "gw_field": "finding.description_rt",
+                        "marker_type": "paragraph_rt",
+                        "usage_count": 7,
+                    },
+                ],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "## Previous Successful Mappings" in data["prompt"]
+        assert "client name: acme corp" in data["prompt"]
+        assert "finding.description_rt" in data["prompt"]
+
+    def test_few_shot_without_field_backward_compat(self, client, minimal_docx_base64):
+        """POST /analyze without few_shot_examples field succeeds (backward compat)."""
+        response = client.post(
+            "/adapter/analyze",
+            json={
+                "template_base64": minimal_docx_base64,
+                "template_type": "web",
+                "language": "en",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "## Previous Successful Mappings" not in data["prompt"]
+
+    def test_few_shot_empty_array_no_section(self, client, minimal_docx_base64):
+        """POST /analyze with empty few_shot_examples produces no few-shot section."""
+        response = client.post(
+            "/adapter/analyze",
+            json={
+                "template_base64": minimal_docx_base64,
+                "template_type": "web",
+                "language": "en",
+                "few_shot_examples": [],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "## Previous Successful Mappings" not in data["prompt"]
+
+    def test_few_shot_response_structure_intact(self, client, minimal_docx_base64):
+        """POST /analyze with few_shot_examples still returns full response structure."""
+        response = client.post(
+            "/adapter/analyze",
+            json={
+                "template_base64": minimal_docx_base64,
+                "template_type": "web",
+                "language": "en",
+                "few_shot_examples": [
+                    {
+                        "normalized_section_text": "test section",
+                        "gw_field": "client.short_name",
+                        "marker_type": "text",
+                        "usage_count": 1,
+                    },
+                ],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "prompt" in data
+        assert "system_prompt" in data
+        assert "doc_structure_summary" in data
+        assert "reference_template_hash" in data
+        assert "paragraph_count" in data
+        assert len(data["prompt"]) > 0
+        assert len(data["reference_template_hash"]) == 64
+
 
 class TestValidateMappingEndpoint:
     """Tests for POST /adapter/validate-mapping."""
