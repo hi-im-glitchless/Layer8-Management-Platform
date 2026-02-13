@@ -88,3 +88,10 @@ class GenerateDocxResponse(BaseModel):
 
     filename: str
     size_bytes: int
+
+
+class RenderTemplateRequest(BaseModel):
+    """Request model for Jinja2 template rendering endpoint."""
+
+    template_base64: str  # Base64-encoded DOCX template
+    context: dict = Field(default_factory=dict)  # Jinja2 rendering context (template variables)
