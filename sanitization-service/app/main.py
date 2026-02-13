@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.health import router as health_router
-from app.routes import docx_router, sanitize_router
+from app.routes import adapter_router, docx_router, sanitize_router
 from app.services.sanitizer import SanitizationService
 
 # Configure logging
@@ -101,6 +101,7 @@ app.state.models_loaded_flag = lambda: models_loaded
 app.include_router(health_router, tags=["health"])
 app.include_router(sanitize_router, tags=["sanitization"])
 app.include_router(docx_router, tags=["document"])
+app.include_router(adapter_router, prefix="/adapter", tags=["adapter"])
 
 
 @app.get("/")
