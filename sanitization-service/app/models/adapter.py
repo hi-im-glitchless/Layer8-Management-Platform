@@ -67,12 +67,29 @@ class MappingPlan(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class FewShotExample(BaseModel):
+    """A previous confirmed mapping used as a few-shot example for LLM analysis."""
+
+    normalized_section_text: str = Field(
+        ..., description="Lowercase, whitespace-collapsed section text"
+    )
+    gw_field: str = Field(..., description="Target GW field path")
+    marker_type: str = Field(
+        ..., description="Marker type: text|paragraph_rt|run_rt|table_row_loop|control_flow"
+    )
+    usage_count: int = Field(..., description="How many times this mapping was confirmed")
+
+
 class AnalyzeRequest(BaseModel):
     """Request body for POST /adapter/analyze."""
 
     template_base64: str = Field(..., description="Base64-encoded client DOCX template")
     template_type: TemplateType
     language: TemplateLanguage
+    few_shot_examples: list[FewShotExample] = Field(
+        default_factory=list,
+        description="Previous confirmed mappings for few-shot learning",
+    )
 
 
 class AnalyzeResponse(BaseModel):
