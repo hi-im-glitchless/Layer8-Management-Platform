@@ -378,3 +378,123 @@ class TestAnnotateEndpoint:
         assert gap_summary["mapped_field_count"] == 3
         assert gap_summary["expected_field_count"] == 5
         assert gap_summary["coverage_percent"] == 60.0
+
+    @patch("app.routes.adapter.detect_gaps")
+    def test_annotate_endpoint_green_only_param(self, mock_detect, client):
+        """POST /annotate with green_only=true should return annotated DOCX without yellow shading."""
+        from app.models.gap_detection import GapDetectionResult, GapEntry as GapEntryModel
+
+        mock_detect.return_value = GapDetectionResult(
+            gaps=[
+                GapEntryModel(
+                    gw_field="project.start_date",
+                    marker_type="text",
+                    expected_context="Assessment period reference",
+                    estimated_paragraph_index=2,
+                ),
+            ],
+            mapped_field_count=1,
+            expected_field_count=2,
+            coverage_percent=50.0,
+        )
+
+        doc_bytes = _make_test_docx()
+        b64 = base64.b64encode(doc_bytes).decode("ascii")
+
+        response = client.post(
+            "/adapter/annotate",
+            json={
+                "template_base64": b64,
+                "mapping_plan": {
+                    "entries": [
+                        {
+                            "section_index": 1,
+                            "section_text": "Client Name: Acme Corp",
+                            "gw_field": "client.short_name",
+                            "placeholder_template": "{{ client.short_name }}",
+                            "confidence": 0.9,
+                            "marker_type": "text",
+                        },
+                    ],
+                    "template_type": "web",
+                    "language": "en",
+                },
+                "green_only": True,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify the annotated DOCX is returned
+        annotated_bytes = base64.b64decode(data["annotated_base64"])
+        doc = DocxDoc(BytesIO(annotated_bytes))
+
+        # Mapped paragraph (index 1) should have green shading
+        para1 = doc.paragraphs[1]
+        shd1 = para1._element.find(f".//{qn('w:shd')}")
+        assert shd1 is not None
+        assert shd1.get(qn("w:fill")) == GREEN_SHADING
+
+        # Gap paragraph (index 2) should NOT have yellow shading
+        para2 = doc.paragraphs[2]
+        shd2 = para2._element.find(f".//{qn('w:shd')}")
+        if shd2 is not None:
+            fill = shd2.get(qn("w:fill"))
+            assert fill != YELLOW_SHADING, "Gap paragraph should not have yellow shading in green_only mode"
+
+
+# ---------------------------------------------------------------------------
+# Green-only shading tests
+# ---------------------------------------------------------------------------
+
+
+class TestGreenOnlyShading:
+    """Tests for green_only mode in apply_paragraph_shading()."""
+
+    def test_apply_paragraph_shading_green_only(self, test_docx_bytes, mapping_plan, gap_entries):
+        """With green_only=True, only mapped paragraphs get green shading, gaps have none."""
+        result_bytes = apply_paragraph_shading(
+            test_docx_bytes, mapping_plan, gap_entries, green_only=True
+        )
+        doc = DocxDoc(BytesIO(result_bytes))
+
+        # Paragraph at index 1 (Client Name) should have green shading
+        para1 = doc.paragraphs[1]
+        shd1 = para1._element.find(f".//{qn('w:shd')}")
+        assert shd1 is not None, "Expected green shading on mapped paragraph"
+        assert shd1.get(qn("w:fill")) == GREEN_SHADING
+
+        # Paragraph at index 4 (Finding: SQL Injection) should also have green shading
+        para4 = doc.paragraphs[4]
+        shd4 = para4._element.find(f".//{qn('w:shd')}")
+        assert shd4 is not None, "Expected green shading on second mapped paragraph"
+        assert shd4.get(qn("w:fill")) == GREEN_SHADING
+
+        # Paragraph at index 2 (gap candidate) should NOT have any shading
+        para2 = doc.paragraphs[2]
+        shd2 = para2._element.find(f".//{qn('w:shd')}")
+        if shd2 is not None:
+            fill = shd2.get(qn("w:fill"))
+            assert fill not in (YELLOW_SHADING, GREEN_SHADING), (
+                f"Gap paragraph should not have shading in green_only mode, got fill={fill}"
+            )
+
+    def test_apply_paragraph_shading_default_includes_yellow(
+        self, test_docx_bytes, mapping_plan, gap_entries
+    ):
+        """Default behavior (green_only not specified) should include yellow gap shading."""
+        result_bytes = apply_paragraph_shading(test_docx_bytes, mapping_plan, gap_entries)
+        doc = DocxDoc(BytesIO(result_bytes))
+
+        # Paragraph at index 2 (gap) should have yellow shading
+        para2 = doc.paragraphs[2]
+        shd2 = para2._element.find(f".//{qn('w:shd')}")
+        assert shd2 is not None, "Expected yellow shading on gap paragraph by default"
+        assert shd2.get(qn("w:fill")) == YELLOW_SHADING
+
+        # Paragraph at index 1 (mapped) should still have green
+        para1 = doc.paragraphs[1]
+        shd1 = para1._element.find(f".//{qn('w:shd')}")
+        assert shd1 is not None
+        assert shd1.get(qn("w:fill")) == GREEN_SHADING
