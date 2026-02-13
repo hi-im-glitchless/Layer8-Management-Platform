@@ -19,6 +19,7 @@ import profileRouter from './routes/profile.js';
 import llmRouter from './routes/llm.js';
 import documentsRouter from './routes/documents.js';
 import ghostwriterRouter from './routes/ghostwriter.js';
+import templateAdapterRouter from './routes/templateAdapter.js';
 import { waitForSanitizer } from './services/sanitization.js';
 import { checkGotenbergHealth } from './services/documents.js';
 
@@ -124,6 +125,9 @@ async function startServer() {
 
     // Mount Ghostwriter routes
     app.use('/api/ghostwriter', ghostwriterRouter);
+
+    // Mount template adapter routes
+    app.use('/api/adapter', templateAdapterRouter);
 
     // Mount sanitization routes
     app.use('/api', sanitizationRouter);
