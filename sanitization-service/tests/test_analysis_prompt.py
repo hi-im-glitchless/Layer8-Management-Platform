@@ -5,8 +5,13 @@ import pytest
 from docx import Document as DocxDoc
 from io import BytesIO
 
+from app.models.adapter import FewShotExample
 from app.models.docx import DocxStructure, DocxParagraph, DocxTable, DocxRow, DocxCell
-from app.services.analysis_prompt import build_analysis_prompt, build_analysis_system_prompt
+from app.services.analysis_prompt import (
+    _build_few_shot_section,
+    build_analysis_prompt,
+    build_analysis_system_prompt,
+)
 from app.services.docx_parser import DocxParserService
 from app.services.reference_loader import load_reference_template
 
@@ -131,3 +136,113 @@ class TestBuildAnalysisPrompt:
         assert estimated_tokens < 8000, (
             f"Prompt is ~{estimated_tokens:.0f} tokens, should be under 8000"
         )
+
+
+# ---------------------------------------------------------------------------
+# Few-shot prompt tests
+# ---------------------------------------------------------------------------
+
+_SAMPLE_FEW_SHOT_EXAMPLES = [
+    FewShotExample(
+        normalized_section_text="client name: ___________",
+        gw_field="client.short_name",
+        marker_type="text",
+        usage_count=5,
+    ),
+    FewShotExample(
+        normalized_section_text="assessment period",
+        gw_field="project.start_date",
+        marker_type="text",
+        usage_count=3,
+    ),
+    FewShotExample(
+        normalized_section_text="detailed description of the vulnerability",
+        gw_field="finding.description_rt",
+        marker_type="paragraph_rt",
+        usage_count=7,
+    ),
+]
+
+
+class TestBuildFewShotSection:
+    """Tests for _build_few_shot_section helper."""
+
+    def test_few_shot_section_with_examples(self):
+        result = _build_few_shot_section(_SAMPLE_FEW_SHOT_EXAMPLES)
+        assert result is not None
+        assert "## Previous Successful Mappings" in result
+        # All 3 examples present
+        assert 'Section: "client name: ___________"' in result
+        assert "GW Field: client.short_name [text]" in result
+        assert "(confirmed 5 times)" in result
+        assert 'Section: "assessment period"' in result
+        assert "GW Field: project.start_date [text]" in result
+        assert "(confirmed 3 times)" in result
+        assert 'Section: "detailed description of the vulnerability"' in result
+        assert "GW Field: finding.description_rt [paragraph_rt]" in result
+        assert "(confirmed 7 times)" in result
+
+    def test_few_shot_section_empty_list_returns_none(self):
+        result = _build_few_shot_section([])
+        assert result is None
+
+    def test_few_shot_section_includes_header_and_footer(self):
+        result = _build_few_shot_section(_SAMPLE_FEW_SHOT_EXAMPLES)
+        assert "confirmed correct in previous template adaptations" in result
+        assert "high-confidence patterns" in result
+
+
+class TestBuildAnalysisPromptFewShot:
+    """Tests for build_analysis_prompt with few-shot examples."""
+
+    def test_few_shot_section_included_when_examples_provided(
+        self, sample_doc_structure, web_en_ref
+    ):
+        prompt = build_analysis_prompt(
+            sample_doc_structure, web_en_ref, "web", "en",
+            few_shot_examples=_SAMPLE_FEW_SHOT_EXAMPLES,
+        )
+        assert "## Previous Successful Mappings" in prompt
+
+    def test_few_shot_section_between_reference_and_gw_fields(
+        self, sample_doc_structure, web_en_ref
+    ):
+        prompt = build_analysis_prompt(
+            sample_doc_structure, web_en_ref, "web", "en",
+            few_shot_examples=_SAMPLE_FEW_SHOT_EXAMPLES,
+        )
+        ref_pos = prompt.index("## Reference Template Patterns")
+        few_shot_pos = prompt.index("## Previous Successful Mappings")
+        gw_pos = prompt.index("## Available GW Fields")
+        assert ref_pos < few_shot_pos < gw_pos
+
+    def test_no_few_shot_section_without_examples(
+        self, sample_doc_structure, web_en_ref
+    ):
+        prompt = build_analysis_prompt(
+            sample_doc_structure, web_en_ref, "web", "en",
+        )
+        assert "## Previous Successful Mappings" not in prompt
+
+    def test_no_few_shot_section_with_empty_list(
+        self, sample_doc_structure, web_en_ref
+    ):
+        prompt = build_analysis_prompt(
+            sample_doc_structure, web_en_ref, "web", "en",
+            few_shot_examples=[],
+        )
+        assert "## Previous Successful Mappings" not in prompt
+
+    def test_prompt_without_few_shot_unchanged_from_phase5(
+        self, sample_doc_structure, web_en_ref
+    ):
+        """Regression: prompt without few-shot is identical to Phase 5 behavior."""
+        prompt_no_fewshot = build_analysis_prompt(
+            sample_doc_structure, web_en_ref, "web", "en",
+        )
+        prompt_empty_fewshot = build_analysis_prompt(
+            sample_doc_structure, web_en_ref, "web", "en",
+            few_shot_examples=[],
+        )
+        # Both should produce identical output
+        assert prompt_no_fewshot == prompt_empty_fewshot
