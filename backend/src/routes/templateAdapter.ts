@@ -767,6 +767,39 @@ router.get('/download/:sessionId', requireAuth, async (req: Request, res: Respon
 
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
+
+    // Fire-and-forget: persist confirmed mappings to knowledge base
+    // KB failure must NOT affect the download
+    const mappingPlan = state.analysis.mappingPlan as unknown as MappingPlan;
+    const mappingCount = mappingPlan?.entries?.length ?? 0;
+
+    persistMappingsToKB(state).then(async () => {
+      // Audit log for KB persistence
+      try {
+        await logAuditEvent({
+          userId,
+          action: 'adapter.kb_persist',
+          details: {
+            sessionId,
+            mappingCount,
+            templateType: state.config.templateType,
+            language: state.config.language,
+          },
+          ipAddress,
+        });
+      } catch (auditErr) {
+        console.error('[templateAdapter route] Failed to log KB persist audit:', auditErr);
+      }
+    }).catch((err) => {
+      console.error('[templateAdapter route] KB persistence failed (non-blocking):', err);
+    });
+
+    // Update wizard state step to download
+    updateWizardSession(userId, sessionId, {
+      currentStep: 'download',
+    }).catch((err) => {
+      console.error('[templateAdapter route] Failed to update step to download:', err);
+    });
   } catch (error) {
     handleAdapterError(res, error, 'Download');
   }
