@@ -17,6 +17,7 @@ import denyListRouter from './routes/denyList.js';
 import sanitizationRouter from './routes/sanitization.js';
 import profileRouter from './routes/profile.js';
 import llmRouter from './routes/llm.js';
+import documentsRouter from './routes/documents.js';
 import { waitForSanitizer } from './services/sanitization.js';
 
 const app = express();
@@ -115,6 +116,9 @@ async function startServer() {
 
     // Mount deny list routes
     app.use('/api/deny-list', denyListRouter);
+
+    // Mount document routes
+    app.use('/api/documents', documentsRouter);
 
     // Mount sanitization routes
     app.use('/api', sanitizationRouter);
