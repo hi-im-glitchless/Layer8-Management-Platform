@@ -21,6 +21,7 @@ import {
   updateWizardSession,
   type WizardState,
   type WizardAnnotatedPreview,
+  type InteractiveSelection,
 } from './wizardState.js';
 import { addPdfConversionJob } from './pdfQueue.js';
 import { queryFewShotExamples, bulkUpsertMappings, type TemplateMappingInput } from './templateMapping.js';
@@ -641,10 +642,67 @@ export function getDownloadPath(wizardState: WizardState): string {
 }
 
 // ---------------------------------------------------------------------------
+// Batch Selection Helpers
+// ---------------------------------------------------------------------------
+
+/** Response from Python /adapter/validate-batch-mapping */
+interface ValidateBatchMappingResponse {
+  valid: boolean;
+  mappings: Array<{
+    selection_number: number;
+    gw_field: string;
+    marker_type: string;
+    confidence: number;
+    rationale: string;
+  }>;
+  errors: string[];
+  warnings: string[];
+}
+
+/**
+ * Detect whether a chat message contains batch selection references (#N).
+ */
+export function detectBatchSelections(message: string): boolean {
+  return /#\d+/.test(message);
+}
+
+/**
+ * Extract all #N selection numbers from a chat message.
+ */
+export function parseBatchSelectionNumbers(message: string): number[] {
+  const matches = message.matchAll(/#(\d+)/g);
+  const numbers = new Set<number>();
+  for (const match of matches) {
+    numbers.add(parseInt(match[1], 10));
+  }
+  return Array.from(numbers).sort((a, b) => a - b);
+}
+
+// ---------------------------------------------------------------------------
 // Chat Feedback
 // ---------------------------------------------------------------------------
 
 const CHAT_WARNING_THRESHOLD = 5;
+
+/**
+ * Selection mapping result emitted as SSE event per resolved selection.
+ */
+export interface SelectionMappingResult {
+  selectionNumber: number;
+  gwField: string;
+  markerType: string;
+  confidence: number;
+  rationale: string;
+}
+
+/**
+ * Extended yield type for processChatFeedback -- includes batch mapping events.
+ */
+export type ChatFeedbackChunk = LLMStreamChunk & {
+  mappingUpdate?: MappingPlan;
+  selectionMapping?: SelectionMappingResult;
+  batchComplete?: { resolvedCount: number; totalCount: number };
+};
 
 /**
  * Process iterative chat feedback via SSE streaming.
@@ -654,16 +712,20 @@ const CHAT_WARNING_THRESHOLD = 5;
  * If the LLM response contains JSON mapping plan modifications,
  * the mapping plan in session state is updated.
  *
+ * When the message contains #N batch selection references, switches to
+ * the batch mapping prompt and emits per-selection mapping events.
+ *
  * Includes a soft warning in the system prompt after 5 iterations.
  */
 export async function* processChatFeedback(
   wizardState: WizardState,
   userMessage: string,
   signal?: AbortSignal,
-): AsyncGenerator<LLMStreamChunk & { mappingUpdate?: MappingPlan }> {
+): AsyncGenerator<ChatFeedbackChunk> {
   const { userId, sessionId } = wizardState;
   const currentPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
   const iterationCount = wizardState.chat.iterationCount;
+  const isBatchMessage = detectBatchSelections(userMessage);
 
   // Record user message in history
   const now = new Date().toISOString();
@@ -680,6 +742,18 @@ export async function* processChatFeedback(
     },
   });
 
+  // --- Batch selection flow ---
+  if (isBatchMessage && wizardState.interactiveSelections.length > 0) {
+    yield* processBatchSelectionChat(
+      wizardState,
+      userMessage,
+      updatedHistory,
+      signal,
+    );
+    return;
+  }
+
+  // --- Standard chat flow (backward compatible) ---
   // Build system prompt with current mapping plan context
   let systemPrompt = (
     'You are a template adaptation assistant helping refine a mapping plan ' +
@@ -798,5 +872,219 @@ export async function* processChatFeedback(
     done: true,
     usage,
     ...(mappingUpdate ? { mappingUpdate } : {}),
+  };
+}
+
+/**
+ * Process batch selection chat -- builds batch mapping prompt, calls LLM,
+ * validates via Python, and emits per-selection SSE events.
+ */
+async function* processBatchSelectionChat(
+  wizardState: WizardState,
+  userMessage: string,
+  updatedHistory: Array<{ role: string; content: string; timestamp: string }>,
+  signal?: AbortSignal,
+): AsyncGenerator<ChatFeedbackChunk> {
+  const { userId, sessionId } = wizardState;
+  const sanitizerUrl = config.SANITIZER_URL;
+  const iterationCount = wizardState.chat.iterationCount;
+  const selections = wizardState.interactiveSelections;
+  const referencedNumbers = parseBatchSelectionNumbers(userMessage);
+
+  // Determine if this is initial mapping or re-mapping
+  const referencedSelections = selections.filter(
+    (s) => referencedNumbers.includes(s.selectionNumber),
+  );
+  const isRemap = referencedSelections.some((s) => s.status === 'rejected');
+  const confirmedMappings = selections.filter((s) => s.status === 'confirmed');
+
+  // Build batch mapping prompts via Python service
+  const promptPayload = isRemap
+    ? {
+        selections: referencedSelections.map((s) => ({
+          selection_number: s.selectionNumber,
+          text: s.text,
+          paragraph_index: s.paragraphIndex,
+        })),
+        user_description: userMessage,
+        previous_mappings: confirmedMappings.map((s) => ({
+          selection_number: s.selectionNumber,
+          gw_field: s.gwField ?? '',
+        })),
+      }
+    : {
+        selections: referencedSelections.map((s) => ({
+          selection_number: s.selectionNumber,
+          text: s.text,
+          paragraph_index: s.paragraphIndex,
+        })),
+        user_description: userMessage,
+      };
+
+  // Build system prompt via reference template info
+  // Use the batch mapping system prompt from the Python service
+  const templateType = wizardState.config.templateType;
+  const language = wizardState.config.language;
+
+  // Get reference info for system prompt (reuse analysis prompt endpoint pattern)
+  let batchSystemPrompt = (
+    'You are mapping user-selected text from a document to Ghostwriter template fields. ' +
+    'The user has highlighted numbered selections from their penetration testing report template ' +
+    'and described what each selection represents.\n\n' +
+    'Return ONLY a valid JSON array where each entry has: selectionNumber, gwField, markerType, confidence, rationale.\n'
+  );
+
+  // Build the user prompt with selections and description
+  let batchUserPrompt = '';
+  if (isRemap) {
+    // Include confirmed context
+    if (confirmedMappings.length > 0) {
+      batchUserPrompt += 'Already confirmed:\n';
+      for (const m of confirmedMappings) {
+        batchUserPrompt += `#${m.selectionNumber} -> ${m.gwField ?? 'unknown'}\n`;
+      }
+      batchUserPrompt += '\nRe-map the following:\n';
+    }
+  }
+
+  batchUserPrompt += 'Selections:\n';
+  for (const sel of referencedSelections) {
+    const truncated = sel.text.slice(0, 200) + (sel.text.length > 200 ? '...' : '');
+    batchUserPrompt += `#${sel.selectionNumber} (paragraph ${sel.paragraphIndex}): "${truncated}"\n`;
+  }
+  batchUserPrompt += `\nUser description: ${userMessage}\n`;
+
+  const messages: LLMMessage[] = [
+    { role: 'system', content: batchSystemPrompt },
+    { role: 'user', content: batchUserPrompt },
+  ];
+
+  // Stream LLM response
+  const client = await createLLMClient();
+  let fullResponse = '';
+  let usage = { inputTokens: 0, outputTokens: 0 };
+  const model = client.resolveModel('template-adapter');
+
+  const stream = client.generateStream(messages, {
+    maxTokens: 4096,
+    feature: 'template-adapter',
+    signal,
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.text) {
+      fullResponse += chunk.text;
+      yield { text: chunk.text, done: false };
+    }
+    if (chunk.done) {
+      if (chunk.usage) {
+        usage = chunk.usage;
+      }
+    }
+  }
+
+  // Validate the LLM response via Python service
+  try {
+    const validateRes = await fetch(`${sanitizerUrl}/adapter/validate-batch-mapping`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        llm_response: fullResponse,
+        selections: referencedSelections.map((s) => ({
+          selection_number: s.selectionNumber,
+          text: s.text,
+          paragraph_index: s.paragraphIndex,
+        })),
+        template_type: templateType,
+        language: language,
+      }),
+    });
+
+    if (validateRes.ok) {
+      const validateData = await validateRes.json() as ValidateBatchMappingResponse;
+
+      if (validateData.valid && validateData.mappings.length > 0) {
+        // Emit per-selection mapping events
+        for (const mapping of validateData.mappings) {
+          yield {
+            text: '',
+            done: false,
+            selectionMapping: {
+              selectionNumber: mapping.selection_number,
+              gwField: mapping.gw_field,
+              markerType: mapping.marker_type,
+              confidence: mapping.confidence,
+              rationale: mapping.rationale,
+            },
+          };
+        }
+
+        // Update interactiveSelections with resolved mappings
+        const updatedSelections = selections.map((s) => {
+          const resolved = validateData.mappings.find(
+            (m) => m.selection_number === s.selectionNumber,
+          );
+          if (resolved) {
+            return {
+              ...s,
+              status: 'pending' as const,
+              gwField: resolved.gw_field,
+              markerType: resolved.marker_type,
+              confidence: resolved.confidence,
+            };
+          }
+          return s;
+        });
+
+        await updateWizardSession(userId, sessionId, {
+          interactiveSelections: updatedSelections,
+        });
+
+        // Emit batch_complete event
+        yield {
+          text: '',
+          done: false,
+          batchComplete: {
+            resolvedCount: validateData.mappings.length,
+            totalCount: referencedSelections.length,
+          },
+        };
+      }
+    }
+  } catch (err) {
+    console.error('[templateAdapter] Batch validation failed:', err);
+  }
+
+  // Record assistant message in history
+  const assistantHistory = [
+    ...updatedHistory,
+    { role: 'assistant', content: fullResponse, timestamp: new Date().toISOString() },
+  ];
+
+  await updateWizardSession(userId, sessionId, {
+    chat: {
+      iterationCount: iterationCount + 1,
+      history: assistantHistory,
+    },
+  });
+
+  // Log the interaction
+  try {
+    await logLLMInteraction(userId, 'system', {
+      promptSanitized: userMessage,
+      responseFull: fullResponse,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      model,
+    });
+  } catch (err) {
+    console.error('[templateAdapter] Failed to log batch chat interaction:', err);
+  }
+
+  // Final done chunk
+  yield {
+    text: '',
+    done: true,
+    usage,
   };
 }

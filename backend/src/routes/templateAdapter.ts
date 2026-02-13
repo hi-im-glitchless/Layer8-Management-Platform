@@ -917,7 +917,8 @@ router.get('/download/:sessionId', requireAuth, async (req: Request, res: Respon
  * Iterative chat feedback for mapping plan refinement.
  * Body: { sessionId, message }
  * Streams response via SSE (same pattern as /api/llm/generate).
- * Events: delta (text chunk), mapping_update (modified plan), done (usage), error
+ * Events: delta (text chunk), mapping_update (modified plan),
+ *         selection_mapping (per-selection result), batch_complete, done (usage), error
  */
 router.post('/chat', requireAuth, async (req: Request, res: Response) => {
   const body = chatBodySchema.safeParse(req.body);
@@ -965,6 +966,19 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
       if ('mappingUpdate' in chunk && chunk.mappingUpdate) {
         res.write(
           `event: mapping_update\ndata: ${JSON.stringify({ mappingPlan: chunk.mappingUpdate })}\n\n`,
+        );
+      }
+
+      // Batch selection mapping events
+      if ('selectionMapping' in chunk && chunk.selectionMapping) {
+        res.write(
+          `event: selection_mapping\ndata: ${JSON.stringify(chunk.selectionMapping)}\n\n`,
+        );
+      }
+
+      if ('batchComplete' in chunk && chunk.batchComplete) {
+        res.write(
+          `event: batch_complete\ndata: ${JSON.stringify(chunk.batchComplete)}\n\n`,
         );
       }
 

@@ -79,6 +79,16 @@ export interface WizardChat {
   history: WizardChatMessage[];
 }
 
+export interface InteractiveSelection {
+  selectionNumber: number;
+  text: string;
+  paragraphIndex: number;
+  status: 'pending' | 'confirmed' | 'rejected';
+  gwField?: string;
+  markerType?: string;
+  confidence?: number;
+}
+
 export interface WizardState {
   sessionId: string;
   userId: string;
@@ -90,6 +100,7 @@ export interface WizardState {
   preview: WizardPreview;
   annotatedPreview: WizardAnnotatedPreview;
   chat: WizardChat;
+  interactiveSelections: InteractiveSelection[];
   createdAt: string;
   updatedAt: string;
 }
@@ -164,6 +175,7 @@ export async function createWizardSession(userId: string): Promise<WizardState> 
       iterationCount: 0,
       history: [],
     },
+    interactiveSelections: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -249,6 +261,7 @@ export async function updateWizardSession(
       ...existing.chat,
       ...(updates.chat ?? {}),
     },
+    interactiveSelections: updates.interactiveSelections ?? existing.interactiveSelections,
     // Preserve immutable fields
     sessionId: existing.sessionId,
     userId: existing.userId,
