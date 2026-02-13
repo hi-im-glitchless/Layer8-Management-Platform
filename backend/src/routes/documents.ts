@@ -6,6 +6,7 @@ import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { requireAuth } from '@/middleware/auth.js';
 import { addPdfConversionJob, getPdfJobStatus } from '@/services/pdfQueue.js';
+import { renderTemplatePreview } from '@/services/documents.js';
 import { logAuditEvent } from '@/services/audit.js';
 
 const router = Router();
@@ -67,9 +68,14 @@ const jobIdParamSchema = z.object({
 
 const filenameParamSchema = z.object({
   filename: z.string().regex(
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|docx)$/,
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(_rendered)?\.(pdf|docx)$/,
     'Invalid filename format',
   ),
+});
+
+const previewRequestSchema = z.object({
+  templatePath: z.string().min(1, 'templatePath is required'),
+  reportId: z.number().int().positive('reportId must be a positive integer'),
 });
 
 /**
@@ -215,6 +221,70 @@ router.get('/download/:filename', requireAuth, async (req: Request, res: Respons
     res.status(500).json({
       error: 'Failed to download file',
       details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * POST /api/documents/preview
+ * Render a DOCX template with Ghostwriter report data and queue PDF conversion.
+ * Returns the rendered DOCX download URL and a PDF conversion job ID.
+ */
+router.post('/preview', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const validation = previewRequestSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: validation.error.issues,
+      });
+    }
+
+    const { templatePath, reportId } = validation.data;
+
+    // Validate template file exists
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).json({ error: 'Template file not found' });
+    }
+
+    const { docxPath, jobId } = await renderTemplatePreview(templatePath, reportId);
+    const docxFilename = path.basename(docxPath);
+
+    // Audit log the preview request
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId: req.session.userId ?? null,
+      action: 'document.preview.queued',
+      details: {
+        templatePath,
+        reportId,
+        renderedDocx: docxFilename,
+        pdfJobId: jobId,
+      },
+      ipAddress,
+    });
+
+    res.status(202).json({
+      docxUrl: `/api/documents/download/${docxFilename}`,
+      pdfJobId: jobId,
+    });
+  } catch (error) {
+    console.error('[documents routes] Preview error:', error);
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+
+    if (msg.includes('not configured')) {
+      return res.status(503).json({ error: 'Ghostwriter not configured' });
+    }
+    if (msg.includes('not found in Ghostwriter')) {
+      return res.status(404).json({ error: msg });
+    }
+    if (msg.includes('authentication failed')) {
+      return res.status(401).json({ error: 'Ghostwriter authentication failed' });
+    }
+
+    res.status(500).json({
+      error: 'Failed to generate template preview',
+      details: msg,
     });
   }
 });
