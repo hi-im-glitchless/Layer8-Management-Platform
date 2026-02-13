@@ -8,6 +8,7 @@
  * GET  /api/adapter/preview/:sessionId -- Poll preview status
  * POST /api/adapter/annotated-preview -- Generate annotated preview with shading
  * GET  /api/adapter/annotated-preview/:sessionId -- Get cached annotation data
+ * GET  /api/adapter/document-structure/:sessionId -- Document paragraph list
  * POST /api/adapter/update-mapping -- Merge inline edits into mapping plan
  * GET  /api/adapter/download/:sessionId -- Download adapted DOCX
  * POST /api/adapter/chat      -- Iterative feedback via SSE streaming
@@ -21,6 +22,7 @@ import { z } from 'zod';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import { config } from '@/config.js';
 import { requireAuth } from '@/middleware/auth.js';
 import {
   analyzeTemplate,
@@ -615,6 +617,108 @@ router.get('/annotated-preview/:sessionId', requireAuth, async (req: Request, re
     res.json(response);
   } catch (error) {
     handleAdapterError(res, error, 'Annotated preview status');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/adapter/document-structure/:sessionId
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the full paragraph list for the session's DOCX template.
+ * Proxies to Python POST /adapter/document-structure, caching the result
+ * in wizard state so subsequent requests skip the re-parse.
+ */
+router.get('/document-structure/:sessionId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const params = sessionIdParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = params.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    if (!state.templateFile.base64) {
+      return res.status(400).json({ error: 'No template uploaded in this session' });
+    }
+
+    // Return cached result if available
+    const stateAny = state as unknown as Record<string, unknown>;
+    if (stateAny.documentStructure) {
+      res.json(stateAny.documentStructure);
+      return;
+    }
+
+    // Proxy to Python service
+    const sanitizerUrl = config.SANITIZER_URL;
+    const pythonRes = await fetch(`${sanitizerUrl}/adapter/document-structure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_base64: state.templateFile.base64 }),
+    });
+
+    if (!pythonRes.ok) {
+      const detail = await pythonRes.text();
+      throw new Error(`Sanitizer document-structure failed (${pythonRes.status}): ${detail}`);
+    }
+
+    const data = await pythonRes.json();
+
+    // Validate response shape
+    const documentStructureSchema = z.object({
+      paragraphs: z.array(z.object({
+        paragraph_index: z.number(),
+        text: z.string(),
+        heading_level: z.number().nullable(),
+        is_empty: z.boolean(),
+        style_name: z.string().nullable(),
+      })),
+      total_count: z.number(),
+      empty_count: z.number(),
+    });
+
+    const validated = documentStructureSchema.parse(data);
+
+    // Transform snake_case to camelCase for frontend
+    const camelCased = {
+      paragraphs: validated.paragraphs.map((p) => ({
+        paragraphIndex: p.paragraph_index,
+        text: p.text,
+        headingLevel: p.heading_level,
+        isEmpty: p.is_empty,
+        styleName: p.style_name,
+      })),
+      totalCount: validated.total_count,
+      emptyCount: validated.empty_count,
+    };
+
+    // Cache in wizard state to avoid re-parsing
+    await updateWizardSession(userId, sessionId, {
+      documentStructure: camelCased,
+    } as Partial<typeof state>);
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.document_structure',
+      details: {
+        sessionId,
+        totalCount: camelCased.totalCount,
+        emptyCount: camelCased.emptyCount,
+      },
+      ipAddress,
+    });
+
+    res.json(camelCased);
+  } catch (error) {
+    handleAdapterError(res, error, 'Document structure');
   }
 });
 
