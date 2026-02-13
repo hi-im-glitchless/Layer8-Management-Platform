@@ -11,6 +11,7 @@ import type {
   MappingUpdateRequest,
   SelectionEntry,
   SelectionAction,
+  SelectionMappingResult,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -405,6 +406,21 @@ function parseSSEEvent(eventType: string, data: string): ChatSSEEvent | null {
         return { type: 'delta', text: parsed.text }
       case 'mapping_update':
         return { type: 'mapping_update', mappingPlan: parsed.mappingPlan }
+      case 'selection_mapping':
+        return {
+          type: 'selection_mapping',
+          selectionNumber: parsed.selectionNumber,
+          gwField: parsed.gwField,
+          markerType: parsed.markerType,
+          confidence: parsed.confidence,
+          rationale: parsed.rationale,
+        }
+      case 'batch_complete':
+        return {
+          type: 'batch_complete',
+          resolvedCount: parsed.resolvedCount,
+          totalCount: parsed.totalCount,
+        }
       case 'done':
         return { type: 'done', usage: parsed.usage ?? {} }
       case 'error':
@@ -425,6 +441,8 @@ export function useAdapterChat(sessionId: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [latestMappingUpdate, setLatestMappingUpdate] = useState<MappingPlan | null>(null)
+  const [selectionMappings, setSelectionMappings] = useState<Map<number, SelectionMappingResult>>(new Map())
+  const [isBatchComplete, setIsBatchComplete] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const sendMessage = useCallback(
@@ -440,6 +458,8 @@ export function useAdapterChat(sessionId: string | null) {
       setMessages((prev) => [...prev, userMsg])
       setIsStreaming(true)
       setLatestMappingUpdate(null)
+      setSelectionMappings(new Map())
+      setIsBatchComplete(false)
 
       // Prepare assistant placeholder
       let assistantContent = ''
@@ -511,6 +531,21 @@ export function useAdapterChat(sessionId: string | null) {
                   case 'mapping_update':
                     setLatestMappingUpdate(event.mappingPlan)
                     break
+                  case 'selection_mapping':
+                    setSelectionMappings((prev) => {
+                      const updated = new Map(prev)
+                      updated.set(event.selectionNumber, {
+                        gwField: event.gwField,
+                        markerType: event.markerType,
+                        confidence: event.confidence,
+                        rationale: event.rationale,
+                      })
+                      return updated
+                    })
+                    break
+                  case 'batch_complete':
+                    setIsBatchComplete(true)
+                    break
                   case 'done':
                     // Stream complete
                     break
@@ -551,14 +586,24 @@ export function useAdapterChat(sessionId: string | null) {
   const clearMessages = useCallback(() => {
     setMessages([])
     setLatestMappingUpdate(null)
+    setSelectionMappings(new Map())
+    setIsBatchComplete(false)
+  }, [])
+
+  const clearSelectionMappings = useCallback(() => {
+    setSelectionMappings(new Map())
+    setIsBatchComplete(false)
   }, [])
 
   return {
     messages,
     isStreaming,
     latestMappingUpdate,
+    selectionMappings,
+    isBatchComplete,
     sendMessage,
     cancelStream,
     clearMessages,
+    clearSelectionMappings,
   }
 }

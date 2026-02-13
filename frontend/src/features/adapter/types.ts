@@ -126,10 +126,20 @@ export interface ActiveSessionResponse {
   } | null
 }
 
+/** Resolved mapping for a single selection in a batch */
+export interface SelectionMappingResult {
+  gwField: string
+  markerType: string
+  confidence: number
+  rationale: string
+}
+
 /** SSE event types from /api/adapter/chat */
 export type ChatSSEEvent =
   | { type: 'delta'; text: string }
   | { type: 'mapping_update'; mappingPlan: MappingPlan }
+  | { type: 'selection_mapping'; selectionNumber: number; gwField: string; markerType: string; confidence: number; rationale: string }
+  | { type: 'batch_complete'; resolvedCount: number; totalCount: number }
   | { type: 'done'; usage: Record<string, unknown> }
   | { type: 'error'; message: string; retryable: boolean }
 
