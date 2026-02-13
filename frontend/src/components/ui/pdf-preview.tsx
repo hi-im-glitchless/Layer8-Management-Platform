@@ -3,8 +3,6 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import {
-  ChevronLeft,
-  ChevronRight,
   ZoomIn,
   ZoomOut,
   AlertCircle,
@@ -12,7 +10,6 @@ import {
   Maximize,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -42,20 +39,13 @@ export function PdfPreview({
   onPageChange,
 }: PdfPreviewProps) {
   const [numPages, setNumPages] = useState<number>(0)
-  const [pageNumber, setPageNumber] = useState(1)
   const [scale, setScale] = useState(0) // 0 = fit width
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [pageInputValue, setPageInputValue] = useState('1')
-  const [pageLoading, setPageLoading] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLDivElement>(null)
-  const prevBtnRef = useRef<HTMLButtonElement>(null)
-  const nextBtnRef = useRef<HTMLButtonElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
   const instanceId = useId()
-  const pageInputId = `${instanceId}-page-input`
-  const pageStatusId = `${instanceId}-page-status`
   const zoomStatusId = `${instanceId}-zoom-status`
 
   const displayError = externalError || loadError
@@ -80,8 +70,6 @@ export function PdfPreview({
   const onDocumentLoadSuccess = useCallback(
     ({ numPages: pages }: { numPages: number }) => {
       setNumPages(pages)
-      setPageNumber(1)
-      setPageInputValue('1')
       setLoadError(null)
       onPageChange?.(1, pages)
     },
@@ -91,60 +79,6 @@ export function PdfPreview({
   const onDocumentLoadError = useCallback((error: Error) => {
     setLoadError(error.message || 'Failed to load PDF')
   }, [])
-
-  const onPageLoadSuccess = useCallback(() => {
-    setPageLoading(false)
-  }, [])
-
-  const goToPage = useCallback(
-    (page: number) => {
-      const clamped = Math.max(1, Math.min(numPages, page))
-      setPageNumber(clamped)
-      setPageInputValue(String(clamped))
-      setPageLoading(true)
-      onPageChange?.(clamped, numPages)
-    },
-    [numPages, onPageChange],
-  )
-
-  const prevPage = useCallback(() => {
-    goToPage(pageNumber - 1)
-    // Keep focus on nav controls after page change
-    prevBtnRef.current?.focus()
-  }, [goToPage, pageNumber])
-
-  const nextPage = useCallback(() => {
-    goToPage(pageNumber + 1)
-    nextBtnRef.current?.focus()
-  }, [goToPage, pageNumber])
-
-  const handlePageInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setPageInputValue(e.target.value)
-    },
-    [],
-  )
-
-  const handlePageInputKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        const val = parseInt(pageInputValue, 10)
-        if (!isNaN(val)) {
-          goToPage(val)
-        }
-      }
-    },
-    [pageInputValue, goToPage],
-  )
-
-  const handlePageInputBlur = useCallback(() => {
-    const val = parseInt(pageInputValue, 10)
-    if (!isNaN(val)) {
-      goToPage(val)
-    } else {
-      setPageInputValue(String(pageNumber))
-    }
-  }, [pageInputValue, goToPage, pageNumber])
 
   const zoomIn = useCallback(() => {
     setScale((prev) => {
@@ -167,34 +101,21 @@ export function PdfPreview({
   const handleRetry = useCallback(() => {
     setLoadError(null)
     setNumPages(0)
-    setPageNumber(1)
-    setPageInputValue('1')
   }, [])
 
-  // Scoped keyboard navigation -- only active when focus is within the viewer
+  // Scoped keyboard shortcuts -- only active when focus is within the viewer
   useEffect(() => {
     const viewer = viewerRef.current
     if (!viewer) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if focus is on an input element
       const activeEl = document.activeElement
       const isInputFocused =
         activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement
       if (isInputFocused) return
-
-      // Only handle if focus is within our component
       if (!viewer.contains(activeEl)) return
 
       switch (e.key) {
-        case 'ArrowLeft':
-          e.preventDefault()
-          goToPage(pageNumber - 1)
-          break
-        case 'ArrowRight':
-          e.preventDefault()
-          goToPage(pageNumber + 1)
-          break
         case '+':
         case '=':
           e.preventDefault()
@@ -209,12 +130,15 @@ export function PdfPreview({
 
     viewer.addEventListener('keydown', handleKeyDown)
     return () => viewer.removeEventListener('keydown', handleKeyDown)
-  }, [goToPage, pageNumber, zoomIn, zoomOut])
+  }, [zoomIn, zoomOut])
 
   // Compute page width for fit-width mode
   const pageWidth = scale === 0 && containerWidth > 0 ? containerWidth - 32 : undefined
   const pageScale = scale === 0 ? undefined : scale
   const displayZoom = scale === 0 ? 'Fit' : `${Math.round(scale * 100)}%`
+
+  // Build array of page numbers for continuous scroll
+  const pageNumbers = useMemo(() => Array.from({ length: numPages }, (_, i) => i + 1), [numPages])
 
   // Loading state (no URL yet)
   if (isLoading && !url) {
@@ -292,63 +216,16 @@ export function PdfPreview({
       <div
         className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30 flex-wrap"
         role="toolbar"
-        aria-label="PDF navigation and zoom controls"
+        aria-label="PDF zoom controls"
       >
-        {/* Page navigation group */}
-        <div className="flex items-center gap-1" role="group" aria-label="Page navigation">
-          <Button
-            ref={prevBtnRef}
-            variant="ghost"
-            size="icon"
-            onClick={prevPage}
-            disabled={pageNumber <= 1}
-            aria-label="Previous page"
-            className="h-8 w-8"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
+        {/* Page count */}
+        {numPages > 0 && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {numPages} {numPages === 1 ? 'page' : 'pages'}
+          </span>
+        )}
 
-          <div className="flex items-center gap-1 text-sm">
-            <label htmlFor={pageInputId} className="sr-only">
-              Page number
-            </label>
-            <Input
-              id={pageInputId}
-              type="number"
-              min={1}
-              max={numPages || 1}
-              value={pageInputValue}
-              onChange={handlePageInputChange}
-              onKeyDown={handlePageInputKeyDown}
-              onBlur={handlePageInputBlur}
-              className="h-7 w-14 text-center text-xs"
-              aria-label={`Page number, ${pageNumber} of ${numPages}`}
-            />
-            <span
-              id={pageStatusId}
-              aria-live="polite"
-              aria-atomic="true"
-              className="text-muted-foreground whitespace-nowrap"
-            >
-              of {numPages}
-            </span>
-          </div>
-
-          <Button
-            ref={nextBtnRef}
-            variant="ghost"
-            size="icon"
-            onClick={nextPage}
-            disabled={pageNumber >= numPages}
-            aria-label="Next page"
-            className="h-8 w-8"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
-
-        {/* Separator (decorative) */}
-        <div className="h-6 w-px bg-border mx-1" aria-hidden="true" />
+        <div className="flex-1" />
 
         {/* Zoom controls group */}
         <div className="flex items-center gap-1" role="group" aria-label="Zoom controls">
@@ -396,10 +273,10 @@ export function PdfPreview({
         </div>
       </div>
 
-      {/* PDF render area */}
+      {/* PDF render area -- continuous scroll of all pages */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto flex justify-center bg-muted/10 min-h-[400px]"
+        className="flex-1 overflow-auto bg-muted/10 min-h-[400px] max-h-[80vh]"
       >
         <Document
           file={file}
@@ -429,28 +306,25 @@ export function PdfPreview({
             </div>
           }
         >
-          <div className="p-4 relative">
-            {pageLoading && (
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <Skeleton className="h-[400px] w-full max-w-md" />
-              </div>
-            )}
-            <Page
-              pageNumber={pageNumber}
-              width={pageWidth}
-              scale={pageScale}
-              onLoadSuccess={onPageLoadSuccess}
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
-              className="shadow-lg motion-reduce:transition-none"
-            />
+          <div className="flex flex-col items-center gap-4 p-4">
+            {pageNumbers.map((pageNum) => (
+              <Page
+                key={pageNum}
+                pageNumber={pageNum}
+                width={pageWidth}
+                scale={pageScale}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                className="shadow-lg motion-reduce:transition-none"
+              />
+            ))}
           </div>
         </Document>
       </div>
 
-      {/* Screen reader only: page change announcement */}
+      {/* Screen reader only: page count announcement */}
       <div className="sr-only" aria-live="polite" aria-atomic="true">
-        Page {pageNumber} of {numPages}
+        {numPages} pages loaded
       </div>
     </div>
   )

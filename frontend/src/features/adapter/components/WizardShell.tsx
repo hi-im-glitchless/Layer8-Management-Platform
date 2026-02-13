@@ -61,13 +61,35 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
   const [localMappingPlan, setLocalMappingPlan] = useState<MappingPlan | null>(null)
   const [localFile, setLocalFile] = useState<File | null>(null)
 
-  // Determine effective current step
+  // Determine effective current step.
+  // The server step may lag behind the frontend (e.g., during analysis the backend
+  // step is still 'upload' until the LLM completes). Derive a minimum step from
+  // session data so the wizard never regresses on component remount or tab refocus.
   const serverStep = sessionQuery.data?.currentStep
-  const effectiveStep: WizardStep = overrideStep ?? serverStep ?? 'upload'
+  const sessionData = sessionQuery.data
+
+  // Infer the minimum step from what the session already has
+  let inferredMinStep: WizardStep = 'upload'
+  if (sessionData) {
+    if (sessionData.templateFile?.originalName) inferredMinStep = 'analysis'
+    if (sessionData.analysis?.mappingPlan) inferredMinStep = 'analysis'
+    if (sessionData.adaptation?.appliedCount > 0) inferredMinStep = 'adaptation'
+    if (sessionData.preview?.pdfJobId || sessionData.preview?.pdfUrl) inferredMinStep = 'preview'
+  }
+
+  // Pick the highest step among override, server, and inferred minimum
+  const candidates = [overrideStep, serverStep, inferredMinStep].filter(Boolean) as WizardStep[]
+  const effectiveStep: WizardStep = candidates.reduce((best, step) =>
+    STEP_ORDER[step] > STEP_ORDER[best] ? step : best,
+    'upload' as WizardStep,
+  )
   const currentStepIndex = STEP_ORDER[effectiveStep]
 
   // The furthest step the server has reached (limit for forward navigation)
-  const maxReachableIndex = serverStep ? STEP_ORDER[serverStep] : 0
+  const maxReachableIndex = Math.max(
+    serverStep ? STEP_ORDER[serverStep] : 0,
+    STEP_ORDER[inferredMinStep],
+  )
 
   const handleStepClick = useCallback(
     (step: WizardStep) => {

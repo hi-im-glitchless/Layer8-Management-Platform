@@ -171,6 +171,9 @@ export interface AnnotatedPreviewResponse {
 /** GET /api/adapter/annotated-preview/:sessionId response */
 export interface AnnotatedPreviewStatus {
   pdfUrl: string | null
+  pdfStatus?: 'queued' | 'active' | 'completed' | 'failed' | 'not_found'
+  pdfProgress?: number
+  pdfError?: string
   tooltipData: TooltipEntry[]
   unmappedParagraphs: UnmappedParagraph[]
   gapSummary: GapSummary | null

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { useActiveSession } from '@/features/adapter/hooks'
 import { WizardShell } from '@/features/adapter/components/WizardShell'
 
+const SESSION_STORAGE_KEY = 'adapter-active-session'
+
 // ---------------------------------------------------------------------------
 // Error Boundary
 // ---------------------------------------------------------------------------
@@ -62,9 +64,13 @@ class WizardErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
 
 export function TemplateAdapter() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [sessionId, setSessionId] = useState<string | null>(
-    searchParams.get('session'),
-  )
+
+  // Resolve initial sessionId: URL param > sessionStorage > null
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    const fromUrl = searchParams.get('session')
+    if (fromUrl) return fromUrl
+    return sessionStorage.getItem(SESSION_STORAGE_KEY)
+  })
 
   // Track whether the user manually cleared the session (prevents auto-resume race)
   const manualClearRef = useRef(false)
@@ -72,7 +78,23 @@ export function TemplateAdapter() {
   // Check for active session on mount (for auto-resume)
   const activeSessionQuery = useActiveSession()
 
-  // Auto-resume: if no session in URL but server has an active session, use it
+  // Sync sessionId to sessionStorage whenever it changes
+  useEffect(() => {
+    if (sessionId) {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId)
+    } else {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY)
+    }
+  }, [sessionId])
+
+  // Sync URL param if we restored from sessionStorage but URL is missing it
+  useEffect(() => {
+    if (sessionId && !searchParams.get('session')) {
+      setSearchParams({ session: sessionId }, { replace: true })
+    }
+  }, [sessionId, searchParams, setSearchParams])
+
+  // Auto-resume: if no session locally but server has an active session, use it
   useEffect(() => {
     if (manualClearRef.current) return
     if (!sessionId && activeSessionQuery.data?.session) {

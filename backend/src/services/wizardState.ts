@@ -264,13 +264,30 @@ export async function updateWizardSession(
 
 /**
  * Delete a wizard session from Redis.
+ * Also removes any other sessions for the same user to prevent
+ * stale duplicates from being picked up by getActiveWizardSession.
  */
 export async function deleteWizardSession(
   userId: string,
   sessionId: string,
 ): Promise<void> {
+  // Delete the target session
   const key = buildKey(userId, sessionId);
   await redisClient.del(key);
+
+  // Clean up any other sessions for this user (duplicates from StrictMode, etc.)
+  const pattern = buildUserPattern(userId);
+  let cursor = '0';
+  do {
+    const result = await redisClient.scan(cursor as unknown as number, {
+      MATCH: pattern,
+      COUNT: 100,
+    });
+    cursor = String(result.cursor);
+    for (const otherKey of result.keys) {
+      await redisClient.del(otherKey);
+    }
+  } while (cursor !== '0');
 }
 
 /**

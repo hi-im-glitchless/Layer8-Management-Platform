@@ -17,7 +17,9 @@ import {
   useCachedAnnotatedPreview,
   useUpdateMapping,
 } from '../hooks'
+import { adapterApi } from '../api'
 import { MappingTable } from './MappingTable'
+import { AnalysisProgressDisplay } from './AnalysisProgress'
 import type {
   TemplateType,
   TemplateLanguage,
@@ -57,6 +59,7 @@ export function StepAnalysis({
   const [mappingPlan, setMappingPlan] = useState<MappingPlan | null>(initialMappingPlan)
   const [chatInput, setChatInput] = useState('')
   const [elapsed, setElapsed] = useState(0)
+  const [analysisStep, setAnalysisStep] = useState(0)
   const [previewOutdated, setPreviewOutdated] = useState(false)
   const [tooltipData, setTooltipData] = useState<TooltipEntry[]>([])
   const [unmappedParagraphs, setUnmappedParagraphs] = useState<UnmappedParagraph[]>([])
@@ -71,12 +74,13 @@ export function StepAnalysis({
   const hasTriggeredAnalysis = useRef(false)
   const hasTriggeredPreview = useRef(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  // Note: analysisStartRef removed — start time now persisted in sessionStorage
 
   // Poll annotated preview PDF status
   const annotatedStatus = useAnnotatedPreviewStatus(sessionId, annotatedPdfJobId)
   const annotatedPdfUrl = annotatedStatus.data?.pdfUrl ?? null
-  const isAnnotatedPdfReady = annotatedStatus.data?.status === 'completed'
-  const isAnnotatedPdfFailed = annotatedStatus.data?.status === 'failed'
+  const isAnnotatedPdfReady = !!annotatedPdfUrl || annotatedStatus.data?.pdfStatus === 'completed'
+  const isAnnotatedPdfFailed = annotatedStatus.data?.pdfStatus === 'failed'
 
   // Restore cached annotated preview on page reload
   const cachedPreview = useCachedAnnotatedPreview(sessionId)
@@ -86,13 +90,62 @@ export function StepAnalysis({
   const analyzeError = analyzeMutation.error || analyzeFromSessionMutation.error
   const isError = analyzeMutation.isError || analyzeFromSessionMutation.isError
 
-  // Elapsed timer while analyzing
+  // Persist analysis start time in sessionStorage so elapsed survives
+  // tab switches, component remounts, and page refreshes.
+  const storageKey = `adapter-analysis-start-${sessionId}`
+
+  const getStoredStart = useCallback((): number | null => {
+    const raw = sessionStorage.getItem(storageKey)
+    return raw ? Number(raw) : null
+  }, [storageKey])
+
+  const setStoredStart = useCallback((ts: number) => {
+    sessionStorage.setItem(storageKey, String(ts))
+  }, [storageKey])
+
+  const clearStoredStart = useCallback(() => {
+    sessionStorage.removeItem(storageKey)
+  }, [storageKey])
+
+  // Elapsed timer while analyzing -- uses wall-clock time persisted in sessionStorage,
+  // so switching browser tabs or refreshing doesn't reset progress.
+  useEffect(() => {
+    if (mappingPlan) {
+      clearStoredStart()
+      return
+    }
+    if (!isAnalyzing) {
+      // Not analyzing but no mapping plan -- check if we have a stored start
+      // (analysis might be running server-side after a refresh)
+      const stored = getStoredStart()
+      if (stored) {
+        setElapsed(Math.floor((Date.now() - stored) / 1000))
+      }
+      return
+    }
+    // Currently analyzing -- ensure we have a start time
+    let start = getStoredStart()
+    if (!start) {
+      start = Date.now()
+      setStoredStart(start)
+    }
+    const tick = () => {
+      const s = getStoredStart() ?? Date.now()
+      setElapsed(Math.floor((Date.now() - s) / 1000))
+    }
+    tick() // immediate first tick
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [isAnalyzing, mappingPlan, getStoredStart, setStoredStart, clearStoredStart])
+
+  // Progress step estimation based on elapsed time
+  // The LLM streaming is the bulk of the work (30-120s for large templates)
   useEffect(() => {
     if (!isAnalyzing || mappingPlan) return
-    setElapsed(0)
-    const interval = setInterval(() => setElapsed((prev) => prev + 1), 1000)
-    return () => clearInterval(interval)
-  }, [isAnalyzing, mappingPlan])
+    if (elapsed >= 90) setAnalysisStep(2)        // ~90s+: likely validating
+    else if (elapsed >= 3) setAnalysisStep(1)    // ~3-90s: LLM analyzing (bulk of time)
+    else setAnalysisStep(0)                       // 0-3s: preparing prompt
+  }, [elapsed, isAnalyzing, mappingPlan])
 
   // Poll session as fallback -- if the HTTP response is lost (e.g. timeout),
   // the server-side session still has the mapping plan from the completed analysis.
@@ -139,13 +192,34 @@ export function StepAnalysis({
           },
         )
       } else if (sessionId) {
-        // No file (page refresh) -- use session-based analysis
-        analyzeFromSessionMutation.mutate(sessionId, {
-          onSuccess: (data) => {
-            setMappingPlan(data.mappingPlan)
-            onMappingUpdate(data.mappingPlan)
-            toast.success('Template analysis complete')
-          },
+        // No file (page refresh) -- check session first before re-triggering analysis.
+        // The previous analysis might still be completing server-side.
+        // Poll session to see if result is already available.
+        adapterApi.getSession(sessionId).then((session) => {
+          const existingPlan = session?.analysis?.mappingPlan as unknown as MappingPlan | null
+          if (existingPlan?.entries?.length) {
+            // Analysis already completed server-side — use the result
+            setMappingPlan(existingPlan)
+            onMappingUpdate(existingPlan)
+          } else {
+            // No result yet — trigger session-based analysis
+            analyzeFromSessionMutation.mutate(sessionId, {
+              onSuccess: (data) => {
+                setMappingPlan(data.mappingPlan)
+                onMappingUpdate(data.mappingPlan)
+                toast.success('Template analysis complete')
+              },
+            })
+          }
+        }).catch(() => {
+          // Session fetch failed — trigger analysis anyway
+          analyzeFromSessionMutation.mutate(sessionId, {
+            onSuccess: (data) => {
+              setMappingPlan(data.mappingPlan)
+              onMappingUpdate(data.mappingPlan)
+              toast.success('Template analysis complete')
+            },
+          })
         })
       }
     }
@@ -191,7 +265,7 @@ export function StepAnalysis({
 
   // Auto-scroll chat
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [chat.messages])
 
   const handleSendMessage = useCallback(() => {
@@ -213,6 +287,9 @@ export function StepAnalysis({
 
   const handleReAnalyze = useCallback(() => {
     hasTriggeredAnalysis.current = true
+    setStoredStart(Date.now())
+    setElapsed(0)
+    setAnalysisStep(0)
     if (file) {
       analyzeMutation.mutate(
         { file, templateType, language },
@@ -338,20 +415,13 @@ export function StepAnalysis({
   if (isAnalyzing && !mappingPlan) {
     return (
       <Card>
-        <CardContent className="py-16 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground mt-4">Analyzing template structure...</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            The LLM is identifying sections and mapping them to Ghostwriter fields.
-          </p>
-          <p className="text-xs text-muted-foreground mt-3 tabular-nums">
-            Elapsed: {formatElapsed(elapsed)}
-          </p>
-          {elapsed >= 60 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Large templates can take 2-3 minutes.
-            </p>
-          )}
+        <CardContent className="py-8">
+          <h3 className="text-sm font-medium text-center mb-6">Analyzing template structure</h3>
+          <AnalysisProgressDisplay
+            activePhase="running"
+            activeStepIndex={analysisStep}
+            elapsed={elapsed}
+          />
         </CardContent>
       </Card>
     )
@@ -361,15 +431,15 @@ export function StepAnalysis({
   if (isError && !mappingPlan) {
     return (
       <Card>
-        <CardContent className="py-16 text-center">
-          <p className="text-destructive font-medium">Analysis failed</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            {(analyzeError as Error)?.message || 'Unknown error'}
-          </p>
-          <Button variant="outline" className="mt-4" onClick={handleReAnalyze}>
-            <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
-            Retry Analysis
-          </Button>
+        <CardContent className="py-8">
+          <h3 className="text-sm font-medium text-center mb-6">Analysis failed</h3>
+          <AnalysisProgressDisplay
+            activePhase="error"
+            activeStepIndex={analysisStep}
+            elapsed={elapsed}
+            errorMessage={(analyzeError as Error)?.message || 'Unknown error'}
+            onRetry={handleReAnalyze}
+          />
         </CardContent>
       </Card>
     )

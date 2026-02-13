@@ -193,13 +193,13 @@ export function useAnnotatedPreview() {
 export function useAnnotatedPreviewStatus(sessionId: string | null, pdfJobId: string | null) {
   return useQuery({
     queryKey: ['adapter', 'annotated-preview-status', sessionId, pdfJobId],
-    queryFn: () => adapterApi.getPreviewStatus(sessionId!),
+    queryFn: () => adapterApi.getAnnotatedPreview(sessionId!),
     enabled: !!sessionId && !!pdfJobId,
     refetchInterval: (query) => {
-      const status = query.state.data?.status
-      if (status === 'completed' || status === 'failed') {
-        return false
-      }
+      const data = query.state.data
+      const pdfUrl = data?.pdfUrl
+      // Stop polling once we have a PDF URL or if it failed
+      if (pdfUrl) return false
       return 2000
     },
   })
