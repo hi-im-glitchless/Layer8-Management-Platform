@@ -227,6 +227,14 @@ def prepare_context(raw_context: dict, tpl: DocxTemplate) -> dict:
         enriched_findings.append(f)
 
     ctx["findings"] = enriched_findings
+
+    # Add singular 'finding' alias pointing to the first finding.
+    # Templates adapted by the wizard may reference {{ finding.title }},
+    # {{p finding.description_rt }}, etc. outside a {% for %} loop.
+    # This ensures preview rendering works without explicit loop markers.
+    if enriched_findings:
+        ctx["finding"] = enriched_findings[0]
+
     return ctx
 
 

@@ -1,34 +1,59 @@
 import { Check, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { AdaptationProgress as ProgressStep } from '../types'
 
-const DEFAULT_STEPS: ProgressStep[] = [
-  { step: 'instructions', status: 'pending', message: 'Generating insertion instructions...' },
-  { step: 'validation', status: 'pending', message: 'Validating Jinja2 syntax...' },
-  { step: 'application', status: 'pending', message: 'Applying placeholders to document...' },
-  { step: 'verification', status: 'pending', message: 'Verifying output...' },
+interface StepDef {
+  step: string
+  message: string
+}
+
+const STEPS: StepDef[] = [
+  { step: 'instructions', message: 'Generating insertion instructions...' },
+  { step: 'validation', message: 'Validating Jinja2 syntax...' },
+  { step: 'application', message: 'Applying placeholders to document...' },
+  { step: 'verification', message: 'Verifying output...' },
 ]
 
+/** Estimated percentage for each step while running */
+const STEP_PERCENT: Record<number, number> = {
+  0: 15,  // building prompt
+  1: 55,  // LLM generating instructions (bulk of time)
+  2: 80,  // applying to DOCX
+  3: 95,  // verifying
+}
+
+/** Format seconds as "Xm Ys" or "Xs" */
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}m ${s}s`
+}
+
 interface AdaptationProgressProps {
-  /** Current phase of the adaptation pipeline */
   activePhase: 'idle' | 'running' | 'complete' | 'error'
-  /** Which sub-step index is currently active (0-3) */
   activeStepIndex: number
-  /** Error message if the pipeline failed */
+  elapsed: number
   errorMessage?: string
-  /** Retry callback */
   onRetry?: () => void
 }
 
 export function AdaptationProgressDisplay({
   activePhase,
   activeStepIndex,
+  elapsed,
   errorMessage,
   onRetry,
 }: AdaptationProgressProps) {
-  const steps = DEFAULT_STEPS.map((step, index) => {
-    let status = step.status
+  const overallPercent =
+    activePhase === 'complete'
+      ? 100
+      : activePhase === 'running'
+        ? STEP_PERCENT[activeStepIndex] ?? 0
+        : 0
+
+  const steps = STEPS.map((step, index) => {
+    let status: 'pending' | 'active' | 'complete' | 'error' = 'pending'
     if (activePhase === 'complete') {
       status = 'complete'
     } else if (activePhase === 'error' && index === activeStepIndex) {
@@ -42,6 +67,27 @@ export function AdaptationProgressDisplay({
 
   return (
     <div className="space-y-4">
+      {/* Overall progress bar */}
+      {activePhase === 'running' && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="tabular-nums">{overallPercent}%</span>
+            <span className="tabular-nums">Elapsed: {formatElapsed(elapsed)}</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+              style={{ width: `${overallPercent}%` }}
+            />
+          </div>
+          {elapsed >= 60 && (
+            <p className="text-xs text-muted-foreground text-center">
+              Large templates can take 2-3 minutes.
+            </p>
+          )}
+        </div>
+      )}
+
       <ol className="space-y-3" aria-label="Adaptation progress">
         {steps.map((step, index) => (
           <li
@@ -81,7 +127,7 @@ export function AdaptationProgressDisplay({
             {/* Label */}
             <span
               className={cn(
-                'text-sm',
+                'flex-1 text-sm',
                 step.status === 'complete' && 'text-green-700 dark:text-green-300',
                 step.status === 'active' && 'text-foreground font-medium',
                 step.status === 'error' && 'text-destructive font-medium',
@@ -90,6 +136,18 @@ export function AdaptationProgressDisplay({
             >
               {step.message}
             </span>
+
+            {/* Per-step percentage */}
+            {step.status === 'active' && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {STEP_PERCENT[index] ?? 0}%
+              </span>
+            )}
+            {step.status === 'complete' && activePhase !== 'complete' && (
+              <span className="text-xs text-green-600 dark:text-green-400 tabular-nums">
+                done
+              </span>
+            )}
           </li>
         ))}
       </ol>

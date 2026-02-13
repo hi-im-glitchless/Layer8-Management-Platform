@@ -55,6 +55,19 @@ export function useAnalyzeTemplate() {
 }
 
 /**
+ * Run LLM Pass 1 analysis using the template stored in an existing session.
+ * Used after page refresh when the File object is no longer available.
+ */
+export function useAnalyzeFromSession() {
+  return useMutation({
+    mutationFn: (sessionId: string) => adapterApi.analyzeFromSession(sessionId),
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to analyze template')
+    },
+  })
+}
+
+/**
  * Apply LLM Pass 2 instructions to adapt the template.
  */
 export function useApplyInstructions() {
@@ -129,6 +142,24 @@ export function useActiveSession() {
     queryKey: ['adapter', 'active-session'],
     queryFn: () => adapterApi.getActiveSession(),
     staleTime: 60_000,
+  })
+}
+
+/**
+ * Delete a wizard session (reset / start over).
+ * Removes cached query data immediately to prevent auto-resume race conditions.
+ */
+export function useResetSession() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (sessionId: string) => adapterApi.deleteSession(sessionId),
+    onSuccess: (_data, sessionId) => {
+      queryClient.removeQueries({ queryKey: ['adapter', 'session', sessionId] })
+      queryClient.setQueryData(['adapter', 'active-session'], { session: null })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to reset session')
+    },
   })
 }
 

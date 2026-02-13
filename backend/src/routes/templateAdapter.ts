@@ -30,6 +30,8 @@ import {
 import {
   getWizardSession,
   getActiveWizardSession,
+  updateWizardSession,
+  deleteWizardSession,
 } from '@/services/wizardState.js';
 import { getPdfJobStatus } from '@/services/pdfQueue.js';
 import { logAuditEvent } from '@/services/audit.js';
@@ -245,6 +247,74 @@ router.post(
     }
   },
 );
+
+// ---------------------------------------------------------------------------
+// POST /api/adapter/analyze-session
+// ---------------------------------------------------------------------------
+
+/**
+ * Analyze a template using LLM Pass 1 from an existing wizard session.
+ * Used when the page is refreshed and the File object is lost — the template
+ * base64 is read from the session stored in Redis.
+ */
+router.post('/analyze-session', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = sessionIdParamSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
+    }
+
+    const userId = req.session.userId!;
+    const state = await getWizardSession(userId, body.data.sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (!state.templateFile.base64) {
+      return res.status(400).json({ error: 'No template uploaded in this session' });
+    }
+
+    const result = await analyzeTemplate(
+      state.templateFile.base64,
+      state.config.templateType,
+      state.config.language,
+    );
+
+    // Update session with analysis results
+    await updateWizardSession(userId, body.data.sessionId, {
+      currentStep: 'analysis',
+      analysis: {
+        mappingPlan: result.mappingPlan as unknown as Record<string, unknown>,
+        referenceTemplateHash: result.referenceTemplateHash,
+        llmPrompt: null,
+      },
+    });
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.analyze',
+      details: {
+        templateType: state.config.templateType,
+        language: state.config.language,
+        originalName: state.templateFile.originalName,
+        referenceTemplateHash: result.referenceTemplateHash,
+        mappingEntries: result.mappingPlan.entries.length,
+        warnings: result.mappingPlan.warnings,
+        fromSession: true,
+      },
+      ipAddress,
+    });
+
+    res.json({
+      mappingPlan: result.mappingPlan,
+      referenceTemplateHash: result.referenceTemplateHash,
+    });
+  } catch (error) {
+    handleAdapterError(res, error, 'Template analysis');
+  }
+});
 
 // ---------------------------------------------------------------------------
 // POST /api/adapter/apply
@@ -632,6 +702,39 @@ router.get('/session', requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleAdapterError(res, error, 'Active session lookup');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/adapter/session/:sessionId
+// ---------------------------------------------------------------------------
+
+/**
+ * Delete a wizard session. Allows the user to reset and start over.
+ */
+router.delete('/session/:sessionId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const params = sessionIdParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = params.data;
+
+    await deleteWizardSession(userId, sessionId);
+
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.session_reset',
+      details: { sessionId },
+      ipAddress,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    handleAdapterError(res, error, 'Session deletion');
   }
 });
 

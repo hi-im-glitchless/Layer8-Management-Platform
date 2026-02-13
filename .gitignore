@@ -40,6 +40,17 @@ Thumbs.db
 # Test coverage
 coverage/
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Runtime uploads
+backend/uploads/
+
+# LibreOffice lock files
+.~lock.*
+
 # Temporary files
 tmp/
 temp/

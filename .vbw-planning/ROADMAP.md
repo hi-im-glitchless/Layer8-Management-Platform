@@ -9,8 +9,9 @@ Layer8 automates template adaptation and executive report generation for offensi
 - [x] Phase 2: Sanitization Infrastructure
 - [x] Phase 2.1: Profile Page Completion (INSERTED)
 - [x] Phase 3: LLM Integration
-- [ ] Phase 4: Document Processing
-- [ ] Phase 5: Template Adapter - Core
+- [x] Phase 4: Document Processing
+- [x] Phase 5: Template Adapter - Core
+- [ ] Phase 5.1: Analysis Preview & Mapping Memory (INSERTED)
 - [ ] Phase 6: Template Adapter - Translation
 - [ ] Phase 7: Template Adapter - Modification & Bulk
 - [ ] Phase 8: Executive Report Generator
@@ -56,12 +57,20 @@ Layer8 automates template adaptation and executive report generation for offensi
 **Deps:** Phase 1
 **Reqs:** DOCP-01-05, GHST-01-03, UIUX-07-08
 **Success:** Parse/generate DOCX, pixel-perfect PDF via Gotenberg, Ghostwriter GraphQL integration
+**Plans:** 5/5 complete
 
 ### Phase 5: Template Adapter - Core
 **Goal:** LLM-powered Jinja2 insertion with pixel-perfect preview, iterative feedback loop
 **Deps:** Phase 3, Phase 4
 **Reqs:** TMPL-01-11, UIUX-09-10
 **Success:** Upload → analyze → preview → annotate → download workflow complete
+**Plans:** 5/5 complete
+
+### Phase 5.1: Analysis Preview & Mapping Memory (INSERTED)
+**Goal:** Annotated document preview in Analysis step highlighting mapped vs missing placeholders, plus a persistent knowledge base that stores completed mappings as few-shot examples for future LLM analyses
+**Deps:** Phase 5
+**Reqs:** TMPL-01, TMPL-06, UIUX-09
+**Success:** Annotated PDF preview shows green (mapped) / yellow (gap) highlights in Step 2; completed mappings persist in DB and inject as few-shot examples in future analyses, reducing repeated misses
 
 ### Phase 6: Template Adapter - Translation
 **Goal:** Bidirectional EN/PT-PT translation preserving Jinja2 logic
@@ -96,8 +105,9 @@ Layer8 automates template adaptation and executive report generation for offensi
 | 2 - Sanitization | 8/8 | Complete | 2026-02-12 |
 | 2.1 - Profile | 2/2 | Complete | 2026-02-11 |
 | 3 - LLM Integration | 3/3 | Complete | 2026-02-12 |
-| 4 - Document Processing | 0/TBD | Not started | - |
-| 5 - Template Adapter Core | 0/TBD | Not started | - |
+| 4 - Document Processing | 5/5 | Complete | 2026-02-13 |
+| 5 - Template Adapter Core | 5/5 | Complete | 2026-02-13 |
+| 5.1 - Analysis Preview & Memory | 0/TBD | Not started | - |
 | 6 - Translation | 0/TBD | Not started | - |
 | 7 - Modification & Bulk | 0/TBD | Not started | - |
 | 8 - Executive Report | 0/TBD | Not started | - |

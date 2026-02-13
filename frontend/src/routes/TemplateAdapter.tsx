@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Component, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, Component, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -66,11 +66,15 @@ export function TemplateAdapter() {
     searchParams.get('session'),
   )
 
+  // Track whether the user manually cleared the session (prevents auto-resume race)
+  const manualClearRef = useRef(false)
+
   // Check for active session on mount (for auto-resume)
   const activeSessionQuery = useActiveSession()
 
   // Auto-resume: if no session in URL but server has an active session, use it
   useEffect(() => {
+    if (manualClearRef.current) return
     if (!sessionId && activeSessionQuery.data?.session) {
       const activeId = activeSessionQuery.data.session.sessionId
       setSessionId(activeId)
@@ -80,6 +84,7 @@ export function TemplateAdapter() {
 
   const handleSessionCreate = useCallback(
     (id: string) => {
+      manualClearRef.current = false
       setSessionId(id)
       setSearchParams({ session: id }, { replace: true })
     },
@@ -87,6 +92,7 @@ export function TemplateAdapter() {
   )
 
   const handleSessionClear = useCallback(() => {
+    manualClearRef.current = true
     setSessionId(null)
     setSearchParams({}, { replace: true })
   }, [setSearchParams])

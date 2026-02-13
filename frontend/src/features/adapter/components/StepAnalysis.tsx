@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useAnalyzeTemplate, useAdapterChat } from '../hooks'
+import { useAnalyzeTemplate, useAnalyzeFromSession, useAdapterChat, useWizardSession } from '../hooks'
 import { MappingTable } from './MappingTable'
 import type { TemplateType, TemplateLanguage, MappingPlan } from '../types'
 
@@ -18,6 +18,14 @@ interface StepAnalysisProps {
   onProceed: () => void
 }
 
+/** Format seconds as "Xm Ys" or "Xs" */
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}m ${s}s`
+}
+
 export function StepAnalysis({
   sessionId,
   file,
@@ -29,27 +37,82 @@ export function StepAnalysis({
 }: StepAnalysisProps) {
   const [mappingPlan, setMappingPlan] = useState<MappingPlan | null>(initialMappingPlan)
   const [chatInput, setChatInput] = useState('')
+  const [elapsed, setElapsed] = useState(0)
   const analyzeMutation = useAnalyzeTemplate()
+  const analyzeFromSessionMutation = useAnalyzeFromSession()
   const chat = useAdapterChat(sessionId)
   const hasTriggeredAnalysis = useRef(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
+  // The active mutation (either file-based or session-based)
+  const isAnalyzing = analyzeMutation.isPending || analyzeFromSessionMutation.isPending
+  const analyzeError = analyzeMutation.error || analyzeFromSessionMutation.error
+  const isError = analyzeMutation.isError || analyzeFromSessionMutation.isError
+
+  // Elapsed timer while analyzing
+  useEffect(() => {
+    if (!isAnalyzing || mappingPlan) return
+    setElapsed(0)
+    const interval = setInterval(() => setElapsed((prev) => prev + 1), 1000)
+    return () => clearInterval(interval)
+  }, [isAnalyzing, mappingPlan])
+
+  // Poll session as fallback — if the HTTP response is lost (e.g. timeout),
+  // the server-side session still has the mapping plan from the completed analysis.
+  // Start polling after 30s, check every 10s.
+  const sessionPoll = useWizardSession(
+    isAnalyzing && !mappingPlan && elapsed >= 30 ? sessionId : null,
+  )
+
+  useEffect(() => {
+    if (!isAnalyzing || mappingPlan) return
+    if (elapsed >= 30 && elapsed % 10 === 0 && sessionPoll.data?.analysis?.mappingPlan) {
+      const serverPlan = sessionPoll.data.analysis.mappingPlan as unknown as MappingPlan
+      if (serverPlan?.entries?.length) {
+        setMappingPlan(serverPlan)
+        onMappingUpdate(serverPlan)
+        toast.success('Template analysis complete')
+      }
+    }
+  }, [elapsed, isAnalyzing, mappingPlan, sessionPoll.data, onMappingUpdate])
+
+  // Also refetch session poll periodically
+  useEffect(() => {
+    if (!isAnalyzing || mappingPlan || elapsed < 30) return
+    if (elapsed % 10 === 0) {
+      sessionPoll.refetch()
+    }
+  }, [elapsed, isAnalyzing, mappingPlan, sessionPoll])
+
   // Auto-trigger analysis on mount if no mapping plan yet
   useEffect(() => {
-    if (!mappingPlan && file && !hasTriggeredAnalysis.current && !analyzeMutation.isPending) {
+    if (!mappingPlan && !hasTriggeredAnalysis.current && !isAnalyzing) {
       hasTriggeredAnalysis.current = true
-      analyzeMutation.mutate(
-        { file, templateType, language },
-        {
+
+      if (file) {
+        // File available (same session) — use multipart upload
+        analyzeMutation.mutate(
+          { file, templateType, language },
+          {
+            onSuccess: (data) => {
+              setMappingPlan(data.mappingPlan)
+              onMappingUpdate(data.mappingPlan)
+              toast.success('Template analysis complete')
+            },
+          },
+        )
+      } else if (sessionId) {
+        // No file (page refresh) — use session-based analysis
+        analyzeFromSessionMutation.mutate(sessionId, {
           onSuccess: (data) => {
             setMappingPlan(data.mappingPlan)
             onMappingUpdate(data.mappingPlan)
             toast.success('Template analysis complete')
           },
-        },
-      )
+        })
+      }
     }
-  }, [mappingPlan, file, templateType, language, analyzeMutation, onMappingUpdate])
+  }, [mappingPlan, file, sessionId, templateType, language, analyzeMutation, analyzeFromSessionMutation, isAnalyzing, onMappingUpdate])
 
   // Watch for mapping updates from chat
   useEffect(() => {
@@ -82,21 +145,28 @@ export function StepAnalysis({
   )
 
   const handleReAnalyze = useCallback(() => {
-    if (!file) return
     hasTriggeredAnalysis.current = true
-    analyzeMutation.mutate(
-      { file, templateType, language },
-      {
+    if (file) {
+      analyzeMutation.mutate(
+        { file, templateType, language },
+        {
+          onSuccess: (data) => {
+            setMappingPlan(data.mappingPlan)
+            onMappingUpdate(data.mappingPlan)
+            toast.success('Re-analysis complete')
+          },
+        },
+      )
+    } else if (sessionId) {
+      analyzeFromSessionMutation.mutate(sessionId, {
         onSuccess: (data) => {
           setMappingPlan(data.mappingPlan)
           onMappingUpdate(data.mappingPlan)
           toast.success('Re-analysis complete')
         },
-      },
-    )
-  }, [file, templateType, language, analyzeMutation, onMappingUpdate])
-
-  const isAnalyzing = analyzeMutation.isPending
+      })
+    }
+  }, [file, sessionId, templateType, language, analyzeMutation, analyzeFromSessionMutation, onMappingUpdate])
 
   // Loading state
   if (isAnalyzing && !mappingPlan) {
@@ -108,21 +178,29 @@ export function StepAnalysis({
           <p className="text-xs text-muted-foreground mt-1">
             The LLM is identifying sections and mapping them to Ghostwriter fields.
           </p>
+          <p className="text-xs text-muted-foreground mt-3 tabular-nums">
+            Elapsed: {formatElapsed(elapsed)}
+          </p>
+          {elapsed >= 60 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Large templates can take 2-3 minutes.
+            </p>
+          )}
         </CardContent>
       </Card>
     )
   }
 
   // Error state (no mapping plan loaded)
-  if (analyzeMutation.isError && !mappingPlan) {
+  if (isError && !mappingPlan) {
     return (
       <Card>
         <CardContent className="py-16 text-center">
           <p className="text-destructive font-medium">Analysis failed</p>
           <p className="text-sm text-muted-foreground mt-2">
-            {(analyzeMutation.error as Error).message}
+            {(analyzeError as Error)?.message || 'Unknown error'}
           </p>
-          <Button variant="outline" className="mt-4" onClick={handleReAnalyze} disabled={!file}>
+          <Button variant="outline" className="mt-4" onClick={handleReAnalyze}>
             <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
             Retry Analysis
           </Button>
@@ -142,7 +220,7 @@ export function StepAnalysis({
               variant="outline"
               size="sm"
               onClick={handleReAnalyze}
-              disabled={isAnalyzing || !file}
+              disabled={isAnalyzing}
             >
               {isAnalyzing ? (
                 <Loader2 className="h-3 w-3 animate-spin mr-1" aria-hidden="true" />

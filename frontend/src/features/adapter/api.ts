@@ -51,6 +51,17 @@ export const adapterApi = {
   },
 
   /**
+   * Run LLM Pass 1 analysis using the template stored in an existing session.
+   * Used after page refresh when the File object is lost.
+   */
+  async analyzeFromSession(sessionId: string): Promise<AnalyzeResponse> {
+    return apiClient<AnalyzeResponse>('/api/adapter/analyze-session', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  },
+
+  /**
    * Apply LLM Pass 2 instructions to the template.
    * POST to /api/adapter/apply with sessionId.
    */
@@ -102,6 +113,16 @@ export const adapterApi = {
    */
   async getActiveSession(): Promise<ActiveSessionResponse> {
     return apiClient<ActiveSessionResponse>('/api/adapter/session')
+  },
+
+  /**
+   * Delete a wizard session (reset / start over).
+   * DELETE /api/adapter/session/:sessionId
+   */
+  async deleteSession(sessionId: string): Promise<{ success: boolean }> {
+    return apiClient<{ success: boolean }>(`/api/adapter/session/${sessionId}`, {
+      method: 'DELETE',
+    })
   },
 
   /**

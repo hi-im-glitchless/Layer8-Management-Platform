@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Loader2, ArrowRight, ArrowLeft, RefreshCw } from 'lucide-react'
+import { Loader2, ArrowRight, ArrowLeft, RefreshCw, Clock } from 'lucide-react'
+import { toast } from 'sonner'
 import type { MappingPlan } from '../types'
+
+/** Format seconds as "Xm Ys" or "Xs" */
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}m ${s}s`
+}
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PdfPreview } from '@/components/ui/pdf-preview'
@@ -46,6 +55,36 @@ export function StepPreview({ sessionId, onSatisfied, onReAdapt }: StepPreviewPr
     previewMutation.isPending ||
     (previewStatus.data?.status === 'queued' || previewStatus.data?.status === 'active')
 
+  // Elapsed timer while generating
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (!isGenerating || pdfUrl) return
+    setElapsed(0)
+    const interval = setInterval(() => setElapsed((prev) => prev + 1), 1000)
+    return () => clearInterval(interval)
+  }, [isGenerating, pdfUrl])
+
+  // Session polling fallback — detect server-side completion if HTTP response lost
+  const sessionPoll = useWizardSession(
+    previewMutation.isPending && elapsed >= 15 ? sessionId : null,
+  )
+
+  useEffect(() => {
+    if (!previewMutation.isPending || elapsed < 15) return
+    if (elapsed % 8 === 0) {
+      sessionPoll.refetch()
+    }
+  }, [elapsed, previewMutation.isPending, sessionPoll])
+
+  useEffect(() => {
+    if (!previewMutation.isPending) return
+    if (sessionPoll.data?.currentStep === 'preview' && sessionPoll.data?.preview?.pdfJobId) {
+      // Server finished rendering — mutation response was lost
+      setPdfJobId(sessionPoll.data.preview.pdfJobId)
+      toast.success('Preview generated')
+    }
+  }, [previewMutation.isPending, sessionPoll.data])
+
   const handleMappingUpdate = useCallback((_plan: MappingPlan) => {
     setHasMappingUpdate(true)
   }, [])
@@ -54,6 +93,13 @@ export function StepPreview({ sessionId, onSatisfied, onReAdapt }: StepPreviewPr
     setHasMappingUpdate(false)
     onReAdapt()
   }, [onReAdapt])
+
+  // Compute progress percentage based on phase
+  const progressPercent = previewStatus.data?.progress
+    ? Math.round(previewStatus.data.progress)
+    : previewMutation.isPending
+      ? Math.min(10 + elapsed * 2, 45) // slowly fill to 45% during rendering
+      : Math.min(50 + elapsed, 90)     // 50-90% during PDF conversion
 
   // Error state
   if (previewMutation.isError) {
@@ -98,13 +144,28 @@ export function StepPreview({ sessionId, onSatisfied, onReAdapt }: StepPreviewPr
         </CardHeader>
         <CardContent className="flex-1 min-h-0">
           {isGenerating && !pdfUrl ? (
-            <div className="flex flex-col items-center justify-center py-16">
+            <div className="flex flex-col items-center justify-center py-16 space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground mt-4">
-                Converting to PDF...
-                {previewStatus.data?.progress
-                  ? ` ${Math.round(previewStatus.data.progress)}%`
-                  : ''}
+              <p className="text-sm text-muted-foreground">
+                {previewMutation.isPending
+                  ? 'Rendering template with report data...'
+                  : 'Converting to PDF...'}
+              </p>
+              {/* Progress bar */}
+              <div className="w-48 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="tabular-nums">{progressPercent}%</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground tabular-nums flex items-center gap-1.5">
+                <Clock className="h-3 w-3" aria-hidden="true" />
+                Elapsed: {formatElapsed(elapsed)}
               </p>
             </div>
           ) : (

@@ -101,10 +101,17 @@ export async function apiClient<T>(
 
     // Handle error responses
     if (!response.ok) {
-      const errorMessage =
-        (data && typeof data === 'object' && 'error' in data)
-          ? String(data.error)
-          : `Request failed with status ${response.status}`;
+      let errorMessage: string;
+      if (data && typeof data === 'object') {
+        const obj = data as Record<string, unknown>;
+        errorMessage = obj.details
+          ? String(obj.details)
+          : obj.error
+            ? String(obj.error)
+            : `Request failed with status ${response.status}`;
+      } else {
+        errorMessage = `Request failed with status ${response.status}`;
+      }
 
       throw new ApiError(response.status, errorMessage, data);
     }

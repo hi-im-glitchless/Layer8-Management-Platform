@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useApplyInstructions } from '../hooks'
+import { useApplyInstructions, useWizardSession } from '../hooks'
 import { AdaptationProgressDisplay } from './AdaptationProgress'
 
 interface StepAdaptationProps {
@@ -17,35 +17,71 @@ export function StepAdaptation({ sessionId, onComplete, onGoBack }: StepAdaptati
   const applyMutation = useApplyInstructions()
   const hasTriggered = useRef(false)
   const [progressStep, setProgressStep] = useState(0)
+  const [elapsed, setElapsed] = useState(0)
+
+  const isRunning = applyMutation.isPending
+
+  // Elapsed timer
+  useEffect(() => {
+    if (!isRunning) return
+    setElapsed(0)
+    const interval = setInterval(() => setElapsed((prev) => prev + 1), 1000)
+    return () => clearInterval(interval)
+  }, [isRunning])
+
+  // Time-based step progression (realistic estimates for the pipeline stages)
+  useEffect(() => {
+    if (!isRunning) return
+    // Step 0: Building prompt (0-10s)
+    // Step 1: LLM generating instructions (10-90s — the long part)
+    // Step 2: Applying to DOCX (90-110s)
+    // Step 3: Verifying output (110s+)
+    if (elapsed >= 90) setProgressStep(3)
+    else if (elapsed >= 60) setProgressStep(2)
+    else if (elapsed >= 5) setProgressStep(1)
+    else setProgressStep(0)
+  }, [elapsed, isRunning])
+
+  // Session polling fallback — detect server-side completion if HTTP response lost
+  const sessionPoll = useWizardSession(
+    isRunning && elapsed >= 30 ? sessionId : null,
+  )
+
+  useEffect(() => {
+    if (!isRunning || elapsed < 30) return
+    if (elapsed % 10 === 0) {
+      sessionPoll.refetch()
+    }
+  }, [elapsed, isRunning, sessionPoll])
+
+  useEffect(() => {
+    if (!isRunning) return
+    if (sessionPoll.data?.currentStep === 'adaptation' && sessionPoll.data?.adaptation?.appliedDocxPath) {
+      // Server finished — the mutation response was lost but Redis has the result
+      toast.success('Template adaptation complete')
+      // Force UI to show completion by navigating forward
+      onComplete()
+    }
+  }, [isRunning, sessionPoll.data, onComplete])
 
   // Auto-trigger adaptation on mount
   useEffect(() => {
     if (!hasTriggered.current && !applyMutation.isPending && !applyMutation.isSuccess) {
       hasTriggered.current = true
-
-      // Simulate progress phases while mutation runs
       setProgressStep(0)
-      const t1 = setTimeout(() => setProgressStep(1), 1500)
-      const t2 = setTimeout(() => setProgressStep(2), 3500)
-      const t3 = setTimeout(() => setProgressStep(3), 5000)
 
       applyMutation.mutate(sessionId, {
         onSuccess: () => {
           toast.success('Template adaptation complete')
         },
       })
-
-      return () => {
-        clearTimeout(t1)
-        clearTimeout(t2)
-        clearTimeout(t3)
-      }
     }
   }, [sessionId, applyMutation])
 
   const handleRetry = useCallback(() => {
     hasTriggered.current = false
     setProgressStep(0)
+    setElapsed(0)
     applyMutation.reset()
   }, [applyMutation])
 
@@ -73,6 +109,7 @@ export function StepAdaptation({ sessionId, onComplete, onGoBack }: StepAdaptati
           <AdaptationProgressDisplay
             activePhase={phase}
             activeStepIndex={progressStep}
+            elapsed={elapsed}
             errorMessage={applyMutation.isError ? (applyMutation.error as Error).message : undefined}
             onRetry={handleRetry}
           />

@@ -105,12 +105,13 @@ async def analyze_template(body: AnalyzeRequest) -> AnalyzeResponse:
     # Get reference template hash
     ref_hash = get_reference_template_hash(body.template_type, body.language)
 
-    # Count non-empty paragraphs
+    # Count paragraphs (total for validation, non-empty for display)
+    total_paragraphs = len(doc_structure.paragraphs)
     non_empty = sum(1 for p in doc_structure.paragraphs if p.text.strip())
 
     # Build doc structure summary
     doc_summary = {
-        "paragraph_count": len(doc_structure.paragraphs),
+        "paragraph_count": total_paragraphs,
         "non_empty_paragraphs": non_empty,
         "table_count": len(doc_structure.tables),
         "image_count": len(doc_structure.images),
@@ -118,10 +119,11 @@ async def analyze_template(body: AnalyzeRequest) -> AnalyzeResponse:
     }
 
     logger.info(
-        "Prepared analysis prompt: type=%s, lang=%s, paragraphs=%d, prompt_len=%d",
+        "Prepared analysis prompt: type=%s, lang=%s, paragraphs=%d/%d, prompt_len=%d",
         body.template_type,
         body.language,
         non_empty,
+        total_paragraphs,
         len(prompt),
     )
 
@@ -130,7 +132,7 @@ async def analyze_template(body: AnalyzeRequest) -> AnalyzeResponse:
         system_prompt=system_prompt,
         doc_structure_summary=doc_summary,
         reference_template_hash=ref_hash,
-        paragraph_count=non_empty,
+        paragraph_count=total_paragraphs,
     )
 
 
@@ -144,9 +146,19 @@ async def validate_mapping(body: ValidateMappingRequest) -> ValidateMappingRespo
     """
     errors: list[str] = []
 
+    # Strip markdown code fences if present (LLMs often wrap JSON in ```json...```)
+    llm_text = body.llm_response.strip()
+    if llm_text.startswith("```"):
+        # Remove opening fence (```json or ```)
+        first_newline = llm_text.index("\n") if "\n" in llm_text else len(llm_text)
+        llm_text = llm_text[first_newline + 1:]
+        # Remove closing fence
+        if llm_text.rstrip().endswith("```"):
+            llm_text = llm_text.rstrip()[:-3].rstrip()
+
     # Parse JSON
     try:
-        raw = json.loads(body.llm_response)
+        raw = json.loads(llm_text)
     except json.JSONDecodeError as exc:
         return ValidateMappingResponse(
             valid=False,
@@ -170,13 +182,19 @@ async def validate_mapping(body: ValidateMappingRequest) -> ValidateMappingRespo
     if not isinstance(raw_warnings, list):
         raw_warnings = []
 
-    # Validate each entry
+    # Validate each entry -- hard errors (missing fields, bad types) reject the
+    # entry; soft errors (out-of-range index) demote it to a warning so one
+    # hallucinated index doesn't reject the entire plan.
     valid_entries: list[MappingEntry] = []
+    warnings_from_validation: list[str] = []
     for i, entry in enumerate(raw_entries):
-        entry_errors = _validate_entry(entry, i, body.paragraph_count)
+        entry_errors, entry_warnings = _validate_entry(entry, i, body.paragraph_count)
         if entry_errors:
             errors.extend(entry_errors)
             continue
+        if entry_warnings:
+            warnings_from_validation.extend(entry_warnings)
+            continue  # skip this entry but don't fail the whole plan
 
         valid_entries.append(
             MappingEntry(
@@ -190,14 +208,26 @@ async def validate_mapping(body: ValidateMappingRequest) -> ValidateMappingRespo
             )
         )
 
+    if not valid_entries:
+        # No usable entries at all -- return all errors
+        all_errors = errors + warnings_from_validation
+        return ValidateMappingResponse(
+            valid=False,
+            errors=all_errors or ["No valid mapping entries found in LLM response."],
+        )
+
+    # Some entries had hard errors but we still have valid ones -- demote to warnings
     if errors:
-        return ValidateMappingResponse(valid=False, errors=errors)
+        warnings_from_validation.extend(errors)
+
+    # Merge LLM warnings with validation warnings
+    all_warnings = [str(w) for w in raw_warnings] + warnings_from_validation
 
     mapping_plan = MappingPlan(
         entries=valid_entries,
         template_type=body.template_type,
         language=body.language,
-        warnings=[str(w) for w in raw_warnings],
+        warnings=all_warnings,
     )
 
     logger.info(
@@ -211,13 +241,20 @@ async def validate_mapping(body: ValidateMappingRequest) -> ValidateMappingRespo
 
 def _validate_entry(
     entry: dict, index: int, paragraph_count: int
-) -> list[str]:
-    """Validate a single mapping entry, returning any errors found."""
+) -> tuple[list[str], list[str]]:
+    """Validate a single mapping entry.
+
+    Returns:
+        (errors, warnings) -- errors are hard failures (missing fields, bad
+        types); warnings are soft issues (out-of-range index) that cause the
+        entry to be skipped but don't reject the whole plan.
+    """
     errors: list[str] = []
+    warnings: list[str] = []
     prefix = f"Entry[{index}]"
 
     if not isinstance(entry, dict):
-        return [f"{prefix}: must be a JSON object."]
+        return [f"{prefix}: must be a JSON object."], []
 
     # section_index
     section_index = entry.get("section_index")
@@ -229,9 +266,9 @@ def _validate_entry(
             if idx < 0:
                 errors.append(f"{prefix}: section_index ({idx}) must be >= 0.")
             if paragraph_count > 0 and idx >= paragraph_count:
-                errors.append(
+                warnings.append(
                     f"{prefix}: section_index ({idx}) out of range "
-                    f"(max {paragraph_count - 1})."
+                    f"(max {paragraph_count - 1}), entry skipped."
                 )
         except (TypeError, ValueError):
             errors.append(f"{prefix}: section_index must be an integer.")
@@ -273,7 +310,7 @@ def _validate_entry(
         except (TypeError, ValueError):
             errors.append(f"{prefix}: confidence must be a number.")
 
-    return errors
+    return errors, warnings
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +321,7 @@ def _validate_entry(
 class BuildInsertionPromptRequest(BaseModel):
     """Request body for POST /adapter/build-insertion-prompt."""
 
-    doc_structure: DocxStructure
+    template_base64: str = Field(..., description="Base64-encoded DOCX file")
     mapping_plan: MappingPlan
 
 
@@ -407,12 +444,32 @@ async def build_insertion_prompt_endpoint(
 ) -> BuildInsertionPromptResponse:
     """Build the LLM Pass 2 prompt for generating insertion instructions.
 
-    Takes a parsed document structure and an approved mapping plan, and returns
-    the system + user prompts for the LLM to generate InstructionSet JSON.
+    Decodes the base64 template, parses its DOCX structure, and combines it
+    with the approved mapping plan to produce LLM prompts for InstructionSet JSON.
     """
+    # Decode and parse DOCX
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded template is empty.")
+
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    try:
+        doc_structure = _parser.parse(template_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to parse DOCX: {exc}")
+
     try:
         system_prompt = build_insertion_system_prompt()
-        prompt = build_insertion_prompt(body.doc_structure, body.mapping_plan)
+        prompt = build_insertion_prompt(doc_structure, body.mapping_plan)
     except Exception as exc:
         logger.error("Insertion prompt build failed: %s", exc, exc_info=True)
         raise HTTPException(

@@ -118,7 +118,7 @@ export async function uploadTemplate(
   const templateBase64 = file.buffer.toString('base64');
 
   return updateWizardSession(userId, state.sessionId, {
-    currentStep: 'upload',
+    currentStep: 'analysis',
     templateFile: {
       originalName: file.originalname,
       storagePath: '',
@@ -287,31 +287,13 @@ export async function applyInstructions(
     throw new Error('No mapping plan in wizard state -- run analysis first');
   }
 
-  // Step 1: Get insertion prompt from Python service
-  // We need doc_structure, which requires re-parsing the template
-  const analyzeRes = await fetch(`${sanitizerUrl}/adapter/analyze`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      template_base64: wizardState.templateFile.base64,
-      template_type: wizardState.config.templateType,
-      language: wizardState.config.language,
-    }),
-  });
-
-  if (!analyzeRes.ok) {
-    const detail = await analyzeRes.text();
-    throw new Error(`Sanitizer /adapter/analyze failed (${analyzeRes.status}): ${detail}`);
-  }
-
-  const analyzeData = await analyzeRes.json() as AnalyzeServiceResponse;
-
-  // Build insertion prompt via Python service
+  // Step 1: Build insertion prompt via Python service
+  // Passes template_base64 directly so Python can parse DOCX internally
   const promptRes = await fetch(`${sanitizerUrl}/adapter/build-insertion-prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      doc_structure: analyzeData.doc_structure_summary,
+      template_base64: wizardState.templateFile.base64,
       mapping_plan: mappingPlanToSnakeCase(mappingPlan),
     }),
   });

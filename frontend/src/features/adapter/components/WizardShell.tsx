@@ -1,8 +1,9 @@
 import { useState, useCallback, lazy, Suspense } from 'react'
-import { Loader2, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Loader2, ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { useWizardSession } from '../hooks'
+import { useWizardSession, useResetSession } from '../hooks'
 import { StepIndicator, STEP_ORDER } from './StepIndicator'
 import type { WizardStep, MappingPlan } from '../types'
 
@@ -44,7 +45,17 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
   const sessionQuery = useWizardSession(sessionId)
 
   // Local step override for back navigation (avoids re-running backend ops)
+  // Also used to immediately advance after upload (before session query loads)
   const [overrideStep, setOverrideStep] = useState<WizardStep | null>(null)
+
+  // Wrap onSessionCreate to also advance to analysis step immediately
+  const handleSessionCreate = useCallback(
+    (id: string) => {
+      onSessionCreate(id)
+      setOverrideStep('analysis')
+    },
+    [onSessionCreate],
+  )
 
   // Local state to carry mapping and file between steps client-side
   const [localMappingPlan, setLocalMappingPlan] = useState<MappingPlan | null>(null)
@@ -92,12 +103,24 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
     [sessionQuery],
   )
 
+  const resetMutation = useResetSession()
+
   const handleNewSession = useCallback(() => {
     setOverrideStep(null)
     setLocalMappingPlan(null)
     setLocalFile(null)
     onSessionClear()
   }, [onSessionClear])
+
+  const handleReset = useCallback(() => {
+    if (!sessionId) return
+    resetMutation.mutate(sessionId, {
+      onSuccess: () => {
+        toast.success('Session cleared')
+        handleNewSession()
+      },
+    })
+  }, [sessionId, resetMutation, handleNewSession])
 
   // Error state
   if (sessionId && sessionQuery.isError) {
@@ -131,7 +154,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
       case 'upload':
         return (
           <StepUpload
-            onSessionCreate={onSessionCreate}
+            onSessionCreate={handleSessionCreate}
             onFileReady={setLocalFile}
           />
         )
@@ -187,15 +210,27 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
       {/* Navigation buttons */}
       {effectiveStep !== 'upload' && effectiveStep !== 'download' && (
         <div className="flex items-center justify-between pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goBack}
-            disabled={currentStepIndex === 0}
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true" />
-            Back
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goBack}
+              disabled={currentStepIndex === 0}
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true" />
+              Back
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              disabled={resetMutation.isPending}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <RotateCcw className="h-4 w-4 mr-1" aria-hidden="true" />
+              Start Over
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"

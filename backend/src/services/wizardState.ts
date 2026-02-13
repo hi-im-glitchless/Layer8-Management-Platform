@@ -248,18 +248,18 @@ export async function getActiveWizardSession(
   userId: string,
 ): Promise<WizardState | null> {
   const pattern = buildUserPattern(userId);
-  let cursor = 0;
+  let cursor = '0';
   let latestState: WizardState | null = null;
   let latestTimestamp = '';
 
   // Use SCAN to iterate through matching keys without blocking
   do {
-    const result = await redisClient.scan(cursor, {
+    const result = await redisClient.scan(cursor as unknown as number, {
       MATCH: pattern,
       COUNT: 100,
     });
 
-    cursor = result.cursor;
+    cursor = String(result.cursor);
 
     for (const key of result.keys) {
       const raw = await redisClient.get(key);
@@ -275,7 +275,7 @@ export async function getActiveWizardSession(
         latestTimestamp = state.updatedAt;
       }
     }
-  } while (cursor !== 0);
+  } while (cursor !== '0');
 
   return latestState;
 }
