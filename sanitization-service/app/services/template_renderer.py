@@ -6,7 +6,7 @@ from io import BytesIO
 from typing import Any
 
 from docxtpl import DocxTemplate, RichText
-from jinja2 import UndefinedError
+from jinja2 import Environment, UndefinedError, Undefined
 
 logger = logging.getLogger(__name__)
 
@@ -275,21 +275,26 @@ class TemplateRendererService:
         Raises:
             ValueError: If the template cannot be loaded or rendered.
         """
-        # Load the template
+        # Load the template and initialise the underlying Document
+        # so we can call build_url_id and prepare RichText objects.
         try:
             tpl = DocxTemplate(BytesIO(template_bytes))
+            tpl.init_docx()
         except Exception as exc:
             raise ValueError(f"Failed to load DOCX template: {exc}") from exc
 
-        # Register custom Jinja2 filters
-        tpl.jinja_env.filters["filter_type"] = _filter_type
+        # Build a custom Jinja2 environment with our filters.
+        # docxtpl.render() accepts a jinja_env parameter that overrides
+        # its default jinja2.Template usage.
+        jinja_env = Environment(undefined=Undefined)
+        jinja_env.filters["filter_type"] = _filter_type
 
         # Prepare context: convert HTML to RichText
         prepared = prepare_context(context, tpl)
 
         # Render
         try:
-            tpl.render(prepared)
+            tpl.render(prepared, jinja_env=jinja_env)
         except UndefinedError as exc:
             raise ValueError(f"Template rendering error -- undefined variable: {exc}") from exc
         except Exception as exc:
