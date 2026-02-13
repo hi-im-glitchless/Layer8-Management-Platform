@@ -10,6 +10,7 @@ import { AuditLog } from '@/routes/AuditLog'
 import { Admin } from '@/routes/Admin'
 import { Profile } from '@/routes/Profile'
 import { Login } from '@/routes/Login'
+import { Documents } from '@/routes/Documents'
 import { NotFound } from '@/routes/NotFound'
 import { useAuth } from '@/features/auth/hooks'
 
@@ -71,6 +72,7 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="/template-adapter" element={<TemplateAdapter />} />
               <Route path="/executive-report" element={<ExecutiveReport />} />
+              <Route path="/documents" element={<Documents />} />
               <Route path="/audit-log" element={<AuditLog />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<Admin />} />

@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   FileCode,
   FileText,
+  FileUp,
   ScrollText,
   User,
   Shield,
@@ -40,6 +41,7 @@ const navigationGroups: NavGroup[] = [
     items: [
       { to: '/template-adapter', icon: FileCode, label: 'Template Adapter' },
       { to: '/executive-report', icon: FileText, label: 'Executive Report' },
+      { to: '/documents', icon: FileUp, label: 'Documents' },
     ],
   },
   {
