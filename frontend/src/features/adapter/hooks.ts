@@ -221,6 +221,20 @@ export function useCachedAnnotatedPreview(sessionId: string | null) {
 }
 
 /**
+ * Fetch document structure (all paragraphs including empty/invisible ones).
+ * staleTime=Infinity because the DOCX doesn't change within a session.
+ * Result is cached server-side in wizard state after first fetch.
+ */
+export function useDocumentStructure(sessionId: string | null) {
+  return useQuery({
+    queryKey: ['adapter', 'document-structure', sessionId],
+    queryFn: () => adapterApi.getDocumentStructure(sessionId!),
+    enabled: !!sessionId,
+    staleTime: Infinity,
+  })
+}
+
+/**
  * Update mapping plan with inline edits or added entries.
  * On success, invalidates session query to refresh mapping plan.
  */

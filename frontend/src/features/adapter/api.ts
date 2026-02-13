@@ -13,6 +13,7 @@ import type {
   AnnotatedPreviewStatus,
   MappingUpdateRequest,
   MappingPlan,
+  DocumentStructureResponse,
 } from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -146,6 +147,14 @@ export const adapterApi = {
    */
   async getAnnotatedPreview(sessionId: string): Promise<AnnotatedPreviewStatus> {
     return apiClient<AnnotatedPreviewStatus>(`/api/adapter/annotated-preview/${sessionId}`)
+  },
+
+  /**
+   * Get document structure (all paragraphs including empty/invisible ones).
+   * GET /api/adapter/document-structure/:sessionId
+   */
+  async getDocumentStructure(sessionId: string): Promise<DocumentStructureResponse> {
+    return apiClient<DocumentStructureResponse>(`/api/adapter/document-structure/${sessionId}`)
   },
 
   /**

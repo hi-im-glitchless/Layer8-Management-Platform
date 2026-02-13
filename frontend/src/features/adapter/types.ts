@@ -197,6 +197,26 @@ export interface MappingUpdateRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Document Structure Types (Phase 5.2)
+// ---------------------------------------------------------------------------
+
+/** A single paragraph entry from the document structure endpoint */
+export interface ParagraphInfo {
+  paragraphIndex: number
+  text: string
+  headingLevel: number | null
+  isEmpty: boolean
+  styleName: string | null
+}
+
+/** GET /api/adapter/document-structure/:sessionId response */
+export interface DocumentStructureResponse {
+  paragraphs: ParagraphInfo[]
+  totalCount: number
+  emptyCount: number
+}
+
+// ---------------------------------------------------------------------------
 // Interactive PDF Mapping Types (Phase 5.2)
 // ---------------------------------------------------------------------------
 
