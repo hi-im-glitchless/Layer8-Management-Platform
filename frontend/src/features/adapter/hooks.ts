@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useReducer, useMemo, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { adapterApi } from './api'
@@ -9,6 +9,8 @@ import type {
   ChatSSEEvent,
   MappingPlan,
   MappingUpdateRequest,
+  SelectionEntry,
+  SelectionAction,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -233,6 +235,143 @@ export function useUpdateMapping() {
       toast.error(error.message || 'Failed to update mapping')
     },
   })
+}
+
+// ---------------------------------------------------------------------------
+// Interactive PDF Selection State (Phase 5.2)
+// ---------------------------------------------------------------------------
+
+interface SelectionState {
+  selections: SelectionEntry[]
+  nextNumber: number
+}
+
+const initialSelectionState: SelectionState = {
+  selections: [],
+  nextNumber: 1,
+}
+
+function selectionReducer(state: SelectionState, action: SelectionAction): SelectionState {
+  switch (action.type) {
+    case 'add': {
+      const newEntry: SelectionEntry = {
+        ...action.entry,
+        id: crypto.randomUUID(),
+        selectionNumber: state.nextNumber,
+        status: 'pending',
+        gwField: null,
+        markerType: null,
+        confidence: null,
+      }
+      return {
+        selections: [...state.selections, newEntry],
+        nextNumber: state.nextNumber + 1,
+      }
+    }
+    case 'remove':
+      return {
+        ...state,
+        selections: state.selections.filter((s) => s.id !== action.id),
+        // nextNumber is NOT decremented -- numbers are stable
+      }
+    case 'confirm':
+      return {
+        ...state,
+        selections: state.selections.map((s) =>
+          s.id === action.id ? { ...s, status: 'confirmed' as const } : s,
+        ),
+      }
+    case 'reject':
+      return {
+        ...state,
+        selections: state.selections.map((s) =>
+          s.id === action.id ? { ...s, status: 'rejected' as const } : s,
+        ),
+      }
+    case 'update_mapping':
+      return {
+        ...state,
+        selections: state.selections.map((s) =>
+          s.selectionNumber === action.selectionNumber
+            ? { ...s, gwField: action.gwField, markerType: action.markerType, confidence: action.confidence }
+            : s,
+        ),
+      }
+    case 'reset':
+      return initialSelectionState
+    default:
+      return state
+  }
+}
+
+/**
+ * Manages numbered text selections on the interactive PDF viewer.
+ * Auto-increments selection numbers that remain stable on removal.
+ */
+export function useSelectionState() {
+  const [state, dispatch] = useReducer(selectionReducer, initialSelectionState)
+
+  const addSelection = useCallback(
+    (entry: Omit<SelectionEntry, 'id' | 'selectionNumber' | 'status' | 'gwField' | 'markerType' | 'confidence'>) => {
+      dispatch({ type: 'add', entry })
+    },
+    [],
+  )
+
+  const removeSelection = useCallback((id: string) => {
+    dispatch({ type: 'remove', id })
+  }, [])
+
+  const confirmSelection = useCallback((id: string) => {
+    dispatch({ type: 'confirm', id })
+  }, [])
+
+  const rejectSelection = useCallback((id: string) => {
+    dispatch({ type: 'reject', id })
+  }, [])
+
+  const updateSelectionMapping = useCallback(
+    (selectionNumber: number, gwField: string, markerType: string, confidence: number) => {
+      dispatch({ type: 'update_mapping', selectionNumber, gwField, markerType, confidence })
+    },
+    [],
+  )
+
+  const resetSelections = useCallback(() => {
+    dispatch({ type: 'reset' })
+  }, [])
+
+  const getPendingSelections = useCallback(
+    () => state.selections.filter((s) => s.status === 'pending'),
+    [state.selections],
+  )
+
+  const getRejectedSelections = useCallback(
+    () => state.selections.filter((s) => s.status === 'rejected'),
+    [state.selections],
+  )
+
+  const counter = useMemo(
+    () => ({
+      confirmed: state.selections.filter((s) => s.status === 'confirmed').length,
+      total: state.selections.length,
+    }),
+    [state.selections],
+  )
+
+  return {
+    selections: state.selections,
+    nextNumber: state.nextNumber,
+    counter,
+    addSelection,
+    removeSelection,
+    confirmSelection,
+    rejectSelection,
+    updateSelectionMapping,
+    resetSelections,
+    getPendingSelections,
+    getRejectedSelections,
+  }
 }
 
 // ---------------------------------------------------------------------------
