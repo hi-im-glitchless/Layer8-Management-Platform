@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo, useId } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo, useId, type ReactNode } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -25,6 +25,10 @@ interface PdfPreviewProps {
   error?: string
   className?: string
   onPageChange?: (page: number, totalPages: number) => void
+  /** Content rendered inside the scroll area (for overlays that scroll with PDF) */
+  overlay?: ReactNode
+  /** Callback ref exposing the scroll container element */
+  scrollRef?: (el: HTMLDivElement | null) => void
 }
 
 const ZOOM_STEP = 0.25
@@ -37,11 +41,20 @@ export function PdfPreview({
   error: externalError,
   className,
   onPageChange,
+  overlay,
+  scrollRef,
 }: PdfPreviewProps) {
   const [numPages, setNumPages] = useState<number>(0)
   const [scale, setScale] = useState(0) // 0 = fit width
   const [loadError, setLoadError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const combinedScrollRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      containerRef.current = el
+      scrollRef?.(el)
+    },
+    [scrollRef],
+  )
   const viewerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
@@ -275,8 +288,8 @@ export function PdfPreview({
 
       {/* PDF render area -- continuous scroll of all pages */}
       <div
-        ref={containerRef}
-        className="flex-1 overflow-auto bg-muted/10 min-h-[400px] max-h-[80vh]"
+        ref={combinedScrollRef}
+        className="flex-1 overflow-auto bg-muted/10 min-h-[400px] max-h-[80vh] relative"
       >
         <Document
           file={file}
@@ -320,6 +333,7 @@ export function PdfPreview({
             ))}
           </div>
         </Document>
+        {overlay}
       </div>
 
       {/* Screen reader only: page count announcement */}

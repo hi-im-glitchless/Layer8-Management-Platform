@@ -47,6 +47,13 @@ const STATUS_RING_CLASSES: Record<SelectionStatus, string> = {
   rejected: 'ring-2 ring-orange-500 bg-orange-50 text-orange-700',
 }
 
+// Status-based text highlight background colors
+const HIGHLIGHT_BG: Record<SelectionStatus, string> = {
+  pending: 'bg-blue-400/20',
+  confirmed: 'bg-green-400/20',
+  rejected: 'bg-orange-400/20',
+}
+
 /** Overlay card width in pixels, used for overflow detection */
 const OVERLAY_CARD_WIDTH = 256
 
@@ -96,28 +103,30 @@ function truncateText(text: string, maxLen: number): string {
 }
 
 /**
- * Compute overlay card position relative to container.
- * Default: right of badge. If that would overflow container width, flip to left.
+ * Compute overlay card position in content coordinates.
+ * Default: right of selection end. If that would overflow, flip to left.
  */
 function computeOverlayPosition(
   rect: { top: number; left: number; width: number },
-  containerWidth: number,
-  scrollLeft: number,
+  contentWidth: number,
 ): { top: number; left: number } {
-  const badgeRight = rect.left + rect.width + 12 // 12px gap right of selection end
-  const wouldOverflow = badgeRight - scrollLeft + OVERLAY_CARD_WIDTH > containerWidth
+  const badgeRight = rect.left + rect.width + 12
+  const wouldOverflow = badgeRight + OVERLAY_CARD_WIDTH > contentWidth
 
   return {
-    top: rect.top - 4, // slight upward offset to align with selection
+    top: rect.top - 4,
     left: wouldOverflow
-      ? Math.max(0, rect.left - OVERLAY_CARD_WIDTH - 12) // flip to left
+      ? Math.max(0, rect.left - OVERLAY_CARD_WIDTH - 12)
       : badgeRight,
   }
 }
 
 /**
  * Wraps PdfPreview with interactive text selection, numbered overlay badges,
- * and MappingOverlayCards for resolved selections.
+ * highlight rectangles, and MappingOverlayCards for resolved selections.
+ *
+ * Overlays are rendered inside PdfPreview's scroll container so they stay
+ * anchored to the PDF content when scrolling.
  */
 export function InteractivePdfViewer({
   url,
@@ -134,33 +143,17 @@ export function InteractivePdfViewer({
 }: InteractivePdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastSelectionTimeRef = useRef<number>(0)
-  const [scrollOffset, setScrollOffset] = useState({ top: 0, left: 0 })
+  const [pdfScrollEl, setPdfScrollEl] = useState<HTMLDivElement | null>(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
-  // Track scroll offset for overlay positioning
+  // Track PdfPreview scroll container width for overlay card positioning
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const updateScroll = () => {
-      setScrollOffset({ top: container.scrollTop, left: container.scrollLeft })
-    }
-    const updateWidth = () => {
-      setContainerWidth(container.clientWidth)
-    }
-
-    updateScroll()
-    updateWidth()
-
-    container.addEventListener('scroll', updateScroll, { passive: true })
-    const resizeObserver = new ResizeObserver(updateWidth)
-    resizeObserver.observe(container)
-
-    return () => {
-      container.removeEventListener('scroll', updateScroll)
-      resizeObserver.disconnect()
-    }
-  }, [])
+    if (!pdfScrollEl) return
+    setContainerWidth(pdfScrollEl.clientWidth)
+    const observer = new ResizeObserver(() => setContainerWidth(pdfScrollEl.clientWidth))
+    observer.observe(pdfScrollEl)
+    return () => observer.disconnect()
+  }, [pdfScrollEl])
 
   const handleMouseUp = useCallback(() => {
     // Debounce: 100ms cooldown between captures
@@ -183,15 +176,18 @@ export function InteractivePdfViewer({
     if (!anchorNode || !focusNode) return
     if (!isNodeInsideContainer(anchorNode, container) || !isNodeInsideContainer(focusNode, container)) return
 
-    // Extract bounding rect
+    // Use PdfPreview's scroll container for coordinate computation
+    const scrollEl = pdfScrollEl
+    if (!scrollEl) return
+
+    // Extract bounding rect relative to PdfPreview's scroll content
     const range = selection.getRangeAt(0)
     const absoluteRect = range.getBoundingClientRect()
-    const containerRect = container.getBoundingClientRect()
+    const scrollRect = scrollEl.getBoundingClientRect()
 
-    // Convert to coordinates relative to the container
     const relativeRect = new DOMRect(
-      absoluteRect.left - containerRect.left + container.scrollLeft,
-      absoluteRect.top - containerRect.top + container.scrollTop,
+      absoluteRect.left - scrollRect.left + scrollEl.scrollLeft,
+      absoluteRect.top - scrollRect.top + scrollEl.scrollTop,
       absoluteRect.width,
       absoluteRect.height,
     )
@@ -215,7 +211,7 @@ export function InteractivePdfViewer({
 
     // Clear the browser selection after capture
     selection.removeAllRanges()
-  }, [onTextSelected])
+  }, [onTextSelected, pdfScrollEl])
 
   // Partition selections: resolved (have gwField) get overlay cards, unresolved get badges
   const { badgeSelections, overlaySelections } = useMemo(() => {
@@ -262,15 +258,96 @@ export function InteractivePdfViewer({
     [onReject],
   )
 
+  // Build overlay content rendered inside PdfPreview's scroll area
+  const overlayContent = useMemo(() => {
+    if (selections.length === 0) return undefined
+
+    return (
+      <TooltipProvider>
+        <div
+          className="pointer-events-none absolute top-0 left-0 w-full"
+          style={{ zIndex: 10 }}
+        >
+          {/* Text highlight rectangles */}
+          {selections.map((sel) => (
+            <div
+              key={`hl-${sel.id}`}
+              className={cn('absolute rounded-sm', HIGHLIGHT_BG[sel.status])}
+              style={{
+                top: sel.boundingRect.top,
+                left: sel.boundingRect.left,
+                width: sel.boundingRect.width,
+                height: sel.boundingRect.height,
+              }}
+            />
+          ))}
+
+          {/* Unresolved selections: numbered badges */}
+          {badgeData.map((badge) => (
+            <Tooltip key={badge.id}>
+              <TooltipTrigger asChild>
+                <div
+                  className={cn(
+                    'pointer-events-auto absolute rounded-full text-[10px] font-bold',
+                    'w-5 h-5 flex items-center justify-center cursor-default',
+                    'shadow-sm transition-colors',
+                    badge.ringClass,
+                  )}
+                  style={{
+                    top: badge.top,
+                    left: badge.left,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  {badge.number}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={4}>
+                <span className="max-w-[240px] block break-words">
+                  #{badge.number}: {badge.text}
+                </span>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+
+          {/* Resolved selections: MappingOverlayCards */}
+          {overlaySelections.map((sel) => {
+            const pos = computeOverlayPosition(
+              {
+                top: sel.boundingRect.top,
+                left: sel.boundingRect.left,
+                width: sel.boundingRect.width,
+              },
+              containerWidth,
+            )
+            return (
+              <div
+                key={sel.id}
+                className="pointer-events-auto absolute"
+                style={{ top: pos.top, left: pos.left }}
+              >
+                <MappingOverlayCard
+                  selection={sel}
+                  onAccept={handleAccept}
+                  onReject={handleReject}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </TooltipProvider>
+    )
+  }, [selections, badgeData, overlaySelections, containerWidth, handleAccept, handleReject])
+
   return (
     <div
       ref={containerRef}
-      className={cn('relative overflow-auto', className)}
+      className={cn('relative', className)}
       onMouseUp={handleMouseUp}
     >
       {/* Toolbar: Coverage counter + Confirm All button */}
       {(unconfirmedResolvedCount > 0 || (mappedCount != null && mappedCount > 0)) && (
-        <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-1.5 bg-background/80 backdrop-blur-sm border-b">
+        <div className="sticky top-0 z-20 flex items-center justify-between px-3 py-1.5 bg-background/80 backdrop-blur-sm border-b">
           <div className="flex items-center gap-2">
             {mappedCount != null && mappedCount > 0 && (
               <Badge variant="secondary" className="text-xs">
@@ -293,77 +370,15 @@ export function InteractivePdfViewer({
         </div>
       )}
 
-      {/* PDF viewer */}
+      {/* PDF viewer with overlay rendered inside scroll area */}
       <PdfPreview
         url={url}
         isLoading={isLoading}
         error={error}
         className="h-full"
+        scrollRef={setPdfScrollEl}
+        overlay={overlayContent}
       />
-
-      {/* Selection overlay layer */}
-      {(badgeData.length > 0 || overlaySelections.length > 0) && (
-        <TooltipProvider>
-          <div
-            className="pointer-events-none absolute inset-0 overflow-hidden"
-            aria-hidden="true"
-          >
-            {/* Unresolved selections: numbered badges */}
-            {badgeData.map((badge) => (
-              <Tooltip key={badge.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    className={cn(
-                      'pointer-events-auto absolute rounded-full text-[10px] font-bold',
-                      'w-5 h-5 flex items-center justify-center cursor-default',
-                      'shadow-sm transition-colors',
-                      badge.ringClass,
-                    )}
-                    style={{
-                      top: badge.top,
-                      left: badge.left,
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                  >
-                    {badge.number}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={4}>
-                  <span className="max-w-[240px] block break-words">
-                    #{badge.number}: {badge.text}
-                  </span>
-                </TooltipContent>
-              </Tooltip>
-            ))}
-
-            {/* Resolved selections: MappingOverlayCards */}
-            {overlaySelections.map((sel) => {
-              const pos = computeOverlayPosition(
-                {
-                  top: sel.boundingRect.top,
-                  left: sel.boundingRect.left,
-                  width: sel.boundingRect.width,
-                },
-                containerWidth,
-                scrollOffset.left,
-              )
-              return (
-                <div
-                  key={sel.id}
-                  className="pointer-events-auto absolute"
-                  style={{ top: pos.top, left: pos.left }}
-                >
-                  <MappingOverlayCard
-                    selection={sel}
-                    onAccept={handleAccept}
-                    onReject={handleReject}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        </TooltipProvider>
-      )}
     </div>
   )
 }
