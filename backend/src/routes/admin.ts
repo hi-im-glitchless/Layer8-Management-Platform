@@ -13,6 +13,7 @@ import { getLlmSettings, updateLlmSettings } from '../services/settings.js';
 import { createLLMClient } from '../services/llm/client.js';
 import { logAuditEvent } from '../services/audit.js';
 import { config } from '../config.js';
+import { checkGotenbergHealth } from '../services/documents.js';
 
 // Tracked CLIProxyAPI child process (survives across requests, not across backend restarts)
 let cliproxyProcess: ChildProcess | null = null;
@@ -326,6 +327,20 @@ router.post('/llm-stop-cliproxy', async (req, res) => {
   } catch (error) {
     console.error('[admin routes] Error stopping CLIProxyAPI:', error);
     res.status(500).json({ error: 'Failed to stop CLIProxyAPI' });
+  }
+});
+
+/**
+ * GET /api/admin/gotenberg-status
+ * Returns Gotenberg service availability
+ */
+router.get('/gotenberg-status', async (req, res) => {
+  try {
+    const health = await checkGotenbergHealth();
+    res.json({ gotenberg: health });
+  } catch (error) {
+    console.error('[admin routes] Error checking Gotenberg status:', error);
+    res.status(500).json({ error: 'Failed to check Gotenberg status' });
   }
 });
 
