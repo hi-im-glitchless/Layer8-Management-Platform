@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo } from 'react'
+import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import { PdfPreview } from '@/components/ui/pdf-preview'
 import {
   Tooltip,
@@ -7,6 +7,7 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { MappingOverlayCard } from './MappingOverlayCard'
 import type { SelectionEntry, SelectionStatus } from '../types'
 
 /** Payload emitted when the user selects text on the PDF */
@@ -24,6 +25,16 @@ interface InteractivePdfViewerProps {
   onTextSelected: (selection: TextSelectionPayload) => void
   selections: SelectionEntry[]
   className?: string
+  /** Called when user accepts a resolved mapping */
+  onAccept?: (id: string) => void
+  /** Called when user rejects a resolved mapping */
+  onReject?: (id: string) => void
+  /** Called when user clicks Confirm All */
+  onConfirmAll?: () => void
+  /** Whether the chat SSE stream is active (disables Confirm All) */
+  isStreaming?: boolean
+  /** Mapped field count for coverage display (Plan 05 stub) */
+  mappedCount?: number
 }
 
 // Status-based badge ring colors (Decision #8)
@@ -32,6 +43,9 @@ const STATUS_RING_CLASSES: Record<SelectionStatus, string> = {
   confirmed: 'ring-2 ring-green-500 bg-green-50 text-green-700',
   rejected: 'ring-2 ring-orange-500 bg-orange-50 text-orange-700',
 }
+
+/** Overlay card width in pixels, used for overflow detection */
+const OVERLAY_CARD_WIDTH = 256
 
 /**
  * Check whether a DOM node is inside the given container element.
@@ -79,8 +93,28 @@ function truncateText(text: string, maxLen: number): string {
 }
 
 /**
- * Wraps PdfPreview with interactive text selection and numbered overlay badges.
- * Captures mouseup events on the pdfjs text layer and relays selection data upstream.
+ * Compute overlay card position relative to container.
+ * Default: right of badge. If that would overflow container width, flip to left.
+ */
+function computeOverlayPosition(
+  rect: { top: number; left: number; width: number },
+  containerWidth: number,
+  scrollLeft: number,
+): { top: number; left: number } {
+  const badgeRight = rect.left + rect.width + 12 // 12px gap right of selection end
+  const wouldOverflow = badgeRight - scrollLeft + OVERLAY_CARD_WIDTH > containerWidth
+
+  return {
+    top: rect.top - 4, // slight upward offset to align with selection
+    left: wouldOverflow
+      ? Math.max(0, rect.left - OVERLAY_CARD_WIDTH - 12) // flip to left
+      : badgeRight,
+  }
+}
+
+/**
+ * Wraps PdfPreview with interactive text selection, numbered overlay badges,
+ * and MappingOverlayCards for resolved selections.
  */
 export function InteractivePdfViewer({
   url,
@@ -89,9 +123,41 @@ export function InteractivePdfViewer({
   onTextSelected,
   selections,
   className,
+  onAccept,
+  onReject,
+  onConfirmAll: _onConfirmAll,
+  isStreaming: _isStreaming,
+  mappedCount: _mappedCount,
 }: InteractivePdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastSelectionTimeRef = useRef<number>(0)
+  const [scrollOffset, setScrollOffset] = useState({ top: 0, left: 0 })
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // Track scroll offset for overlay positioning
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const updateScroll = () => {
+      setScrollOffset({ top: container.scrollTop, left: container.scrollLeft })
+    }
+    const updateWidth = () => {
+      setContainerWidth(container.clientWidth)
+    }
+
+    updateScroll()
+    updateWidth()
+
+    container.addEventListener('scroll', updateScroll, { passive: true })
+    const resizeObserver = new ResizeObserver(updateWidth)
+    resizeObserver.observe(container)
+
+    return () => {
+      container.removeEventListener('scroll', updateScroll)
+      resizeObserver.disconnect()
+    }
+  }, [])
 
   const handleMouseUp = useCallback(() => {
     // Debounce: 100ms cooldown between captures
@@ -148,10 +214,24 @@ export function InteractivePdfViewer({
     selection.removeAllRanges()
   }, [onTextSelected])
 
-  // Memoize badge data to avoid re-computing on every render
+  // Partition selections: resolved (have gwField) get overlay cards, unresolved get badges
+  const { badgeSelections, overlaySelections } = useMemo(() => {
+    const badges: SelectionEntry[] = []
+    const overlays: SelectionEntry[] = []
+    for (const sel of selections) {
+      if (sel.gwField) {
+        overlays.push(sel)
+      } else {
+        badges.push(sel)
+      }
+    }
+    return { badgeSelections: badges, overlaySelections: overlays }
+  }, [selections])
+
+  // Memoize badge data for unresolved selections
   const badgeData = useMemo(
     () =>
-      selections.map((sel) => ({
+      badgeSelections.map((sel) => ({
         id: sel.id,
         number: sel.selectionNumber,
         status: sel.status,
@@ -160,16 +240,26 @@ export function InteractivePdfViewer({
         left: sel.boundingRect.left + sel.boundingRect.width,
         ringClass: STATUS_RING_CLASSES[sel.status],
       })),
-    [selections],
+    [badgeSelections],
+  )
+
+  const handleAccept = useCallback(
+    (id: string) => onAccept?.(id),
+    [onAccept],
+  )
+
+  const handleReject = useCallback(
+    (id: string) => onReject?.(id),
+    [onReject],
   )
 
   return (
     <div
       ref={containerRef}
-      className={cn('relative', className)}
+      className={cn('relative overflow-auto', className)}
       onMouseUp={handleMouseUp}
     >
-      {/* Toolbar slot -- will receive coverage counter in Plan 5 */}
+      {/* Toolbar slot -- Confirm All button added in Task 3 */}
 
       {/* PDF viewer */}
       <PdfPreview
@@ -179,13 +269,14 @@ export function InteractivePdfViewer({
         className="h-full"
       />
 
-      {/* Selection overlay layer -- absolutely positioned badges */}
-      {badgeData.length > 0 && (
+      {/* Selection overlay layer */}
+      {(badgeData.length > 0 || overlaySelections.length > 0) && (
         <TooltipProvider>
           <div
             className="pointer-events-none absolute inset-0 overflow-hidden"
             aria-hidden="true"
           >
+            {/* Unresolved selections: numbered badges */}
             {badgeData.map((badge) => (
               <Tooltip key={badge.id}>
                 <TooltipTrigger asChild>
@@ -212,6 +303,32 @@ export function InteractivePdfViewer({
                 </TooltipContent>
               </Tooltip>
             ))}
+
+            {/* Resolved selections: MappingOverlayCards */}
+            {overlaySelections.map((sel) => {
+              const pos = computeOverlayPosition(
+                {
+                  top: sel.boundingRect.top,
+                  left: sel.boundingRect.left,
+                  width: sel.boundingRect.width,
+                },
+                containerWidth,
+                scrollOffset.left,
+              )
+              return (
+                <div
+                  key={sel.id}
+                  className="pointer-events-auto absolute"
+                  style={{ top: pos.top, left: pos.left }}
+                >
+                  <MappingOverlayCard
+                    selection={sel}
+                    onAccept={handleAccept}
+                    onReject={handleReject}
+                  />
+                </div>
+              )
+            })}
           </div>
         </TooltipProvider>
       )}
