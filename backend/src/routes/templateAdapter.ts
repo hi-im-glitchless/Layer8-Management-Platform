@@ -1,22 +1,37 @@
 /**
  * Template Adapter routes -- wizard pipeline endpoints.
  *
- * POST /api/adapter/upload   -- Upload DOCX + create wizard session
- * POST /api/adapter/analyze  -- LLM Pass 1 analysis (existing)
- * POST /api/adapter/apply    -- LLM Pass 2 + instruction application
+ * POST /api/adapter/upload    -- Upload DOCX + create wizard session
+ * POST /api/adapter/analyze   -- LLM Pass 1 analysis
+ * POST /api/adapter/apply     -- LLM Pass 2 + instruction application
+ * POST /api/adapter/preview   -- Render adapted template + queue PDF
+ * GET  /api/adapter/preview/:sessionId -- Poll preview status
+ * GET  /api/adapter/download/:sessionId -- Download adapted DOCX
+ * POST /api/adapter/chat      -- Iterative feedback via SSE streaming
+ * GET  /api/adapter/session/:sessionId -- Get full wizard state
+ * GET  /api/adapter/session    -- Get user's active session
  *
  * All endpoints require authentication and validate session ownership.
  */
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 import { requireAuth } from '@/middleware/auth.js';
 import {
   analyzeTemplate,
   uploadTemplate,
   applyInstructions,
+  generatePreview,
+  getDownloadPath,
+  processChatFeedback,
 } from '@/services/templateAdapter.js';
-import { getWizardSession, updateWizardSession } from '@/services/wizardState.js';
+import {
+  getWizardSession,
+  getActiveWizardSession,
+} from '@/services/wizardState.js';
+import { getPdfJobStatus } from '@/services/pdfQueue.js';
 import { logAuditEvent } from '@/services/audit.js';
 
 const router = Router();
@@ -49,6 +64,15 @@ const analyzeFieldsSchema = z.object({
 
 const sessionIdSchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
+});
+
+const sessionIdParamSchema = z.object({
+  sessionId: z.string().uuid('sessionId must be a valid UUID'),
+});
+
+const chatBodySchema = z.object({
+  sessionId: z.string().uuid('sessionId must be a valid UUID'),
+  message: z.string().min(1, 'message is required').max(10000),
 });
 
 // ---------------------------------------------------------------------------
@@ -152,7 +176,7 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
-// POST /api/adapter/analyze (existing, updated for wizard state)
+// POST /api/adapter/analyze
 // ---------------------------------------------------------------------------
 
 /**
@@ -245,23 +269,19 @@ router.post('/apply', requireAuth, async (req: Request, res: Response) => {
     const userId = req.session.userId!;
     const { sessionId } = body.data;
 
-    // Load wizard state and validate ownership
     const state = await getWizardSession(userId, sessionId);
     if (!state) {
       return res.status(404).json({ error: 'Wizard session not found' });
     }
 
-    // Validate step
     if (state.currentStep !== 'analysis') {
       return res.status(400).json({
         error: `Cannot apply from step "${state.currentStep}". Must be in "analysis" step.`,
       });
     }
 
-    // Apply instructions
     const updated = await applyInstructions(state);
 
-    // Audit log
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     await logAuditEvent({
       userId,
@@ -283,6 +303,335 @@ router.post('/apply', requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleAdapterError(res, error, 'Instruction application');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/adapter/preview
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a preview of the adapted template rendered with GW dummy data.
+ * Body: { sessionId }
+ * Requires currentStep to be "adaptation".
+ * Returns 202 with { pdfJobId, docxUrl }
+ */
+router.post('/preview', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = sessionIdSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: body.error.issues,
+      });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = body.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    if (state.currentStep !== 'adaptation') {
+      return res.status(400).json({
+        error: `Cannot preview from step "${state.currentStep}". Must be in "adaptation" step.`,
+      });
+    }
+
+    const updated = await generatePreview(state);
+
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.preview',
+      details: {
+        sessionId,
+        pdfJobId: updated.preview.pdfJobId,
+        referenceTemplateHash: updated.analysis.referenceTemplateHash,
+      },
+      ipAddress,
+    });
+
+    res.status(202).json({
+      pdfJobId: updated.preview.pdfJobId,
+      docxUrl: updated.preview.docxUrl,
+    });
+  } catch (error) {
+    handleAdapterError(res, error, 'Preview generation');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/adapter/preview/:sessionId
+// ---------------------------------------------------------------------------
+
+/**
+ * Poll preview status (PDF conversion progress).
+ * Returns current status with pdfUrl when completed.
+ */
+router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const params = sessionIdParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = params.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    if (!state.preview.pdfJobId) {
+      return res.status(400).json({ error: 'No preview job found. Run preview first.' });
+    }
+
+    const jobStatus = await getPdfJobStatus(state.preview.pdfJobId);
+
+    const response: Record<string, unknown> = {
+      status: jobStatus.status,
+      progress: jobStatus.progress ?? 0,
+      docxUrl: state.preview.docxUrl,
+    };
+
+    if (jobStatus.status === 'completed' && jobStatus.pdfPath) {
+      response.pdfUrl = `/uploads/documents/${jobStatus.pdfPath}`;
+    }
+
+    if (jobStatus.status === 'failed') {
+      response.error = jobStatus.error;
+    }
+
+    res.json(response);
+  } catch (error) {
+    handleAdapterError(res, error, 'Preview status');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/adapter/download/:sessionId
+// ---------------------------------------------------------------------------
+
+/**
+ * Download the adapted DOCX file (with Jinja2 placeholders, NOT the rendered preview).
+ * This is what the user uploads to Ghostwriter.
+ */
+router.get('/download/:sessionId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const params = sessionIdParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = params.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    const filePath = getDownloadPath(state);
+    const filename = state.templateFile.originalName
+      ? `adapted_${state.templateFile.originalName}`
+      : `adapted_template_${sessionId}.docx`;
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.download',
+      details: {
+        sessionId,
+        filename,
+        referenceTemplateHash: state.analysis.referenceTemplateHash,
+      },
+      ipAddress,
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    handleAdapterError(res, error, 'Download');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/adapter/chat
+// ---------------------------------------------------------------------------
+
+/**
+ * Iterative chat feedback for mapping plan refinement.
+ * Body: { sessionId, message }
+ * Streams response via SSE (same pattern as /api/llm/generate).
+ * Events: delta (text chunk), mapping_update (modified plan), done (usage), error
+ */
+router.post('/chat', requireAuth, async (req: Request, res: Response) => {
+  const body = chatBodySchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({
+      error: 'Invalid request',
+      details: body.error.issues,
+    });
+  }
+
+  const userId = req.session.userId!;
+  const { sessionId, message } = body.data;
+
+  const state = await getWizardSession(userId, sessionId);
+  if (!state) {
+    return res.status(404).json({ error: 'Wizard session not found' });
+  }
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const abortController = new AbortController();
+  let clientDisconnected = false;
+
+  req.on('close', () => {
+    clientDisconnected = true;
+    abortController.abort();
+  });
+
+  try {
+    const stream = processChatFeedback(state, message, abortController.signal);
+
+    for await (const chunk of stream) {
+      if (clientDisconnected) break;
+
+      if (chunk.text && !chunk.done) {
+        res.write(`event: delta\ndata: ${JSON.stringify({ text: chunk.text })}\n\n`);
+      }
+
+      // Check for mapping update
+      if ('mappingUpdate' in chunk && chunk.mappingUpdate) {
+        res.write(
+          `event: mapping_update\ndata: ${JSON.stringify({ mappingPlan: chunk.mappingUpdate })}\n\n`,
+        );
+      }
+
+      if (chunk.done) {
+        res.write(`event: done\ndata: ${JSON.stringify({ usage: chunk.usage })}\n\n`);
+      }
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Chat feedback failed';
+
+    if (!clientDisconnected) {
+      res.write(`event: error\ndata: ${JSON.stringify({ message: errorMessage, retryable: true })}\n\n`);
+    }
+  } finally {
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    try {
+      await logAuditEvent({
+        userId,
+        action: 'adapter.chat',
+        details: {
+          sessionId,
+          messageLength: message.length,
+          iterationCount: state.chat.iterationCount + 1,
+          referenceTemplateHash: state.analysis.referenceTemplateHash,
+        },
+        ipAddress,
+      });
+    } catch (auditErr) {
+      console.error('[templateAdapter route] Failed to log chat audit:', auditErr);
+    }
+
+    if (!clientDisconnected) {
+      res.end();
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/adapter/session/:sessionId
+// ---------------------------------------------------------------------------
+
+/**
+ * Get full wizard state for page reload / navigation restoration.
+ * Returns the complete WizardState (excluding base64 template for payload size).
+ */
+router.get('/session/:sessionId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const params = sessionIdParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: 'Invalid session ID' });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = params.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    // Exclude large fields from the response to keep payload manageable
+    const safeState = {
+      ...state,
+      templateFile: {
+        ...state.templateFile,
+        base64: state.templateFile.base64 ? '[present]' : '',
+      },
+    };
+
+    res.json(safeState);
+  } catch (error) {
+    handleAdapterError(res, error, 'Session retrieval');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/adapter/session
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the user's active wizard session (most recent).
+ * Used for sidebar badge or auto-resume on page load.
+ * Returns { session } or { session: null } if no active session.
+ */
+router.get('/session', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.session.userId!;
+    const state = await getActiveWizardSession(userId);
+
+    if (!state) {
+      return res.json({ session: null });
+    }
+
+    // Return summary without large fields
+    res.json({
+      session: {
+        sessionId: state.sessionId,
+        currentStep: state.currentStep,
+        templateFile: {
+          originalName: state.templateFile.originalName,
+          uploadedAt: state.templateFile.uploadedAt,
+        },
+        config: state.config,
+        createdAt: state.createdAt,
+        updatedAt: state.updatedAt,
+      },
+    });
+  } catch (error) {
+    handleAdapterError(res, error, 'Active session lookup');
   }
 });
 

@@ -413,3 +413,235 @@ export async function applyInstructions(
 
   return updated;
 }
+
+// ---------------------------------------------------------------------------
+// Preview
+// ---------------------------------------------------------------------------
+
+/** Default GW report ID for preview rendering. */
+const PREVIEW_REPORT_ID = config.GHOSTWRITER_REPORT_ID ?? 1;
+
+/**
+ * Generate a preview of the adapted template rendered with GW dummy data.
+ *
+ * 1. Read the applied DOCX from disk
+ * 2. Render with GW report data via renderTemplatePreview()
+ * 3. Queue PDF conversion
+ * 4. Update wizard state with preview URLs and job ID
+ */
+export async function generatePreview(
+  wizardState: WizardState,
+): Promise<WizardState> {
+  const { userId, sessionId } = wizardState;
+  const appliedDocxPath = wizardState.adaptation.appliedDocxPath;
+
+  if (!appliedDocxPath) {
+    throw new Error('No adapted DOCX in wizard state -- run apply first');
+  }
+
+  if (!fs.existsSync(appliedDocxPath)) {
+    throw new Error(`Adapted DOCX file not found: ${appliedDocxPath}`);
+  }
+
+  // Render with GW data and queue PDF conversion
+  const { docxPath: renderedDocxPath, jobId } = await renderTemplatePreview(
+    appliedDocxPath,
+    PREVIEW_REPORT_ID,
+  );
+
+  const docxFilename = path.basename(renderedDocxPath);
+
+  const updated = await updateWizardSession(userId, sessionId, {
+    currentStep: 'preview',
+    preview: {
+      pdfJobId: jobId,
+      pdfUrl: null, // Will be populated when PDF conversion completes
+      docxUrl: `/uploads/documents/${docxFilename}`,
+    },
+  });
+
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// Download
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the download path for the adapted DOCX.
+ * Returns the path to the DOCX WITH Jinja2 placeholders (not the rendered preview).
+ */
+export function getDownloadPath(wizardState: WizardState): string {
+  const appliedDocxPath = wizardState.adaptation.appliedDocxPath;
+
+  if (!appliedDocxPath) {
+    throw new Error('No adapted DOCX in wizard state -- run apply first');
+  }
+
+  if (!fs.existsSync(appliedDocxPath)) {
+    throw new Error(`Adapted DOCX file not found: ${appliedDocxPath}`);
+  }
+
+  return appliedDocxPath;
+}
+
+// ---------------------------------------------------------------------------
+// Chat Feedback
+// ---------------------------------------------------------------------------
+
+const CHAT_WARNING_THRESHOLD = 5;
+
+/**
+ * Process iterative chat feedback via SSE streaming.
+ *
+ * Builds chat context from the current mapping plan + history + user message,
+ * streams the LLM response, and yields chunks for SSE delivery.
+ * If the LLM response contains JSON mapping plan modifications,
+ * the mapping plan in session state is updated.
+ *
+ * Includes a soft warning in the system prompt after 5 iterations.
+ */
+export async function* processChatFeedback(
+  wizardState: WizardState,
+  userMessage: string,
+  signal?: AbortSignal,
+): AsyncGenerator<LLMStreamChunk & { mappingUpdate?: MappingPlan }> {
+  const { userId, sessionId } = wizardState;
+  const currentPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
+  const iterationCount = wizardState.chat.iterationCount;
+
+  // Record user message in history
+  const now = new Date().toISOString();
+  const updatedHistory = [
+    ...wizardState.chat.history,
+    { role: 'user', content: userMessage, timestamp: now },
+  ];
+
+  // Increment iteration count
+  await updateWizardSession(userId, sessionId, {
+    chat: {
+      iterationCount: iterationCount + 1,
+      history: updatedHistory,
+    },
+  });
+
+  // Build system prompt with current mapping plan context
+  let systemPrompt = (
+    'You are a template adaptation assistant helping refine a mapping plan ' +
+    'that maps sections of a client DOCX document to Ghostwriter template fields.\n\n' +
+    'Current mapping plan:\n' +
+    JSON.stringify(currentPlan, null, 2) + '\n\n' +
+    'The user wants to modify this mapping plan. Help them by:\n' +
+    '1. Understanding their request\n' +
+    '2. Suggesting specific changes to the mapping plan\n' +
+    '3. If you determine changes are needed, include a JSON block with the updated mapping plan\n\n' +
+    'To propose changes, include a fenced JSON block like:\n' +
+    '```json\n{"entries": [...], "templateType": "...", "language": "...", "warnings": [...]}\n```\n'
+  );
+
+  // Soft warning after threshold
+  if (iterationCount + 1 >= CHAT_WARNING_THRESHOLD) {
+    systemPrompt += (
+      '\nNOTE: This is iteration ' + (iterationCount + 1) + ' of chat feedback. ' +
+      'Consider finalising the mapping plan soon to avoid excessive iterations. ' +
+      'Gently suggest the user move forward if the plan looks good.\n'
+    );
+  }
+
+  // Build messages with chat history
+  const messages: LLMMessage[] = [
+    { role: 'system', content: systemPrompt },
+  ];
+
+  // Include recent chat history (last 10 messages)
+  const recentHistory = wizardState.chat.history.slice(-10);
+  for (const msg of recentHistory) {
+    messages.push({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    });
+  }
+
+  messages.push({ role: 'user', content: userMessage });
+
+  // Stream LLM response
+  const client = await createLLMClient();
+  let fullResponse = '';
+  let usage = { inputTokens: 0, outputTokens: 0 };
+  const model = client.resolveModel('template-adapter');
+
+  const stream = client.generateStream(messages, {
+    maxTokens: 4096,
+    feature: 'template-adapter',
+    signal,
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.text) {
+      fullResponse += chunk.text;
+      yield { text: chunk.text, done: false };
+    }
+    if (chunk.done) {
+      if (chunk.usage) {
+        usage = chunk.usage;
+      }
+    }
+  }
+
+  // Check for mapping plan modifications in the response
+  const jsonMatch = fullResponse.match(/```json\s*([\s\S]*?)```/);
+  let mappingUpdate: MappingPlan | undefined;
+
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[1]);
+      if (parsed.entries && Array.isArray(parsed.entries)) {
+        mappingUpdate = parsed as MappingPlan;
+
+        // Update mapping plan in session state
+        await updateWizardSession(userId, sessionId, {
+          analysis: {
+            ...wizardState.analysis,
+            mappingPlan: parsed as Record<string, unknown>,
+          },
+        });
+      }
+    } catch {
+      // JSON parse failed -- not a valid mapping plan update, ignore
+    }
+  }
+
+  // Record assistant message in history
+  const assistantHistory = [
+    ...updatedHistory,
+    { role: 'assistant', content: fullResponse, timestamp: new Date().toISOString() },
+  ];
+
+  await updateWizardSession(userId, sessionId, {
+    chat: {
+      iterationCount: iterationCount + 1,
+      history: assistantHistory,
+    },
+  });
+
+  // Log the interaction
+  try {
+    await logLLMInteraction(userId, 'system', {
+      promptSanitized: userMessage,
+      responseFull: fullResponse,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      model,
+    });
+  } catch (err) {
+    console.error('[templateAdapter] Failed to log chat interaction:', err);
+  }
+
+  // Final done chunk with optional mapping update
+  yield {
+    text: '',
+    done: true,
+    usage,
+    ...(mappingUpdate ? { mappingUpdate } : {}),
+  };
+}
