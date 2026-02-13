@@ -2,6 +2,7 @@
 import logging
 from io import BytesIO
 
+from docx import Document
 from docxtpl import DocxTemplate
 
 logger = logging.getLogger(__name__)
@@ -30,12 +31,16 @@ class DocxGeneratorService:
         Raises:
             ValueError: If the template cannot be loaded or rendered.
         """
+        # Validate the bytes are a valid DOCX before passing to docxtpl.
+        # DocxTemplate defers Document loading to render(), so we validate
+        # early to give a clear "load" vs "render" error distinction.
         try:
-            tpl = DocxTemplate(BytesIO(template_bytes))
+            Document(BytesIO(template_bytes))
         except Exception as exc:
             raise ValueError(f"Failed to load DOCX template: {exc}") from exc
 
         try:
+            tpl = DocxTemplate(BytesIO(template_bytes))
             tpl.render(context)
         except Exception as exc:
             raise ValueError(f"Failed to render DOCX template: {exc}") from exc

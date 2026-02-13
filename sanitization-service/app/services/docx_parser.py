@@ -72,7 +72,7 @@ class DocxParserService:
     def _parse_paragraph(self, para: Any) -> DocxParagraph:
         """Convert a python-docx Paragraph object to a DocxParagraph model."""
         heading_level = self._heading_level(para)
-        alignment = str(para.alignment).split(".")[-1] if para.alignment else None
+        alignment = para.alignment.name if para.alignment is not None else None
         runs = [self._parse_run(r) for r in para.runs]
 
         return DocxParagraph(
