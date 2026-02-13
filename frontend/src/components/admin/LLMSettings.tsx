@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { apiClient } from '@/lib/api'
 import { toast } from 'sonner'
-import { Eye, EyeOff, Play, RefreshCw } from 'lucide-react'
+import { Eye, EyeOff, Play, RefreshCw, Square } from 'lucide-react'
 
 interface LLMSettingsData {
   cliproxyBaseUrl: string
@@ -94,6 +94,25 @@ export function LLMSettings() {
     },
   })
 
+  const stopCliProxy = useMutation({
+    mutationFn: () =>
+      apiClient<StartCliProxyResponse>('/api/admin/llm-stop-cliproxy', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message)
+      } else {
+        toast.info(data.message)
+      }
+      refetchStatus()
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to stop CLIProxyAPI')
+    },
+  })
+
   const [formState, setFormState] = useState<Partial<LLMSettingsData>>({})
 
   // Derive effective values (form overrides or current settings)
@@ -168,6 +187,18 @@ export function LLMSettings() {
                     >
                       <Play className="h-4 w-4 mr-1" />
                       {startCliProxy.isPending ? 'Starting...' : 'Start CLIProxyAPI'}
+                    </Button>
+                  )}
+                  {cliproxy?.available && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => stopCliProxy.mutate()}
+                      disabled={stopCliProxy.isPending}
+                      className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                    >
+                      <Square className="h-4 w-4 mr-1" />
+                      {stopCliProxy.isPending ? 'Stopping...' : 'Stop'}
                     </Button>
                   )}
                   <Button
@@ -271,6 +302,21 @@ export function LLMSettings() {
           <CardDescription>API keys and fallback settings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="cliproxyBaseUrl">CLIProxyAPI Base URL</Label>
+            <Input
+              id="cliproxyBaseUrl"
+              value={formState.cliproxyBaseUrl ?? settings?.cliproxyBaseUrl ?? ''}
+              onChange={(e) =>
+                setFormState((prev) => ({ ...prev, cliproxyBaseUrl: e.target.value }))
+              }
+              placeholder="http://localhost:8317"
+            />
+            <p className="text-xs text-muted-foreground">
+              Base URL for the CLIProxyAPI OpenAI-compatible endpoint
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="anthropicApiKey">Anthropic API Key</Label>
             <div className="flex gap-2">

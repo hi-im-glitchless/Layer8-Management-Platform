@@ -8,6 +8,7 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
   SANITIZER_URL: z.string().default('http://localhost:8000'),
+  CLIPROXY_BIN_PATH: z.string().default('/usr/local/bin/cli-proxy-api'),
 });
 
 const parsed = envSchema.safeParse(process.env);

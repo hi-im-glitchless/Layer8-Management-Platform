@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { spawn, type ChildProcess } from 'node:child_process';
+import path from 'node:path';
 import { requireAdmin } from '../middleware/auth.js';
 import { auditMiddleware } from '../middleware/audit.js';
 import {
@@ -10,6 +12,33 @@ import {
 import { getLlmSettings, updateLlmSettings } from '../services/settings.js';
 import { createLLMClient } from '../services/llm/client.js';
 import { logAuditEvent } from '../services/audit.js';
+import { config } from '../config.js';
+
+// Tracked CLIProxyAPI child process (survives across requests, not across backend restarts)
+let cliproxyProcess: ChildProcess | null = null;
+
+function isCliproxyTrackedAndRunning(): boolean {
+  if (!cliproxyProcess) return false;
+  // exitCode is null while the process is still running
+  if (cliproxyProcess.exitCode !== null) {
+    cliproxyProcess = null;
+    return false;
+  }
+  return true;
+}
+
+async function pollHealthCheck(baseUrl: string, attempts = 10, intervalMs = 500): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(`${baseUrl}/models`);
+      if (res.ok) return true;
+    } catch {
+      // not ready yet
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return false;
+}
 
 const router = Router();
 
@@ -208,11 +237,11 @@ router.get('/llm-status', async (req, res) => {
 
 /**
  * POST /api/admin/llm-start-cliproxy
- * Best-effort attempt to start CLIProxyAPI
+ * Spawns the CLIProxyAPI process and polls for readiness
  */
 router.post('/llm-start-cliproxy', async (req, res) => {
   try {
-    // Check if CLIProxyAPI is already running
+    // Check if CLIProxyAPI is already running (either tracked or external)
     const client = await createLLMClient();
     const statuses = await client.checkStatus();
     const cliproxy = statuses.find((s) => s.provider === 'cliproxy');
@@ -221,14 +250,70 @@ router.post('/llm-start-cliproxy', async (req, res) => {
       return res.json({ success: true, message: 'CLIProxyAPI is already running' });
     }
 
-    // Cannot auto-start -- return instructions
-    res.json({
-      success: false,
-      message: 'CLIProxyAPI is not running. Please start it manually: run the CLIProxyAPI server on port 8080, or configure the Anthropic API fallback in LLM settings.',
+    // Already tracked and running (but health check above failed -- unlikely but guard)
+    if (isCliproxyTrackedAndRunning()) {
+      return res.json({ success: false, message: 'CLIProxyAPI process is tracked but not yet responding. Try refreshing status.' });
+    }
+
+    // Spawn the binary
+    const binPath = config.CLIPROXY_BIN_PATH;
+    const cwd = path.dirname(binPath);
+
+    const child = spawn(binPath, [], {
+      cwd,
+      stdio: 'ignore',
+      detached: true,
     });
+
+    // Allow the parent to exit without waiting for this child
+    child.unref();
+
+    child.on('error', (err) => {
+      console.error('[admin routes] CLIProxyAPI spawn error:', err.message);
+      cliproxyProcess = null;
+    });
+
+    cliproxyProcess = child;
+
+    // Poll health check to confirm it started
+    const settings = await getLlmSettings();
+    const baseUrl = settings.cliproxyBaseUrl || 'http://localhost:8317';
+    const healthy = await pollHealthCheck(baseUrl);
+
+    if (healthy) {
+      res.json({ success: true, message: 'CLIProxyAPI started successfully' });
+    } else {
+      res.json({ success: false, message: 'CLIProxyAPI process spawned but did not respond to health checks. Check the binary path and config.yaml.' });
+    }
   } catch (error) {
     console.error('[admin routes] Error starting CLIProxyAPI:', error);
     res.status(500).json({ error: 'Failed to start CLIProxyAPI' });
+  }
+});
+
+/**
+ * POST /api/admin/llm-stop-cliproxy
+ * Kills the tracked CLIProxyAPI process
+ */
+router.post('/llm-stop-cliproxy', async (req, res) => {
+  try {
+    if (!isCliproxyTrackedAndRunning()) {
+      return res.json({ success: false, message: 'No tracked CLIProxyAPI process to stop. If it was started externally, stop it manually.' });
+    }
+
+    // Kill the process group (negative PID kills the group since we used detached)
+    try {
+      process.kill(-cliproxyProcess!.pid!, 'SIGTERM');
+    } catch {
+      // Fallback: kill just the process
+      cliproxyProcess!.kill('SIGTERM');
+    }
+    cliproxyProcess = null;
+
+    res.json({ success: true, message: 'CLIProxyAPI process stopped' });
+  } catch (error) {
+    console.error('[admin routes] Error stopping CLIProxyAPI:', error);
+    res.status(500).json({ error: 'Failed to stop CLIProxyAPI' });
   }
 });
 
