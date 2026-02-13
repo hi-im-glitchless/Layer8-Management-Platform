@@ -12,7 +12,13 @@ from docx.oxml.ns import qn
 from lxml import etree
 
 from app.models.adapter import MappingPlan
-from app.models.gap_detection import GapEntry
+from app.models.gap_detection import (
+    AnnotationMetadata,
+    GapEntry,
+    TooltipEntry,
+    UnmappedParagraph,
+)
+from app.services.docx_parser import DocxParserService
 
 logger = logging.getLogger(__name__)
 
@@ -101,3 +107,83 @@ def _set_paragraph_shading(paragraph, hex_color: str) -> None:
     shd.set(qn("w:val"), "clear")
     shd.set(qn("w:color"), "auto")
     shd.set(qn("w:fill"), hex_color)
+
+
+def generate_annotation_metadata(
+    doc_bytes: bytes,
+    mapping_plan: MappingPlan,
+    gaps: list[GapEntry],
+) -> AnnotationMetadata:
+    """Generate tooltip data and unmapped paragraph list for the frontend.
+
+    Args:
+        doc_bytes: Raw bytes of the client DOCX template.
+        mapping_plan: The validated mapping plan.
+        gaps: List of detected gaps from gap detection.
+
+    Returns:
+        AnnotationMetadata with tooltip_data and unmapped_paragraphs.
+    """
+    parser = DocxParserService()
+    doc_structure = parser.parse(doc_bytes)
+    paragraphs = doc_structure.paragraphs
+
+    # Track which paragraph indices are accounted for (mapped or gap)
+    accounted_indices: set[int] = set()
+
+    # Build tooltip entries for mapped paragraphs
+    tooltip_data: list[TooltipEntry] = []
+    for entry in mapping_plan.entries:
+        idx = entry.section_index
+        if 0 <= idx < len(paragraphs):
+            tooltip_data.append(
+                TooltipEntry(
+                    paragraph_index=idx,
+                    gw_field=entry.gw_field,
+                    marker_type=entry.marker_type,
+                    section_text=entry.section_text,
+                    status="mapped",
+                )
+            )
+            accounted_indices.add(idx)
+
+    # Build tooltip entries for gap paragraphs
+    for gap in gaps:
+        idx = gap.estimated_paragraph_index
+        if idx is not None and 0 <= idx < len(paragraphs) and idx not in accounted_indices:
+            tooltip_data.append(
+                TooltipEntry(
+                    paragraph_index=idx,
+                    gw_field=gap.gw_field,
+                    marker_type=gap.marker_type,
+                    section_text=paragraphs[idx].text[:200],
+                    status="gap",
+                )
+            )
+            accounted_indices.add(idx)
+
+    # Sort tooltip data by paragraph index
+    tooltip_data.sort(key=lambda t: t.paragraph_index)
+
+    # Build unmapped paragraphs list (not in mapping plan, not a gap, not empty)
+    unmapped: list[UnmappedParagraph] = []
+    for i, para in enumerate(paragraphs):
+        if i in accounted_indices:
+            continue
+        text = para.text.strip()
+        if not text:
+            continue
+        unmapped.append(
+            UnmappedParagraph(
+                paragraph_index=i,
+                text=text[:200],
+                heading_level=para.heading_level,
+            )
+        )
+
+    # Already sorted by paragraph_index (iterated in order)
+
+    return AnnotationMetadata(
+        tooltip_data=tooltip_data,
+        unmapped_paragraphs=unmapped,
+    )
