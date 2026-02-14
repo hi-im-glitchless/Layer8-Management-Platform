@@ -102,6 +102,13 @@ export interface AutoMapResponse {
   mappingPlan: MappingPlan
 }
 
+/** POST /api/adapter/reapply response */
+export interface ReapplyResponse {
+  appliedCount: number
+  skippedCount: number
+  placementWarnings: string[]
+}
+
 /** POST /api/adapter/preview response */
 export interface PreviewResponse {
   pdfJobId: string
