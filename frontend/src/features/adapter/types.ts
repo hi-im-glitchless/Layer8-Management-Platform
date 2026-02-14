@@ -149,6 +149,8 @@ export type ChatSSEEvent =
   | { type: 'mapping_update'; mappingPlan: MappingPlan }
   | { type: 'selection_mapping'; selectionNumber: number; gwField: string; markerType: string; confidence: number; rationale: string }
   | { type: 'batch_complete'; resolvedCount: number; totalCount: number }
+  | { type: 'correction_result'; mappingPlan: MappingPlan }
+  | { type: 'regeneration_complete'; pdfJobId: string; placeholderCount: number }
   | { type: 'done'; usage: Record<string, unknown> }
   | { type: 'error'; message: string; retryable: boolean }
 

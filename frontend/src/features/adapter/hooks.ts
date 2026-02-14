@@ -557,6 +557,17 @@ function parseSSEEvent(eventType: string, data: string): ChatSSEEvent | null {
           resolvedCount: parsed.resolvedCount,
           totalCount: parsed.totalCount,
         }
+      case 'correction_result':
+        return {
+          type: 'correction_result',
+          mappingPlan: parsed.mappingPlan,
+        }
+      case 'regeneration_complete':
+        return {
+          type: 'regeneration_complete',
+          pdfJobId: parsed.pdfJobId,
+          placeholderCount: parsed.placeholderCount,
+        }
       case 'done':
         return { type: 'done', usage: parsed.usage ?? {} }
       case 'error':
@@ -579,6 +590,8 @@ export function useAdapterChat(sessionId: string | null) {
   const [latestMappingUpdate, setLatestMappingUpdate] = useState<MappingPlan | null>(null)
   const [selectionMappings, setSelectionMappings] = useState<Map<number, SelectionMappingResult>>(new Map())
   const [isBatchComplete, setIsBatchComplete] = useState(false)
+  const [latestCorrectionResult, setLatestCorrectionResult] = useState<MappingPlan | null>(null)
+  const [regenerationResult, setRegenerationResult] = useState<{ pdfJobId: string; placeholderCount: number } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const sendMessage = useCallback(
@@ -596,6 +609,8 @@ export function useAdapterChat(sessionId: string | null) {
       setLatestMappingUpdate(null)
       setSelectionMappings(new Map())
       setIsBatchComplete(false)
+      setLatestCorrectionResult(null)
+      setRegenerationResult(null)
 
       // Prepare assistant placeholder
       let assistantContent = ''
@@ -682,6 +697,15 @@ export function useAdapterChat(sessionId: string | null) {
                   case 'batch_complete':
                     setIsBatchComplete(true)
                     break
+                  case 'correction_result':
+                    setLatestCorrectionResult(event.mappingPlan)
+                    break
+                  case 'regeneration_complete':
+                    setRegenerationResult({
+                      pdfJobId: event.pdfJobId,
+                      placeholderCount: event.placeholderCount,
+                    })
+                    break
                   case 'done':
                     // Stream complete
                     break
@@ -724,11 +748,18 @@ export function useAdapterChat(sessionId: string | null) {
     setLatestMappingUpdate(null)
     setSelectionMappings(new Map())
     setIsBatchComplete(false)
+    setLatestCorrectionResult(null)
+    setRegenerationResult(null)
   }, [])
 
   const clearSelectionMappings = useCallback(() => {
     setSelectionMappings(new Map())
     setIsBatchComplete(false)
+  }, [])
+
+  const clearCorrectionState = useCallback(() => {
+    setLatestCorrectionResult(null)
+    setRegenerationResult(null)
   }, [])
 
   return {
@@ -737,9 +768,12 @@ export function useAdapterChat(sessionId: string | null) {
     latestMappingUpdate,
     selectionMappings,
     isBatchComplete,
+    latestCorrectionResult,
+    regenerationResult,
     sendMessage,
     cancelStream,
     clearMessages,
     clearSelectionMappings,
+    clearCorrectionState,
   }
 }
