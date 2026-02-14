@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Brain, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -364,25 +364,6 @@ export function StepVerify({
     setNewRowIndex(null)
   }, [])
 
-  // Derive highlight texts for PDF text layer:
-  // 1. Placeholder Jinja2 expressions (already applied, specific strings)
-  // 2. Section text from manually added rows (not yet regenerated)
-  const mappedHighlightTexts = useMemo(() => {
-    const texts: string[] = []
-    // Existing placeholders
-    for (const p of placeholders) {
-      if (p.placeholderText.length >= 4) texts.push(p.placeholderText)
-    }
-    // Manually added entries (from PDF selection, not yet in placeholders)
-    const placeholderIndices = new Set(placeholders.map((p) => p.paragraphIndex))
-    for (const e of mappingPlan?.entries ?? []) {
-      if (!placeholderIndices.has(e.sectionIndex) && e.sectionText.length >= 4) {
-        texts.push(e.sectionText)
-      }
-    }
-    return texts
-  }, [placeholders, mappingPlan])
-
   return (
     <div className="space-y-4">
       {/* Toolbar: placeholder count, KB badge, Regenerate, Approve */}
@@ -471,7 +452,6 @@ export function StepVerify({
               scrollTargetPage={scrollTargetPage}
               scrollTargetText={scrollTargetText}
               onScrollComplete={handleScrollComplete}
-              highlightTexts={mappedHighlightTexts}
               className="min-h-[600px]"
             />
             {/* Error overlay with retry */}

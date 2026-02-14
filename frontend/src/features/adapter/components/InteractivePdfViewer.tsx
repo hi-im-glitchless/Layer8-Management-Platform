@@ -44,8 +44,6 @@ interface InteractivePdfViewerProps {
   scrollTargetText?: string | null
   /** Called after scroll completes so parent can reset scrollTargetPage to null */
   onScrollComplete?: () => void
-  /** Texts to highlight on the PDF text layer */
-  highlightTexts?: string[]
 }
 
 // Status-based badge ring colors (Decision #8)
@@ -151,7 +149,6 @@ export function InteractivePdfViewer({
   scrollTargetPage,
   scrollTargetText,
   onScrollComplete,
-  highlightTexts,
 }: InteractivePdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastSelectionTimeRef = useRef<number>(0)
@@ -218,8 +215,6 @@ export function InteractivePdfViewer({
 
       if (bestMatch) {
         bestMatch.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        bestMatch.classList.add('mapped-highlight-flash')
-        setTimeout(() => bestMatch!.classList.remove('mapped-highlight-flash'), 1500)
       }
       onScrollComplete?.()
     }, 100)
@@ -449,7 +444,6 @@ export function InteractivePdfViewer({
         className="h-full"
         scrollRef={setPdfScrollEl}
         overlay={overlayContent}
-        highlightTexts={highlightTexts}
       />
     </div>
   )
