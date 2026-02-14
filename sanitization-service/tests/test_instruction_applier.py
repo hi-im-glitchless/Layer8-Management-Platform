@@ -609,3 +609,87 @@ class TestEdgeCases:
         # Text-based fallback finds the paragraph even with negative index
         assert applied == 1
         assert skipped == 0
+
+    def test_replace_text_in_table_cell(self):
+        """Text in a body table cell is found and replaced (strategy 4)."""
+        doc = Document()
+        doc.add_paragraph("Unrelated paragraph")
+        table = doc.add_table(rows=2, cols=2)
+        table.rows[0].cells[0].text = "Header"
+        table.rows[1].cells[0].text = "Old Company Name"
+        table.rows[1].cells[1].text = "Details"
+        buf = BytesIO()
+        doc.save(buf)
+        template_bytes = buf.getvalue()
+
+        inst = _make_instruction(
+            paragraph_index=999,  # Wrong index, must fallback to table search
+            original_text="Old Company Name",
+            replacement_text="{{ client.short_name }}",
+        )
+        iset = _make_instruction_set([inst])
+        applier = InstructionApplier()
+
+        result_bytes, applied, skipped, warnings = applier.apply(template_bytes, iset)
+
+        assert applied == 1
+        assert skipped == 0
+
+        # Verify replacement in table cell
+        result_doc = Document(BytesIO(result_bytes))
+        cell_text = result_doc.tables[0].rows[1].cells[0].text
+        assert "{{ client.short_name }}" in cell_text
+
+    def test_replace_text_in_textbox(self):
+        """Text in a text box is found and replaced (strategy 5)."""
+        from docx.oxml import OxmlElement
+
+        doc = Document()
+        doc.add_paragraph("Unrelated paragraph")
+
+        # Create a minimal text box structure in the body
+        # w:txbxContent > w:p > w:r > w:t
+        txbx = OxmlElement("w:txbxContent")
+        p = OxmlElement("w:p")
+        r = OxmlElement("w:r")
+        t = OxmlElement("w:t")
+        t.text = "Report Title"
+        r.append(t)
+        p.append(r)
+        txbx.append(p)
+
+        # Embed in a w:pict element inside the last body paragraph
+        last_p = doc.element.body.findall(qn("w:p"))[-1]
+        wrapper_r = OxmlElement("w:r")
+        pict = OxmlElement("w:pict")
+        pict.append(txbx)
+        wrapper_r.append(pict)
+        last_p.append(wrapper_r)
+
+        buf = BytesIO()
+        doc.save(buf)
+        template_bytes = buf.getvalue()
+
+        inst = _make_instruction(
+            paragraph_index=999,  # Wrong index
+            original_text="Report Title",
+            replacement_text="{{ finding.title }}",
+            gw_field="finding.title",
+        )
+        iset = _make_instruction_set([inst])
+        applier = InstructionApplier()
+
+        result_bytes, applied, skipped, warnings = applier.apply(template_bytes, iset)
+
+        assert applied == 1
+        assert skipped == 0
+
+        # Verify replacement in text box
+        result_doc = Document(BytesIO(result_bytes))
+        txbx_elements = result_doc.element.body.findall(
+            ".//" + qn("w:txbxContent")
+        )
+        assert len(txbx_elements) >= 1
+        txbx_texts = txbx_elements[0].findall(".//" + qn("w:t"))
+        full_text = "".join(t.text or "" for t in txbx_texts)
+        assert "{{ finding.title }}" in full_text

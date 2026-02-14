@@ -302,7 +302,7 @@ def validate_instruction_set(instruction_set: InstructionSet) -> ValidationResul
     """
     all_errors: list[str] = []
     valid_instructions: list[Instruction] = []
-    seen_combos: set[tuple[int, str]] = set()
+    seen_combos: set[tuple[int, str, str]] = set()
 
     for i, instruction in enumerate(instruction_set.instructions):
         inst_errors: list[str] = []
@@ -314,8 +314,10 @@ def validate_instruction_set(instruction_set: InstructionSet) -> ValidationResul
                 f"got {instruction.paragraph_index}"
             )
 
-        # Check for duplicate paragraph_index + action combos
-        combo = (instruction.paragraph_index, instruction.action)
+        # Check for duplicate paragraph_index + action + original_text combos
+        # (include original_text so different targets at the same fallback index
+        # are not wrongly flagged as duplicates)
+        combo = (instruction.paragraph_index, instruction.action, instruction.original_text)
         if combo in seen_combos:
             inst_errors.append(
                 f"Instruction {i}: duplicate paragraph_index={instruction.paragraph_index} "

@@ -15,7 +15,10 @@ POST /validate-placement -- Validate LLM placement JSON into an InstructionSet
 import base64
 import json
 import logging
+from io import BytesIO
 
+from docx import Document as _DocxDocument
+from docx.oxml.ns import qn as _qn
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -93,13 +96,17 @@ _applier = InstructionApplier()
 _DOCX_MAGIC = b"PK\x03\x04"
 
 
-def _find_text_in_headers_footers(
-    doc_structure: DocxStructure, text: str,
+def _find_text_in_extended_locations(
+    doc_structure: DocxStructure,
+    text: str,
+    template_bytes: bytes | None = None,
 ) -> str | None:
-    """Search header/footer paragraphs for text.
+    """Search headers, footers, table cells, and text boxes for text.
 
     Returns a location string (e.g. "header (Section 1)") if found, None otherwise.
+    Searches progressively: parsed structure first (fast), then raw DOCX (slower).
     """
+    # 1. Header/footer paragraphs (from parsed structure)
     for sec_idx, section in enumerate(doc_structure.sections):
         for para in section.header_paragraphs:
             if text in para.text:
@@ -107,6 +114,72 @@ def _find_text_in_headers_footers(
         for para in section.footer_paragraphs:
             if text in para.text:
                 return f"footer (Section {sec_idx + 1})"
+
+    # 2. Body table cells (from parsed structure)
+    for tbl_idx, table in enumerate(doc_structure.tables):
+        for row in table.rows:
+            for cell in row.cells:
+                if text in cell.text:
+                    return f"table {tbl_idx} cell"
+
+    # 3. Text boxes, first-page/even-page headers/footers, and nested
+    #    tables/text boxes inside headers/footers (requires raw DOCX parsing)
+    if template_bytes:
+        try:
+            doc = _DocxDocument(BytesIO(template_bytes))
+
+            # Text boxes in body
+            body = doc.element.body
+            for txbx_idx, txbx in enumerate(
+                body.findall(".//" + _qn("w:txbxContent"))
+            ):
+                txbx_text = "".join(
+                    t.text or "" for t in txbx.findall(".//" + _qn("w:t"))
+                )
+                if text in txbx_text:
+                    return f"text box {txbx_idx}"
+
+            # All header/footer variants (default, first-page, even-page)
+            for sec_idx, section in enumerate(doc.sections):
+                for hf_label, accessor in [
+                    ("header", "header"),
+                    ("footer", "footer"),
+                    ("first-page header", "first_page_header"),
+                    ("first-page footer", "first_page_footer"),
+                    ("even-page header", "even_page_header"),
+                    ("even-page footer", "even_page_footer"),
+                ]:
+                    try:
+                        hf = getattr(section, accessor)
+                    except Exception:
+                        continue
+                    if hf is None:
+                        continue
+                    hf_elem = hf._element
+
+                    # Top-level paragraphs
+                    for para in hf.paragraphs:
+                        if text in para.text:
+                            return f"{hf_label} (Section {sec_idx + 1})"
+
+                    # Table cells
+                    for tc in hf_elem.findall(".//" + _qn("w:tc")):
+                        tc_text = "".join(
+                            t.text or "" for t in tc.findall(".//" + _qn("w:t"))
+                        )
+                        if text in tc_text:
+                            return f"{hf_label} table (Section {sec_idx + 1})"
+
+                    # Text boxes
+                    for txbx in hf_elem.findall(".//" + _qn("w:txbxContent")):
+                        txbx_text = "".join(
+                            t.text or "" for t in txbx.findall(".//" + _qn("w:t"))
+                        )
+                        if text in txbx_text:
+                            return f"{hf_label} text box (Section {sec_idx + 1})"
+        except Exception:
+            pass
+
     return None
 
 # All valid GW field paths for validation
@@ -626,8 +699,11 @@ async def get_document_structure(body: DocumentStructureRequest) -> DocumentStru
             )
         )
 
-    # Build header/footer paragraph list
+    # Build header/footer paragraph list (including first-page, even-page,
+    # and text from nested tables/text boxes within headers/footers)
     hf_paragraphs: list[HeaderFooterParagraphInfo] = []
+
+    # From parsed structure (default header/footer top-level paragraphs)
     for sec_idx, section in enumerate(doc_structure.sections):
         for h_idx, para in enumerate(section.header_paragraphs):
             if para.text.strip():
@@ -651,6 +727,63 @@ async def get_document_structure(body: DocumentStructureRequest) -> DocumentStru
                         style_name=para.style_name,
                     )
                 )
+
+    # Extend with first-page/even-page headers/footers and nested
+    # table/text-box content (requires re-parsing the raw DOCX)
+    try:
+        doc = _DocxDocument(BytesIO(template_bytes))
+        seen_texts: set[str] = {p.text for p in hf_paragraphs}
+
+        for sec_idx, section in enumerate(doc.sections):
+            for hf_label, accessor in [
+                ("first-page header", "first_page_header"),
+                ("first-page footer", "first_page_footer"),
+                ("even-page header", "even_page_header"),
+                ("even-page footer", "even_page_footer"),
+                ("header", "header"),
+                ("footer", "footer"),
+            ]:
+                try:
+                    hf = getattr(section, accessor)
+                except Exception:
+                    continue
+                if hf is None:
+                    continue
+                hf_elem = hf._element
+
+                # Collect all text from tables and text boxes in this header/footer
+                for tc in hf_elem.findall(".//" + _qn("w:tc")):
+                    tc_text = "".join(
+                        t.text or "" for t in tc.findall(".//" + _qn("w:t"))
+                    ).strip()
+                    if tc_text and tc_text[:200] not in seen_texts:
+                        seen_texts.add(tc_text[:200])
+                        hf_paragraphs.append(
+                            HeaderFooterParagraphInfo(
+                                text=tc_text[:200],
+                                location=hf_label,
+                                section_index=sec_idx,
+                                paragraph_index=0,
+                            )
+                        )
+                for txbx in hf_elem.findall(".//" + _qn("w:txbxContent")):
+                    # Extract per-paragraph text from text boxes
+                    for p_elem in txbx.findall(_qn("w:p")):
+                        p_text = "".join(
+                            t.text or "" for t in p_elem.findall(".//" + _qn("w:t"))
+                        ).strip()
+                        if p_text and p_text[:200] not in seen_texts:
+                            seen_texts.add(p_text[:200])
+                            hf_paragraphs.append(
+                                HeaderFooterParagraphInfo(
+                                    text=p_text[:200],
+                                    location=hf_label,
+                                    section_index=sec_idx,
+                                    paragraph_index=0,
+                                )
+                            )
+    except Exception:
+        logger.debug("Extended header/footer extraction failed, using parsed structure only")
 
     logger.info(
         "Document structure: %d body paragraphs, %d empty, %d header/footer",
@@ -1314,9 +1447,9 @@ async def validate_placement(body: ValidatePlacementRequest) -> ValidatePlacemen
                             break
 
                     if not relocated:
-                        # Search headers and footers before giving up
-                        hf_location = _find_text_in_headers_footers(
-                            doc_structure, original_text,
+                        # Search tables, text boxes, all header/footer variants
+                        hf_location = _find_text_in_extended_locations(
+                            doc_structure, original_text, template_bytes,
                         )
                         if hf_location:
                             warnings.append(

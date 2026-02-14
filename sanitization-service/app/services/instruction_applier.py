@@ -10,6 +10,7 @@ from io import BytesIO
 
 from docx import Document
 from docx.oxml.ns import qn
+from docx.text.paragraph import Paragraph as _ParagraphWrapper
 from lxml import etree
 
 from app.models.adapter import Instruction, InstructionSet
@@ -144,11 +145,14 @@ class InstructionApplier:
         body_paragraphs: list,
         instruction: Instruction,
     ) -> bool:
-        """Replace text using multi-strategy search across body, headers, and footers.
+        """Replace text using multi-strategy search across the entire document.
 
         Strategy 1: Try the body paragraph at the given index.
         Strategy 2: Search all body paragraphs for the text.
-        Strategy 3: Search all header and footer paragraphs for the text.
+        Strategy 3: Search all header/footer top-level paragraphs (all variants).
+        Strategy 4: Search body table cell paragraphs.
+        Strategy 5: Search body text box paragraphs (w:txbxContent).
+        Strategy 6: Search header/footer nested tables and text boxes.
         """
         idx = instruction.paragraph_index
         original = instruction.original_text
@@ -170,24 +174,87 @@ class InstructionApplier:
                 )
                 return True
 
-        # Strategy 3: Search headers and footers
+        # Strategy 3: Search all header/footer variants (default, first-page, even-page)
         for section in doc.sections:
-            for para in section.header.paragraphs:
+            for hf_label, hf in self._iter_header_footers(section):
+                for para in hf.paragraphs:
+                    if self._replace_in_paragraph(para, original, replacement):
+                        logger.info(
+                            "Applied replacement in %s (gw_field=%s)",
+                            hf_label, instruction.gw_field,
+                        )
+                        return True
+
+        # Strategy 4: Search body table cell paragraphs
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        if self._replace_in_paragraph(para, original, replacement):
+                            logger.info(
+                                "Applied replacement in table cell (gw_field=%s)",
+                                instruction.gw_field,
+                            )
+                            return True
+
+        # Strategy 5: Search text boxes in the document body
+        for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
+            for p_elem in txbx.findall(qn("w:p")):
+                para = _ParagraphWrapper(p_elem, doc.element.body)
                 if self._replace_in_paragraph(para, original, replacement):
                     logger.info(
-                        "Applied replacement in header (gw_field=%s)",
-                        instruction.gw_field,
-                    )
-                    return True
-            for para in section.footer.paragraphs:
-                if self._replace_in_paragraph(para, original, replacement):
-                    logger.info(
-                        "Applied replacement in footer (gw_field=%s)",
+                        "Applied replacement in text box (gw_field=%s)",
                         instruction.gw_field,
                     )
                     return True
 
+        # Strategy 6: Search header/footer nested tables and text boxes
+        for section in doc.sections:
+            for hf_label, hf in self._iter_header_footers(section):
+                hf_elem = hf._element
+                # Table cells within header/footer
+                for tc_elem in hf_elem.findall(".//" + qn("w:tc")):
+                    for p_elem in tc_elem.findall(qn("w:p")):
+                        para = _ParagraphWrapper(p_elem, hf_elem)
+                        if self._replace_in_paragraph(para, original, replacement):
+                            logger.info(
+                                "Applied replacement in %s table (gw_field=%s)",
+                                hf_label, instruction.gw_field,
+                            )
+                            return True
+                # Text boxes within header/footer
+                for txbx in hf_elem.findall(".//" + qn("w:txbxContent")):
+                    for p_elem in txbx.findall(qn("w:p")):
+                        para = _ParagraphWrapper(p_elem, hf_elem)
+                        if self._replace_in_paragraph(para, original, replacement):
+                            logger.info(
+                                "Applied replacement in %s text box (gw_field=%s)",
+                                hf_label, instruction.gw_field,
+                            )
+                            return True
+
         return False
+
+    @staticmethod
+    def _iter_header_footers(section):
+        """Yield (label, header_or_footer) for all variants of a section.
+
+        Covers default, first-page, and even-page headers and footers.
+        """
+        for label, accessor in [
+            ("header", "header"),
+            ("footer", "footer"),
+            ("first-page header", "first_page_header"),
+            ("first-page footer", "first_page_footer"),
+            ("even-page header", "even_page_header"),
+            ("even-page footer", "even_page_footer"),
+        ]:
+            try:
+                hf = getattr(section, accessor)
+                if hf is not None:
+                    yield label, hf
+            except Exception:
+                continue
 
     # ------------------------------------------------------------------
     # replace_text
