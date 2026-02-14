@@ -39,7 +39,6 @@ const mockAnalyzeTemplate = vi.fn();
 vi.mock('@/services/templateAdapter.js', () => ({
   uploadTemplate: vi.fn(),
   analyzeTemplate: mockAnalyzeTemplate,
-  applyInstructions: vi.fn(),
   generatePreview: vi.fn(),
   generateAnnotatedPreview: mockGenerateAnnotatedPreview,
   persistMappingsToKB: mockPersistMappingsToKB,

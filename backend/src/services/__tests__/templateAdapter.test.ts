@@ -78,7 +78,6 @@ vi.mock('fs', async () => {
 const {
   uploadTemplate,
   analyzeTemplate,
-  applyInstructions,
   generatePreview,
   getDownloadPath,
   processChatFeedback,
@@ -272,130 +271,6 @@ describe('templateAdapter service', () => {
       expect(result.mappingPlan.entries).toHaveLength(1);
       expect(result.mappingPlan.entries[0].gwField).toBe('client.short_name');
       expect(result.referenceTemplateHash).toBe('hash123');
-    });
-  });
-
-  // -----------------------------------------------------------------------
-  // applyInstructions
-  // -----------------------------------------------------------------------
-
-  describe('applyInstructions', () => {
-    it('calls enrich + validate + apply pipeline', async () => {
-      const wizardState = makeWizardState();
-
-      // Mock Redis for session reads/writes
-      mockRedisClient.get.mockResolvedValue(JSON.stringify(wizardState));
-
-      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
-
-      // Call 1: /adapter/analyze (to get doc_structure)
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          prompt: 'analyze prompt',
-          system_prompt: 'system',
-          doc_structure_summary: { paragraphs: [] },
-          reference_template_hash: 'hash',
-          paragraph_count: 5,
-        }),
-      });
-
-      // Call 2: /adapter/build-insertion-prompt
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          prompt: 'Insert instructions...',
-          system_prompt: 'You are a DOCX engineer...',
-        }),
-      });
-
-      // Call 3: /adapter/apply
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          output_base64: Buffer.from('adapted-docx').toString('base64'),
-          applied_count: 3,
-          skipped_count: 1,
-          warnings: ['Skipped paragraph 10'],
-        }),
-      });
-
-      // LLM returns instruction set JSON
-      const instructionJson = JSON.stringify({
-        instructions: [{
-          action: 'replace_text',
-          paragraph_index: 0,
-          original_text: 'Acme Corp',
-          replacement_text: '{{ client.short_name }}',
-          marker_type: 'text',
-          gw_field: 'client.short_name',
-        }],
-        template_type: 'web',
-        language: 'en',
-      });
-
-      mockGenerateStream.mockReturnValue(
-        mockStream([
-          { text: instructionJson, done: false },
-          { text: '', done: true, usage: { inputTokens: 200, outputTokens: 100 } },
-        ]),
-      );
-
-      const result = await applyInstructions(wizardState as any);
-
-      expect(result.currentStep).toBe('verify');
-      expect(result.adaptation.appliedCount).toBe(3);
-      expect(result.adaptation.skippedCount).toBe(1);
-
-      // Verify fetch calls
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-      expect(fetchMock.mock.calls[0][0]).toContain('/adapter/analyze');
-      expect(fetchMock.mock.calls[1][0]).toContain('/adapter/build-insertion-prompt');
-      expect(fetchMock.mock.calls[2][0]).toContain('/adapter/apply');
-    });
-
-    it('preserves last good state on LLM failure (checkpoint)', async () => {
-      const wizardState = makeWizardState();
-      mockRedisClient.get.mockResolvedValue(JSON.stringify(wizardState));
-
-      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
-
-      // Call 1: /adapter/analyze
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          prompt: 'analyze',
-          system_prompt: 'system',
-          doc_structure_summary: {},
-          reference_template_hash: 'hash',
-          paragraph_count: 5,
-        }),
-      });
-
-      // Call 2: /adapter/build-insertion-prompt
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          prompt: 'Insert...',
-          system_prompt: 'Engineer...',
-        }),
-      });
-
-      // LLM throws an error
-      mockGenerateStream.mockReturnValue(
-        (async function* () {
-          throw new Error('CLIProxyAPI connection refused');
-        })(),
-      );
-
-      await expect(applyInstructions(wizardState as any)).rejects.toThrow(
-        'LLM instruction generation failed',
-      );
-
-      // The original wizard state should NOT have been modified
-      // (updateWizardSession was not called with adaptation changes)
-      // This is verified by the fact that the error was thrown before
-      // the session update could happen
     });
   });
 

@@ -4,7 +4,6 @@
  * POST /api/adapter/upload    -- Upload DOCX + create wizard session
  * POST /api/adapter/analyze   -- LLM Pass 1 analysis
  * POST /api/adapter/auto-map  -- Combined Pass 1 + Pass 2 (auto-map on upload)
- * POST /api/adapter/apply     -- LLM Pass 2 + instruction application
  * POST /api/adapter/preview   -- Render adapted template + queue PDF
  * GET  /api/adapter/preview/:sessionId -- Poll preview status
  * POST /api/adapter/annotated-preview -- Generate annotated preview with shading
@@ -33,7 +32,6 @@ import {
   analyzeTemplate,
   uploadTemplate,
   autoMapTemplate,
-  applyInstructions,
   regenerateWithLLM,
   generatePreview,
   generateAnnotatedPreview,
@@ -437,59 +435,6 @@ router.post('/auto-map', requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleAdapterError(res, error, 'Auto-map');
-  }
-});
-
-// ---------------------------------------------------------------------------
-// POST /api/adapter/apply
-// ---------------------------------------------------------------------------
-
-/**
- * Apply instructions to the template (LLM Pass 2 + apply pipeline).
- * Body: { sessionId }
- * Returns { currentStep, appliedCount, skippedCount, warnings }
- */
-router.post('/apply', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const body = sessionIdSchema.safeParse(req.body);
-    if (!body.success) {
-      return res.status(400).json({
-        error: 'Invalid request',
-        details: body.error.issues,
-      });
-    }
-
-    const userId = req.session.userId!;
-    const { sessionId } = body.data;
-
-    const state = await getWizardSession(userId, sessionId);
-    if (!state) {
-      return res.status(404).json({ error: 'Wizard session not found' });
-    }
-
-    const updated = await applyInstructions(state);
-
-    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
-    await logAuditEvent({
-      userId,
-      action: 'adapter.apply',
-      details: {
-        sessionId,
-        appliedCount: updated.adaptation.appliedCount,
-        skippedCount: updated.adaptation.skippedCount,
-        referenceTemplateHash: updated.analysis.referenceTemplateHash,
-      },
-      ipAddress,
-    });
-
-    res.json({
-      currentStep: updated.currentStep,
-      appliedCount: updated.adaptation.appliedCount,
-      skippedCount: updated.adaptation.skippedCount,
-      warnings: (updated.adaptation.instructions as Record<string, unknown>)?.warnings ?? [],
-    });
-  } catch (error) {
-    handleAdapterError(res, error, 'Instruction application');
   }
 });
 

@@ -36,7 +36,6 @@ vi.mock('@/config.js', () => ({
 
 const mockUploadTemplate = vi.fn();
 const mockAnalyzeTemplate = vi.fn();
-const mockApplyInstructions = vi.fn();
 const mockGeneratePreview = vi.fn();
 const mockGetDownloadPath = vi.fn();
 const mockProcessChatFeedback = vi.fn();
@@ -44,7 +43,6 @@ const mockProcessChatFeedback = vi.fn();
 vi.mock('@/services/templateAdapter.js', () => ({
   uploadTemplate: mockUploadTemplate,
   analyzeTemplate: mockAnalyzeTemplate,
-  applyInstructions: mockApplyInstructions,
   generatePreview: mockGeneratePreview,
   getDownloadPath: mockGetDownloadPath,
   processChatFeedback: mockProcessChatFeedback,

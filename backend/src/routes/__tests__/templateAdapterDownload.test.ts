@@ -46,7 +46,6 @@ const mockPersistMappingsToKB = vi.fn();
 vi.mock('@/services/templateAdapter.js', () => ({
   uploadTemplate: vi.fn(),
   analyzeTemplate: vi.fn(),
-  applyInstructions: vi.fn(),
   generatePreview: vi.fn(),
   generateAnnotatedPreview: vi.fn(),
   persistMappingsToKB: mockPersistMappingsToKB,

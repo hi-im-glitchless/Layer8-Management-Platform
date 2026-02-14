@@ -2,7 +2,7 @@
  * Template Adapter Service -- orchestrates the full wizard pipeline.
  *
  * Pass 1 (Analysis): POST base64 DOCX to Python /adapter/analyze -> LLM -> /validate-mapping
- * Pass 2 (Insertion): /build-insertion-prompt -> LLM -> /apply
+ * Pass 2 (Placement): /build-placement-prompt -> LLM -> /validate-placement -> /apply
  * Preview: Render adapted DOCX with GW data -> PDF conversion
  * Chat: Iterative feedback to modify mapping plan via SSE streaming
  */
@@ -98,12 +98,6 @@ interface ValidateServiceResponse {
     warnings: string[];
   } | null;
   errors: string[];
-}
-
-/** Response from Python /adapter/build-insertion-prompt */
-interface InsertionPromptResponse {
-  prompt: string;
-  system_prompt: string;
 }
 
 /** Response from Python /adapter/apply */
@@ -428,7 +422,7 @@ export async function analyzeTemplate(
 }
 
 // ---------------------------------------------------------------------------
-// Apply Instructions (Pass 2)
+// Shared Helpers
 // ---------------------------------------------------------------------------
 
 /**
@@ -449,203 +443,6 @@ function mappingPlanToSnakeCase(plan: MappingPlan): Record<string, unknown> {
     language: plan.language,
     warnings: plan.warnings,
   };
-}
-
-/**
- * Apply instructions to the template (LLM Pass 2 + Python apply).
- *
- * Flow:
- * 1. Get insertion prompt from Python (/build-insertion-prompt)
- * 2. Call LLM with insertion prompt (non-streaming, JSON output)
- * 3. POST to Python /adapter/apply with template + instructions
- * 4. Save adapted DOCX to disk
- * 5. Update wizard state
- *
- * On LLM failure, the last good state (analysis) is preserved for retry.
- */
-export async function applyInstructions(
-  wizardState: WizardState,
-): Promise<WizardState> {
-  const sanitizerUrl = config.SANITIZER_URL;
-  const { userId, sessionId } = wizardState;
-  const mappingPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
-
-  if (!mappingPlan) {
-    throw new Error('No mapping plan in wizard state -- run analysis first');
-  }
-
-  // Step 1: Build insertion prompt via Python service
-  // Passes template_base64 directly so Python can parse DOCX internally
-  const promptRes = await fetch(`${sanitizerUrl}/adapter/build-insertion-prompt`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      template_base64: wizardState.templateFile.base64,
-      mapping_plan: mappingPlanToSnakeCase(mappingPlan),
-    }),
-  });
-
-  if (!promptRes.ok) {
-    const detail = await promptRes.text();
-    throw new Error(`Sanitizer /adapter/build-insertion-prompt failed (${promptRes.status}): ${detail}`);
-  }
-
-  const promptData = await promptRes.json() as InsertionPromptResponse;
-
-  // Step 2: Call LLM with insertion prompt (non-streaming for structured JSON)
-  let llmResponse = '';
-  try {
-    const client = await createLLMClient();
-    const messages: LLMMessage[] = [
-      { role: 'system', content: promptData.system_prompt },
-      { role: 'user', content: promptData.prompt },
-    ];
-
-    const stream = client.generateStream(messages, {
-      maxTokens: 8192,
-      feature: 'template-adapter',
-    });
-
-    for await (const chunk of stream) {
-      if (chunk.text) {
-        llmResponse += chunk.text;
-      }
-    }
-  } catch (error) {
-    // LLM failure: preserve last good state (analysis checkpoint)
-    console.error('[templateAdapter] LLM Pass 2 failed, preserving checkpoint:', error);
-    throw new Error(
-      `LLM instruction generation failed: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
-      'Your analysis results are preserved. You can retry this step.',
-    );
-  }
-
-  if (!llmResponse.trim()) {
-    throw new Error('LLM returned empty response for instruction generation');
-  }
-
-  // Parse LLM response as instruction set JSON
-  let instructionSet: Record<string, unknown>;
-  try {
-    // Strip markdown code fences if present
-    let cleaned = llmResponse.trim();
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-    }
-    instructionSet = JSON.parse(cleaned);
-  } catch {
-    throw new Error('LLM returned invalid JSON for instruction set');
-  }
-
-  // Ensure template_type and language are set
-  if (!instructionSet.template_type) {
-    instructionSet.template_type = wizardState.config.templateType;
-  }
-  if (!instructionSet.language) {
-    instructionSet.language = wizardState.config.language;
-  }
-
-  // Step 3: POST to Python /adapter/apply
-  const applyRes = await fetch(`${sanitizerUrl}/adapter/apply`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      template_base64: wizardState.templateFile.base64,
-      instruction_set: instructionSet,
-    }),
-  });
-
-  if (!applyRes.ok) {
-    const detail = await applyRes.text();
-    throw new Error(`Sanitizer /adapter/apply failed (${applyRes.status}): ${detail}`);
-  }
-
-  const applyData = await applyRes.json() as ApplyServiceResponse;
-
-  // Step 4: Save adapted DOCX to disk
-  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
-  const adaptedFilename = `${randomUUID()}_adapted.docx`;
-  const adaptedPath = path.join(DOCUMENTS_DIR, adaptedFilename);
-  const adaptedBuffer = Buffer.from(applyData.output_base64, 'base64');
-  fs.writeFileSync(adaptedPath, adaptedBuffer);
-
-  // Step 5: Update wizard state
-  const updated = await updateWizardSession(userId, sessionId, {
-    currentStep: 'verify',
-    adaptation: {
-      instructions: instructionSet as Record<string, unknown>,
-      appliedDocxPath: adaptedPath,
-      appliedCount: applyData.applied_count,
-      skippedCount: applyData.skipped_count,
-      placementWarnings: applyData.warnings ?? [],
-      zoneMap: {},
-    },
-  });
-
-  return updated;
-}
-
-// ---------------------------------------------------------------------------
-// Deterministic Re-apply (bypasses LLM Pass 2)
-// ---------------------------------------------------------------------------
-
-/**
- * Deterministically re-apply a mapping plan to the original DOCX template
- * without calling the LLM. Converts mapping entries directly to instructions
- * on the Python side and applies them.
- *
- * Used after correction-chat updates the mapping plan -- since the LLM
- * already produced the corrected plan, we don't need another LLM call
- * to generate instructions.
- */
-export async function reapplyFromMappingPlan(
-  wizardState: WizardState,
-): Promise<WizardState> {
-  const sanitizerUrl = config.SANITIZER_URL;
-  const { userId, sessionId } = wizardState;
-  const mappingPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
-
-  if (!mappingPlan) {
-    throw new Error('No mapping plan in wizard state');
-  }
-
-  const res = await fetch(`${sanitizerUrl}/adapter/apply-from-mapping`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      template_base64: wizardState.templateFile.base64,
-      mapping_plan: mappingPlanToSnakeCase(mappingPlan),
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Sanitizer /adapter/apply-from-mapping failed (${res.status}): ${detail}`);
-  }
-
-  const data = await res.json() as ApplyServiceResponse;
-
-  // Save adapted DOCX to disk
-  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
-  const adaptedFilename = `${randomUUID()}_adapted.docx`;
-  const adaptedPath = path.join(DOCUMENTS_DIR, adaptedFilename);
-  const adaptedBuffer = Buffer.from(data.output_base64, 'base64');
-  fs.writeFileSync(adaptedPath, adaptedBuffer);
-
-  // Update wizard state
-  const updated = await updateWizardSession(userId, sessionId, {
-    currentStep: 'verify',
-    adaptation: {
-      instructions: {} as Record<string, unknown>,
-      appliedDocxPath: adaptedPath,
-      appliedCount: data.applied_count,
-      skippedCount: data.skipped_count,
-      placementWarnings: data.warnings ?? [],
-      zoneMap: {},
-    },
-  });
-
-  return updated;
 }
 
 // ---------------------------------------------------------------------------
