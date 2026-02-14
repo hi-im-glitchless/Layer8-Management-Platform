@@ -6,7 +6,6 @@ export type {
   MappingEntry,
   MappingPlan,
   ChatMessage,
-  AdaptationProgress,
   WizardState,
   UploadResponse,
   AnalyzeResponse,
