@@ -11,6 +11,7 @@ from app.models.adapter import (
     FIELD_MARKER_MAP,
     TEMPLATE_TYPE_FEATURES,
     FewShotExample,
+    KBContext,
     ReferenceTemplateInfo,
     TemplateLanguage,
     TemplateType,
@@ -70,16 +71,22 @@ def build_analysis_prompt(
     template_type: TemplateType,
     language: TemplateLanguage,
     few_shot_examples: list[FewShotExample] | None = None,
+    kb_context: KBContext | None = None,
 ) -> str:
     """Build the full analysis prompt for LLM Pass 1.
 
-    The prompt contains five sections (plus an optional few-shot section):
+    The prompt contains five sections (plus an optional KB/few-shot section):
     1. Condensed client DOCX structure (numbered paragraphs)
     2. Reference template patterns
-    2b. Previous Successful Mappings (few-shot, only when examples provided)
+    2b. KB Context Block (zone distribution + blueprints + confidence notes)
+        OR Previous Successful Mappings (flat few-shot, backward compat)
     3. Available GW fields
     4. Output format specification (JSON schema + example)
     5. Mapping rules
+
+    When kb_context is provided and non-empty, uses the structured KB context
+    block instead of the flat few-shot section. Falls back to few-shot when
+    kb_context is None or has no zone_mappings.
 
     Args:
         doc_structure: Parsed structure of the client's DOCX template.
@@ -87,20 +94,30 @@ def build_analysis_prompt(
         template_type: web, internal, or mobile.
         language: en or pt-pt.
         few_shot_examples: Optional list of confirmed mappings for few-shot learning.
+        kb_context: Optional enriched KB context with zone-grouped data.
 
     Returns:
         Complete prompt string ready for LLM consumption.
     """
+    # Extract boilerplate styles from kb_context for doc structure filtering
+    boilerplate_styles = kb_context.boilerplate_styles if kb_context else []
+
     sections: list[str] = []
 
-    # Section 1: Client document structure
-    sections.append(_build_doc_structure_section(doc_structure))
+    # Section 1: Client document structure (with optional boilerplate filtering)
+    sections.append(
+        _build_doc_structure_section(doc_structure, boilerplate_styles=boilerplate_styles)
+    )
 
     # Section 2: Reference template patterns
     sections.append(_build_reference_patterns_section(reference_info))
 
-    # Section 2b: Few-shot examples (optional, between reference patterns and GW fields)
-    if few_shot_examples:
+    # Section 2b: KB context block OR few-shot examples (backward compat)
+    if kb_context and kb_context.zone_mappings:
+        kb_block = _build_kb_context_block(kb_context)
+        if kb_block:
+            sections.append(kb_block)
+    elif few_shot_examples:
         few_shot = _build_few_shot_section(few_shot_examples)
         if few_shot:
             sections.append(few_shot)
@@ -197,6 +214,82 @@ def _build_few_shot_section(examples: list[FewShotExample]) -> str | None:
         "\nUse these as reference when mapping similar sections. "
         "They represent high-confidence patterns.\n"
     )
+
+    return "\n".join(lines)
+
+
+def _build_kb_context_block(kb_context: KBContext) -> str | None:
+    """Build the structured KB context block replacing the flat few-shot section.
+
+    Emits three subsections:
+    - Zone Distribution: top-5 entries per zone sorted by confidence desc, with repetition hints
+    - Blueprints: structural patterns (loops, conditionals, groups)
+    - Confidence Notes: low-confidence entries the LLM should double-check
+
+    Returns None if kb_context has no zone_mappings.
+    """
+    if not kb_context.zone_mappings:
+        return None
+
+    lines: list[str] = ["## Knowledge Base Context\n"]
+
+    # Cross-type fallback warning
+    if kb_context.is_cross_type_fallback:
+        lines.append(
+            "NOTE: These patterns are from other template types "
+            "(0.7x confidence penalty applied). Adapt with caution.\n"
+        )
+
+    # --- Zone Distribution subsection ---
+    lines.append("### Zone Distribution\n")
+
+    for zone, mappings in sorted(kb_context.zone_mappings.items()):
+        lines.append(f"Zone: {zone} ({len(mappings)} patterns)")
+        # Top 5 entries per zone, sorted by confidence desc
+        top_entries = sorted(mappings, key=lambda m: m.confidence, reverse=True)[:5]
+        for m in top_entries:
+            lines.append(
+                f"  - \"{m.normalized_section_text[:80]}\" -> "
+                f"{m.gw_field} [{m.marker_type}] (conf: {m.confidence:.2f})"
+            )
+
+    # Repetition hints
+    if kb_context.repetition_summary:
+        lines.append("")
+        for rep in kb_context.repetition_summary:
+            gw_field = rep.get("gw_field", "unknown")
+            zone = rep.get("zone", "unknown")
+            total = rep.get("total_count", 0)
+            if total > 1:
+                lines.append(f"  {gw_field} appears {total}x in {zone}")
+
+    # --- Blueprints subsection ---
+    if kb_context.blueprints:
+        lines.append("\n### Blueprints\n")
+        for bp in kb_context.blueprints:
+            marker_names = [
+                f"{m.get('gwField', '?')}" for m in bp.markers
+            ]
+            markers_str = ", ".join(marker_names)
+            anchor = f" (anchor: {bp.anchor_style})" if bp.anchor_style else ""
+            lines.append(
+                f"  {bp.pattern_type.capitalize()}: [{markers_str}] "
+                f"in zone {bp.zone}{anchor}"
+            )
+
+    # --- Confidence Notes subsection ---
+    low_confidence: list[str] = []
+    for _zone, mappings in kb_context.zone_mappings.items():
+        for m in mappings:
+            if m.confidence < 0.5:
+                low_confidence.append(
+                    f"  Low confidence: \"{m.normalized_section_text[:60]}\" -> "
+                    f"{m.gw_field} ({m.confidence:.2f})"
+                )
+
+    if low_confidence:
+        lines.append("\n### Confidence Notes\n")
+        lines.extend(low_confidence)
 
     return "\n".join(lines)
 

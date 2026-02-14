@@ -90,6 +90,10 @@ class AnalyzeRequest(BaseModel):
         default_factory=list,
         description="Previous confirmed mappings for few-shot learning",
     )
+    kb_context: "KBContext | None" = Field(
+        None,
+        description="Enriched KB context with zone-grouped mappings, blueprints, and style hints",
+    )
 
 
 class AnalyzeResponse(BaseModel):
@@ -418,3 +422,44 @@ class DetectBlueprintsResponse(BaseModel):
 
     blueprints: list[BlueprintResult] = Field(default_factory=list)
     style_hints: list[StyleHintResult] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Structured KB context models (consumed by Plan 05.4-03)
+# ---------------------------------------------------------------------------
+
+
+class KBContextMapping(BaseModel):
+    """A single zone-grouped KB mapping entry for the structured prompt."""
+
+    normalized_section_text: str
+    gw_field: str
+    marker_type: str
+    confidence: float
+    zone: str = "unknown"
+    zone_repetition_count: int = 1
+
+
+class BlueprintContext(BaseModel):
+    """A blueprint pattern for inclusion in the structured prompt."""
+
+    zone: str
+    pattern_type: str
+    markers: list[dict]
+    anchor_style: str | None = None
+
+
+class KBContext(BaseModel):
+    """Enriched KB context payload sent from the backend to the prompt builder.
+
+    Contains zone-grouped mappings, blueprint patterns, boilerplate style
+    names to filter, and repetition summary data. When is_cross_type_fallback
+    is True, the mappings originate from other template types with a 0.7x
+    confidence penalty.
+    """
+
+    zone_mappings: dict[str, list[KBContextMapping]] = Field(default_factory=dict)
+    blueprints: list[BlueprintContext] = Field(default_factory=list)
+    boilerplate_styles: list[str] = Field(default_factory=list)
+    repetition_summary: list[dict] = Field(default_factory=list)
+    is_cross_type_fallback: bool = False

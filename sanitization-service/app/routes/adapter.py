@@ -134,6 +134,7 @@ async def analyze_template(body: AnalyzeRequest) -> AnalyzeResponse:
     prompt = build_analysis_prompt(
         doc_structure, reference_info, body.template_type, body.language,
         few_shot_examples=body.few_shot_examples,
+        kb_context=body.kb_context,
     )
 
     # Get reference template hash
