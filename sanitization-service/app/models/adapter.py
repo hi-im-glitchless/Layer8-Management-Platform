@@ -348,3 +348,32 @@ class PlaceholderPreviewResponse(BaseModel):
     annotated_base64: str = Field(..., description="Base64-encoded DOCX with light blue placeholder shading")
     placeholders: list[PlaceholderInfo] = Field(default_factory=list)
     placeholder_count: int = Field(0, description="Total number of placeholders found")
+
+
+# ---------------------------------------------------------------------------
+# Correction models (consumed by Plan 05.3-04)
+# ---------------------------------------------------------------------------
+
+
+class CorrectionSelection(BaseModel):
+    """A single numbered text selection from the placeholder PDF."""
+
+    selection_number: int = Field(..., description="The #N reference number")
+    text: str = Field(..., description="Selected text content")
+    paragraph_index: int = Field(..., description="Paragraph index in the document")
+
+
+class CorrectionPromptRequest(BaseModel):
+    """Request body for POST /adapter/build-correction-prompt."""
+
+    template_base64: str = Field(..., description="Base64-encoded client DOCX template")
+    current_mapping_plan: MappingPlan
+    user_corrections: str = Field(..., description="User's correction description")
+    selections: list[CorrectionSelection] = Field(default_factory=list)
+
+
+class CorrectionPromptResponse(BaseModel):
+    """Response from POST /adapter/build-correction-prompt."""
+
+    prompt: str = Field(..., description="User prompt for the LLM")
+    system_prompt: str = Field(..., description="System prompt for the LLM")

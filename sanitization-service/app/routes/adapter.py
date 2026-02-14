@@ -6,6 +6,7 @@ POST /validate-batch-mapping -- Validate batch mapping LLM response for interact
 POST /apply -- Apply instructions to a DOCX template (validate + enrich + apply)
 POST /enrich -- Enrich an instruction set via rules engine (no DOCX modification)
 POST /build-insertion-prompt -- Build LLM Pass 2 prompt from doc structure + mapping plan
+POST /build-correction-prompt -- Build LLM correction prompt for placeholder corrections
 POST /annotate -- Generate annotated DOCX preview with paragraph shading + metadata
 POST /placeholder-preview -- Generate placeholder-styled DOCX preview with Jinja shading
 """
@@ -27,6 +28,8 @@ from app.models.adapter import (
     BatchMappingEntry,
     BatchMappingRequest,
     BatchMappingResponse,
+    CorrectionPromptRequest,
+    CorrectionPromptResponse,
     DocumentStructureRequest,
     DocumentStructureResponse,
     InstructionSet,
@@ -50,6 +53,10 @@ from app.services.analysis_prompt import (
     build_analysis_system_prompt,
 )
 from app.services.docx_parser import DocxParserService
+from app.services.correction_prompt import (
+    build_correction_system_prompt,
+    build_correction_user_prompt,
+)
 from app.services.insertion_prompt import (
     build_insertion_prompt,
     build_insertion_system_prompt,
@@ -499,6 +506,93 @@ async def build_insertion_prompt_endpoint(
         )
 
     return BuildInsertionPromptResponse(
+        prompt=prompt,
+        system_prompt=system_prompt,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plan 05.3-04 endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/build-correction-prompt", response_model=CorrectionPromptResponse)
+async def build_correction_prompt_endpoint(
+    body: CorrectionPromptRequest,
+) -> CorrectionPromptResponse:
+    """Build the LLM correction prompt for placeholder corrections.
+
+    Decodes the base64 template, parses its DOCX structure for paragraph
+    context, and combines it with the current mapping plan and user
+    corrections to produce LLM prompts for a corrected mapping plan.
+    Follows the same pattern as /build-insertion-prompt.
+    """
+    # Decode and parse DOCX for paragraph context
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded template is empty.")
+
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    # Parse DOCX for paragraph context around selections
+    doc_paragraphs: list[dict] = []
+    try:
+        doc_structure = _parser.parse(template_bytes)
+        doc_paragraphs = [
+            {
+                "paragraph_index": i,
+                "text": para.text.strip()[:200],
+            }
+            for i, para in enumerate(doc_structure.paragraphs)
+            if para.text.strip()
+        ]
+    except Exception as exc:
+        logger.warning("Could not parse DOCX for correction context: %s", exc)
+        # Non-fatal: proceed without paragraph context
+
+    # Convert mapping plan to dict for the prompt builder
+    mapping_plan_dict = body.current_mapping_plan.model_dump()
+
+    # Convert selections to list of dicts
+    selections_list = [
+        {
+            "selection_number": sel.selection_number,
+            "text": sel.text,
+            "paragraph_index": sel.paragraph_index,
+        }
+        for sel in body.selections
+    ]
+
+    try:
+        system_prompt = build_correction_system_prompt()
+        prompt = build_correction_user_prompt(
+            current_mapping_plan=mapping_plan_dict,
+            user_corrections=body.user_corrections,
+            selections=selections_list if selections_list else None,
+            doc_paragraphs=doc_paragraphs if doc_paragraphs else None,
+        )
+    except Exception as exc:
+        logger.error("Correction prompt build failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build correction prompt: {exc}",
+        )
+
+    logger.info(
+        "Built correction prompt: %d selections, prompt_len=%d",
+        len(body.selections),
+        len(prompt),
+    )
+
+    return CorrectionPromptResponse(
         prompt=prompt,
         system_prompt=system_prompt,
     )
