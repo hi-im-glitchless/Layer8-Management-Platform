@@ -303,23 +303,41 @@ def build_analysis_prompt(
 # ---------------------------------------------------------------------------
 
 
-def _build_doc_structure_section(doc: DocxStructure) -> str:
-    """Section 1: Numbered, condensed client document paragraphs."""
+def _build_doc_structure_section(
+    doc: DocxStructure,
+    boilerplate_styles: list[str] | None = None,
+) -> str:
+    """Section 1: Numbered, condensed client document paragraphs.
+
+    When boilerplate_styles is provided and non-empty, paragraphs whose
+    style_name matches any entry in the list are skipped. Tables are never
+    filtered by style. A summary note is appended showing how many paragraphs
+    were filtered and which styles were excluded.
+    """
+    boilerplate_set = set(boilerplate_styles) if boilerplate_styles else set()
+
     lines = ["## Client Template Structure\n"]
     lines.append("Below are the non-empty paragraphs from the client's DOCX template. "
                  "Each line shows: index | heading level (if any) | text (truncated to 200 chars).\n")
 
     para_count = 0
+    filtered_count = 0
     for i, para in enumerate(doc.paragraphs):
         text = para.text.strip()
         if not text:
             continue
+
+        # Filter boilerplate paragraphs by style name
+        if boilerplate_set and para.style_name and para.style_name in boilerplate_set:
+            filtered_count += 1
+            continue
+
         para_count += 1
         heading = f"H{para.heading_level}" if para.heading_level else "  "
         truncated = text[:200] + ("..." if len(text) > 200 else "")
         lines.append(f"[{i:3d}] {heading:3s} | {truncated}")
 
-    # Include table locations
+    # Include table locations (tables are never filtered by style)
     if doc.tables:
         lines.append(f"\nTables found: {len(doc.tables)}")
         for ti, table in enumerate(doc.tables):
@@ -331,6 +349,15 @@ def _build_doc_structure_section(doc: DocxStructure) -> str:
             lines.append(f"  Table {ti}: {row_count}x{col_count}, starts with: \"{first_cell}\"")
 
     lines.append(f"\nTotal non-empty paragraphs: {para_count}")
+
+    # Boilerplate filtering summary
+    if filtered_count > 0:
+        style_list = ", ".join(sorted(boilerplate_set))
+        lines.append(
+            f"Filtered {filtered_count} boilerplate paragraphs "
+            f"(styles: {style_list})"
+        )
+
     return "\n".join(lines)
 
 
