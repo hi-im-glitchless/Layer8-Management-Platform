@@ -24,7 +24,18 @@ import {
   type InteractiveSelection,
 } from './wizardState.js';
 import { addPdfConversionJob } from './pdfQueue.js';
-import { queryFewShotExamples, bulkUpsertMappings, type TemplateMappingInput } from './templateMapping.js';
+import {
+  queryFewShotExamples,
+  bulkUpsertMappings,
+  queryByZone,
+  queryBlueprints,
+  getBoilerplateStyles,
+  queryZoneRepetitionSummary,
+  upsertBlueprint,
+  bulkUpsertStyleHints,
+  type TemplateMappingInput,
+  type BlueprintPatternInput,
+} from './templateMapping.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -155,7 +166,7 @@ export async function analyzeTemplate(
 ): Promise<AnalysisResult> {
   const sanitizerUrl = config.SANITIZER_URL;
 
-  // Step 0: Query KB for few-shot examples (graceful degradation on failure)
+  // Step 0: Query KB for enriched context (graceful degradation per query)
   let fewShotExamples: Array<{
     normalized_section_text: string;
     gw_field: string;
@@ -163,9 +174,139 @@ export async function analyzeTemplate(
     usage_count: number;
   }> = [];
 
+  // Enriched KB context payload (null until populated)
+  let kbContext: {
+    zone_mappings: Record<string, Array<{
+      normalized_section_text: string;
+      gw_field: string;
+      marker_type: string;
+      confidence: number;
+      zone: string;
+      zone_repetition_count: number;
+    }>>;
+    blueprints: Array<{
+      zone: string;
+      pattern_type: string;
+      markers: Array<{ gwField: string; markerType: string }>;
+      anchor_style: string | null;
+    }>;
+    boilerplate_styles: string[];
+    repetition_summary: Array<{ gw_field: string; zone: string; total_count: number }>;
+    is_cross_type_fallback: boolean;
+  } | null = null;
+
   try {
-    const kbResults = await queryFewShotExamples(templateType, language);
-    fewShotExamples = kbResults.map((r) => ({
+    // Primary zone-grouped query
+    const zoneMap = await queryByZone(templateType, language);
+
+    if (zoneMap.size > 0) {
+      // Build zone_mappings from primary results
+      const zoneMappings: Record<string, Array<{
+        normalized_section_text: string;
+        gw_field: string;
+        marker_type: string;
+        confidence: number;
+        zone: string;
+        zone_repetition_count: number;
+      }>> = {};
+
+      for (const [zone, mappings] of zoneMap) {
+        zoneMappings[zone] = mappings.map((m) => ({
+          normalized_section_text: m.normalizedSectionText,
+          gw_field: m.gwField,
+          marker_type: m.markerType,
+          confidence: m.confidence,
+          zone: m.zone,
+          zone_repetition_count: m.zoneRepetitionCount,
+        }));
+      }
+
+      // Fetch blueprints, boilerplate styles, and repetition summary in parallel
+      const [blueprintResults, boilerplateResults, repetitionResults] = await Promise.all([
+        queryBlueprints(templateType).catch((err) => {
+          console.warn('[templateAdapter] Blueprint query failed:', err);
+          return [];
+        }),
+        getBoilerplateStyles(templateType).catch((err) => {
+          console.warn('[templateAdapter] Boilerplate styles query failed:', err);
+          return [] as string[];
+        }),
+        queryZoneRepetitionSummary(templateType, language).catch((err) => {
+          console.warn('[templateAdapter] Repetition summary query failed:', err);
+          return [];
+        }),
+      ]);
+
+      kbContext = {
+        zone_mappings: zoneMappings,
+        blueprints: blueprintResults.map((bp) => ({
+          zone: bp.zone,
+          pattern_type: bp.patternType,
+          markers: bp.parsedMarkers,
+          anchor_style: bp.anchorStyle,
+        })),
+        boilerplate_styles: boilerplateResults,
+        repetition_summary: repetitionResults.map((r) => ({
+          gw_field: r.gwField,
+          zone: r.zone,
+          total_count: r.totalCount,
+        })),
+        is_cross_type_fallback: false,
+      };
+    } else {
+      // Cross-type fallback: query other template types with 0.7x confidence penalty
+      const otherTypes = ['web', 'internal', 'mobile'].filter((t) => t !== templateType);
+      const fallbackZoneMappings: Record<string, Array<{
+        normalized_section_text: string;
+        gw_field: string;
+        marker_type: string;
+        confidence: number;
+        zone: string;
+        zone_repetition_count: number;
+      }>> = {};
+      const seenTexts = new Set<string>();
+
+      for (const otherType of otherTypes) {
+        try {
+          const otherZoneMap = await queryByZone(otherType, language);
+          for (const [zone, mappings] of otherZoneMap) {
+            if (!fallbackZoneMappings[zone]) {
+              fallbackZoneMappings[zone] = [];
+            }
+            for (const m of mappings) {
+              // Deduplicate by normalizedSectionText
+              if (!seenTexts.has(m.normalizedSectionText)) {
+                seenTexts.add(m.normalizedSectionText);
+                fallbackZoneMappings[zone].push({
+                  normalized_section_text: m.normalizedSectionText,
+                  gw_field: m.gwField,
+                  marker_type: m.markerType,
+                  confidence: m.confidence * 0.7, // 0.7x penalty
+                  zone: m.zone,
+                  zone_repetition_count: m.zoneRepetitionCount,
+                });
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`[templateAdapter] Cross-type fallback query for ${otherType} failed:`, err);
+        }
+      }
+
+      if (Object.keys(fallbackZoneMappings).length > 0) {
+        kbContext = {
+          zone_mappings: fallbackZoneMappings,
+          blueprints: [],
+          boilerplate_styles: [],
+          repetition_summary: [],
+          is_cross_type_fallback: true,
+        };
+      }
+    }
+
+    // Also populate flat few-shot examples for backward compatibility
+    const flatResults = await queryFewShotExamples(templateType, language);
+    fewShotExamples = flatResults.map((r) => ({
       normalized_section_text: r.normalizedSectionText,
       gw_field: r.gwField,
       marker_type: r.markerType,
@@ -184,6 +325,7 @@ export async function analyzeTemplate(
       template_type: templateType,
       language: language,
       few_shot_examples: fewShotExamples,
+      ...(kbContext ? { kb_context: kbContext } : {}),
     }),
   });
 
@@ -415,6 +557,67 @@ export async function applyInstructions(
       appliedDocxPath: adaptedPath,
       appliedCount: applyData.applied_count,
       skippedCount: applyData.skipped_count,
+    },
+  });
+
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic Re-apply (bypasses LLM Pass 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Deterministically re-apply a mapping plan to the original DOCX template
+ * without calling the LLM. Converts mapping entries directly to instructions
+ * on the Python side and applies them.
+ *
+ * Used after correction-chat updates the mapping plan -- since the LLM
+ * already produced the corrected plan, we don't need another LLM call
+ * to generate instructions.
+ */
+export async function reapplyFromMappingPlan(
+  wizardState: WizardState,
+): Promise<WizardState> {
+  const sanitizerUrl = config.SANITIZER_URL;
+  const { userId, sessionId } = wizardState;
+  const mappingPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
+
+  if (!mappingPlan) {
+    throw new Error('No mapping plan in wizard state');
+  }
+
+  const res = await fetch(`${sanitizerUrl}/adapter/apply-from-mapping`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      template_base64: wizardState.templateFile.base64,
+      mapping_plan: mappingPlanToSnakeCase(mappingPlan),
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Sanitizer /adapter/apply-from-mapping failed (${res.status}): ${detail}`);
+  }
+
+  const data = await res.json() as ApplyServiceResponse;
+
+  // Save adapted DOCX to disk
+  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+  const adaptedFilename = `${randomUUID()}_adapted.docx`;
+  const adaptedPath = path.join(DOCUMENTS_DIR, adaptedFilename);
+  const adaptedBuffer = Buffer.from(data.output_base64, 'base64');
+  fs.writeFileSync(adaptedPath, adaptedBuffer);
+
+  // Update wizard state
+  const updated = await updateWizardSession(userId, sessionId, {
+    currentStep: 'verify',
+    adaptation: {
+      instructions: {} as Record<string, unknown>,
+      appliedDocxPath: adaptedPath,
+      appliedCount: data.applied_count,
+      skippedCount: data.skipped_count,
     },
   });
 
@@ -735,11 +938,13 @@ export async function generatePlaceholderPreview(
     gwField: p.gw_field,
   }));
 
-  // Update wizard state with placeholder preview data
+  // Update wizard state with placeholder preview data (including placeholders for cache recovery)
   await updateWizardSession(userId, sessionId, {
     annotatedPreview: {
       pdfJobId: jobId,
       pdfUrl: null,
+      placeholders,
+      placeholderCount: previewData.placeholder_count,
       tooltipData: [],
       unmappedParagraphs: [],
       gapSummary: null,
@@ -1467,13 +1672,13 @@ async function* processCorrectionChat(
       correctionResult: updatedMappingPlan,
     };
 
-    // Step 6-8: Regeneration pipeline
+    // Step 6-8: Regeneration pipeline (deterministic, no LLM call)
     try {
       // Re-read wizard state after mapping plan update
       const refreshedState = await getWizardSession(userId, sessionId);
       if (refreshedState) {
-        // Re-run Pass 2 (applyInstructions) with updated mapping plan
-        const regeneratedState = await applyInstructions(refreshedState);
+        // Deterministically re-apply mapping plan (bypasses LLM Pass 2)
+        const regeneratedState = await reapplyFromMappingPlan(refreshedState);
 
         // Generate new placeholder preview PDF
         const previewResult = await generatePlaceholderPreview(regeneratedState);
@@ -1489,9 +1694,10 @@ async function* processCorrectionChat(
         };
       }
     } catch (regenErr) {
-      console.error('[templateAdapter] Regeneration pipeline failed:', regenErr);
+      const errMsg = regenErr instanceof Error ? regenErr.message : String(regenErr);
+      console.error('[templateAdapter] Regeneration pipeline failed:', errMsg, regenErr);
       yield {
-        text: '\n\nCorrection applied but regeneration failed. Try refreshing the preview.',
+        text: `\n\nCorrection applied but regeneration failed: ${errMsg}. Click "Refresh Preview" to retry.`,
         done: false,
       };
     }
