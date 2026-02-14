@@ -97,10 +97,42 @@ model TemplateMapping {
   markerType            String   // text|paragraph_rt|run_rt|table_row_loop|control_flow
   confidence            Float    @default(1.0) // last-seen confidence from mapping plan
   usageCount            Int      @default(1) // incremented on each duplicate upsert
+  zone                  String   @default("unknown") // header|footer|body|table_cell|text_box|cover|unknown
+  zoneRepetitionCount   Int      @default(1) // how many times this gwField appears in this zone
+  correctionCount       Int      @default(0) // number of times user corrected this mapping
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
   @@unique([templateType, language, normalizedSectionText, gwField])
   @@index([templateType, language])
+  @@index([templateType, language, zone])
   @@index([usageCount])
+}
+
+model BlueprintPattern {
+  id           String   @id @default(cuid())
+  templateType String
+  zone         String
+  patternType  String   // loop|conditional|group
+  markers      String   // JSON array: [{"gwField":"...","markerType":"..."},...]
+  anchorStyle  String?  // paragraph style that anchors this pattern
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([templateType, zone, patternType, markers])
+  @@index([templateType])
+}
+
+model StyleHint {
+  id           String   @id @default(cuid())
+  templateType String
+  styleName    String
+  zone         String   @default("body")
+  mappedCount  Int      @default(0)
+  skippedCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([templateType, styleName, zone])
+  @@index([templateType])
 }
