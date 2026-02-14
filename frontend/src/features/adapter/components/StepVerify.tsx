@@ -267,24 +267,44 @@ export function StepVerify({
     })
   }, [sessionId, placeholderPreviewMutation])
 
-  // Regenerate placeholder preview after corrections (Decision #8: clear selections)
-  // Re-applies the mapping plan first (deterministic, no LLM), then generates preview.
+  // Regenerate placeholder preview after table edits.
+  // Full cycle: save mapping -> re-apply DOCX -> generate placeholder PDF -> poll
   const handleRegeneratePreview = useCallback(async () => {
+    setIsRegenerating(true)
     selectionState.resetSelections()
+
     try {
+      // Step 1: Save current mapping plan to wizard state
+      if (mappingPlan) {
+        const editedEntries = mappingPlan.entries.map((e) => ({
+          sectionIndex: e.sectionIndex,
+          gwField: e.gwField,
+          markerType: e.markerType,
+        }))
+        await adapterApi.updateMapping({
+          sessionId,
+          updates: { editedEntries },
+        })
+      }
+
+      // Step 2: Re-apply mapping plan to original DOCX (deterministic, no LLM)
       await adapterApi.reapplyMappingPlan(sessionId)
-    } catch {
-      // Reapply failed — still try preview from existing DOCX
+
+      // Step 3: Generate new placeholder preview PDF
+      const data = await adapterApi.requestPlaceholderPreview(sessionId)
+      setPlaceholderPdfJobId(data.pdfJobId)
+      setPlaceholders(data.placeholders)
+      setPlaceholderCount(data.placeholderCount)
+      setPreviewOutdated(false)
+      setIsRegenerating(false)
+    } catch (err) {
+      setIsRegenerating(false)
+      setPreviewOutdated(true) // keep Regenerate button visible
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      toast.error(`Regeneration failed: ${msg}`)
+      console.error('[StepVerify] Regeneration failed:', err)
     }
-    placeholderPreviewMutation.mutate(sessionId, {
-      onSuccess: (data) => {
-        setPlaceholderPdfJobId(data.pdfJobId)
-        setPlaceholders(data.placeholders)
-        setPlaceholderCount(data.placeholderCount)
-        setPreviewOutdated(false)
-      },
-    })
-  }, [sessionId, placeholderPreviewMutation, selectionState])
+  }, [sessionId, mappingPlan, selectionState])
 
   // KB badge animation trigger
   const triggerKbAnimation = useCallback(() => {
@@ -388,15 +408,15 @@ export function StepVerify({
             onToggle={() => setNavigatorOpen((prev) => !prev)}
             onJumpToPlaceholder={handleJumpToPlaceholder}
           />
-          {previewOutdated && (
+          {previewOutdated && !isRegenerating && (
             <Button
               variant="outline"
               size="sm"
               onClick={handleRegeneratePreview}
-              disabled={placeholderPreviewMutation.isPending}
+              disabled={isRegenerating || placeholderPreviewMutation.isPending}
             >
               <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
-              Refresh Preview
+              Regenerate
             </Button>
           )}
         </div>
@@ -436,7 +456,7 @@ export function StepVerify({
             variant="gradient"
             size="sm"
             onClick={onApprove}
-            disabled={!displayPdfUrl || isRegenerating || chat.isStreaming || isPreviewLoading}
+            disabled={!displayPdfUrl || isRegenerating || chat.isStreaming || isPreviewLoading || previewOutdated}
           >
             Approve &amp; Continue
             <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
