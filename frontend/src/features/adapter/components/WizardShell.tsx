@@ -11,11 +11,9 @@ import type { WizardStep, MappingPlan } from '../types'
 const StepUpload = lazy(() =>
   import('./StepUpload').then((m) => ({ default: m.StepUpload })),
 )
+// TODO: Plan 05.3-03 will replace this with StepVerify component
 const StepAnalysis = lazy(() =>
   import('./StepAnalysis').then((m) => ({ default: m.StepAnalysis })),
-)
-const StepAdaptation = lazy(() =>
-  import('./StepAdaptation').then((m) => ({ default: m.StepAdaptation })),
 )
 const StepPreview = lazy(() =>
   import('./StepPreview').then((m) => ({ default: m.StepPreview })),
@@ -24,7 +22,7 @@ const StepDownload = lazy(() =>
   import('./StepDownload').then((m) => ({ default: m.StepDownload })),
 )
 
-const STEP_SEQUENCE: WizardStep[] = ['upload', 'analysis', 'adaptation', 'preview', 'download']
+const STEP_SEQUENCE: WizardStep[] = ['upload', 'verify', 'preview', 'download']
 
 function StepFallback() {
   return (
@@ -48,11 +46,11 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
   // Also used to immediately advance after upload (before session query loads)
   const [overrideStep, setOverrideStep] = useState<WizardStep | null>(null)
 
-  // Wrap onSessionCreate to also advance to analysis step immediately
+  // Set the session ID after upload. Do NOT advance step here --
+  // the Upload step handles auto-map internally and calls advanceToStep('verify') on completion.
   const handleSessionCreate = useCallback(
     (id: string) => {
       onSessionCreate(id)
-      setOverrideStep('analysis')
     },
     [onSessionCreate],
   )
@@ -71,9 +69,10 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
   // Infer the minimum step from what the session already has
   let inferredMinStep: WizardStep = 'upload'
   if (sessionData) {
-    if (sessionData.templateFile?.originalName) inferredMinStep = 'analysis'
-    if (sessionData.analysis?.mappingPlan) inferredMinStep = 'analysis'
-    if (sessionData.adaptation?.appliedCount > 0) inferredMinStep = 'adaptation'
+    // Auto-map completed: has mapping plan AND applied placeholders
+    if (sessionData.adaptation?.appliedCount > 0 && sessionData.analysis?.mappingPlan) {
+      inferredMinStep = 'verify'
+    }
     if (sessionData.preview?.pdfJobId || sessionData.preview?.pdfUrl) inferredMinStep = 'preview'
   }
 
@@ -180,7 +179,8 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
             onFileReady={setLocalFile}
           />
         )
-      case 'analysis':
+      case 'verify':
+        // TODO: Plan 05.3-03 will replace StepAnalysis with StepVerify component
         return (
           <StepAnalysis
             sessionId={sessionId!}
@@ -189,15 +189,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
             language={sessionQuery.data?.config.language ?? 'en'}
             initialMappingPlan={localMappingPlan ?? sessionQuery.data?.analysis.mappingPlan ?? null}
             onMappingUpdate={setLocalMappingPlan}
-            onProceed={() => advanceToStep('adaptation')}
-          />
-        )
-      case 'adaptation':
-        return (
-          <StepAdaptation
-            sessionId={sessionId!}
-            onComplete={() => advanceToStep('preview')}
-            onGoBack={() => setOverrideStep('analysis')}
+            onProceed={() => advanceToStep('preview')}
           />
         )
       case 'preview':
@@ -205,7 +197,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
           <StepPreview
             sessionId={sessionId!}
             onSatisfied={() => advanceToStep('download')}
-            onReAdapt={() => setOverrideStep('adaptation')}
+            onReAdapt={() => setOverrideStep('verify')}
           />
         )
       case 'download':
