@@ -1182,10 +1182,13 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
     console.warn('[templateAdapter] Failed to fetch existing KB entries, using create mode for all:', err);
   }
 
+  // Extract zone map from wizard state (populated by regenerateWithLLM)
+  const cachedZoneMap = wizardState.adaptation.zoneMap ?? {};
+
   // Count zone repetitions: for each gwField in each zone, count occurrences
   const zoneCounts = new Map<string, number>();
   for (const entry of mappingPlan.entries) {
-    const zone = 'unknown';
+    const zone = cachedZoneMap[entry.sectionIndex] ?? 'unknown';
     const key = `${entry.gwField}::${zone}`;
     zoneCounts.set(key, (zoneCounts.get(key) ?? 0) + 1);
   }
@@ -1196,7 +1199,7 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
 
   // Step 2: Process each entry with smart mode selection
   for (const entry of mappingPlan.entries) {
-    const zone = 'unknown';
+    const zone = cachedZoneMap[entry.sectionIndex] ?? 'unknown';
     const repKey = `${entry.gwField}::${zone}`;
     const normalizedText = normalizeSectionText(entry.sectionText);
     const existing = existingLookup.get(normalizedText);
