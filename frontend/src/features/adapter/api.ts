@@ -214,6 +214,30 @@ export const adapterApi = {
   },
 
   /**
+   * Get KB statistics for a template type.
+   * GET /api/adapter/kb-stats/:templateType
+   */
+  async kbStats(
+    templateType: string,
+  ): Promise<{
+    totalMappings: number
+    zoneDistribution: Record<string, number>
+    blueprintCount: number
+    styleHintCount: number
+    avgConfidence: number
+    topFields: string[]
+  }> {
+    return apiClient<{
+      totalMappings: number
+      zoneDistribution: Record<string, number>
+      blueprintCount: number
+      styleHintCount: number
+      avgConfidence: number
+      topFields: string[]
+    }>(`/api/adapter/kb-stats/${templateType}`)
+  },
+
+  /**
    * Send table-based corrections to update the KB immediately.
    * POST /api/adapter/correction-update with sessionId + corrections array.
    * Decays old mappings and creates/boosts corrected entries in the KB.

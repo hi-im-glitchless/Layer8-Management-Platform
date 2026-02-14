@@ -585,6 +585,82 @@ export async function queryStyleHints(
   });
 }
 
+// ---------------------------------------------------------------------------
+// KB Stats
+// ---------------------------------------------------------------------------
+
+/**
+ * KB stats returned by getKBStats().
+ */
+export interface KBStats {
+  totalMappings: number;
+  zoneDistribution: Record<string, number>;
+  blueprintCount: number;
+  styleHintCount: number;
+  avgConfidence: number;
+  topFields: string[];
+}
+
+/**
+ * Get aggregate stats about the knowledge base for a given template type.
+ *
+ * Returns zone distribution counts, blueprint count, style hint count,
+ * average confidence, and top 5 most-used gwFields.
+ */
+export async function getKBStats(templateType: string): Promise<KBStats> {
+  // Zone distribution via groupBy
+  const zoneGroups = await prisma.templateMapping.groupBy({
+    by: ['zone'],
+    where: { templateType },
+    _count: { id: true },
+  });
+
+  const zoneDistribution: Record<string, number> = {};
+  let totalMappings = 0;
+  for (const group of zoneGroups) {
+    zoneDistribution[group.zone] = group._count.id;
+    totalMappings += group._count.id;
+  }
+
+  // Average confidence
+  const confidenceAgg = await prisma.templateMapping.aggregate({
+    where: { templateType },
+    _avg: { confidence: true },
+  });
+  const avgConfidence = confidenceAgg._avg.confidence
+    ? Math.round(confidenceAgg._avg.confidence * 100) / 100
+    : 0;
+
+  // Top 5 most-used gwFields (by usageCount sum)
+  const fieldGroups = await prisma.templateMapping.groupBy({
+    by: ['gwField'],
+    where: { templateType },
+    _sum: { usageCount: true },
+    orderBy: { _sum: { usageCount: 'desc' } },
+    take: 5,
+  });
+  const topFields = fieldGroups.map((g) => g.gwField);
+
+  // Blueprint count
+  const blueprintCount = await prisma.blueprintPattern.count({
+    where: { templateType },
+  });
+
+  // Style hint count
+  const styleHintCount = await prisma.styleHint.count({
+    where: { templateType },
+  });
+
+  return {
+    totalMappings,
+    zoneDistribution,
+    blueprintCount,
+    styleHintCount,
+    avgConfidence,
+    topFields,
+  };
+}
+
 /**
  * Get style names that are almost never mapped (boilerplate/decorative styles).
  *

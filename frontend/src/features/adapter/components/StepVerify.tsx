@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Send, ArrowRight, Brain, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -69,6 +70,14 @@ export function StepVerify({
   // KB badge state
   const [kbPersisted, setKbPersisted] = useState(false)
   const [kbAnimating, setKbAnimating] = useState(false)
+
+  // KB stats query for enhanced badge tooltip
+  const kbStatsQuery = useQuery({
+    queryKey: ['kb-stats', templateType],
+    queryFn: () => adapterApi.kbStats(templateType),
+    staleTime: 60_000, // cache for 1 minute
+    retry: false, // non-critical, don't retry on failure
+  })
 
   // PlaceholderNavigator state
   const [navigatorOpen, setNavigatorOpen] = useState(false)
@@ -408,8 +417,18 @@ export function StepVerify({
                   )}
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
-                Mappings saved to knowledge base for future template analyses
+              <TooltipContent className="max-w-xs">
+                {kbStatsQuery.data ? (
+                  <div className="space-y-1 text-xs">
+                    <p className="font-medium">Knowledge Base ({templateType})</p>
+                    <p>{kbStatsQuery.data.totalMappings} mappings, avg confidence {kbStatsQuery.data.avgConfidence}</p>
+                    {kbStatsQuery.data.blueprintCount > 0 && (
+                      <p>{kbStatsQuery.data.blueprintCount} blueprints, {kbStatsQuery.data.styleHintCount} style hints</p>
+                    )}
+                  </div>
+                ) : (
+                  <span>Mappings saved to knowledge base for future template analyses</span>
+                )}
               </TooltipContent>
             </TooltipUI>
           </TooltipProvider>

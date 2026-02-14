@@ -14,6 +14,8 @@
  * GET  /api/adapter/document-structure/:sessionId -- Document paragraph list
  * POST /api/adapter/update-mapping -- Merge inline edits into mapping plan
  * GET  /api/adapter/download/:sessionId -- Download adapted DOCX
+ * POST /api/adapter/correction-update -- Table-based KB corrections
+ * GET  /api/adapter/kb-stats/:templateType -- KB statistics
  * POST /api/adapter/chat      -- Iterative feedback via SSE streaming
  * GET  /api/adapter/session/:sessionId -- Get full wizard state
  * GET  /api/adapter/session    -- Get user's active session
@@ -52,6 +54,7 @@ import {
 } from '@/services/wizardState.js';
 import { getPdfJobStatus } from '@/services/pdfQueue.js';
 import { logAuditEvent } from '@/services/audit.js';
+import { getKBStats } from '@/services/templateMapping.js';
 
 const router = Router();
 
@@ -97,6 +100,10 @@ const chatBodySchema = z.object({
 const annotatedPreviewSchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
   greenOnly: z.boolean().optional().default(false),
+});
+
+const templateTypeParamSchema = z.object({
+  templateType: z.enum(['web', 'internal', 'mobile']),
 });
 
 const correctionUpdateSchema = z.object({
@@ -1081,6 +1088,29 @@ router.post('/correction-update', requireAuth, async (req: Request, res: Respons
     res.json(result);
   } catch (error) {
     handleAdapterError(res, error, 'Correction update');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/adapter/kb-stats/:templateType
+// ---------------------------------------------------------------------------
+
+/**
+ * Get knowledge base statistics for a given template type.
+ * Returns zone distribution, blueprint count, style hint count,
+ * average confidence, and top fields.
+ */
+router.get('/kb-stats/:templateType', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const params = templateTypeParamSchema.safeParse(req.params);
+    if (!params.success) {
+      return res.status(400).json({ error: 'Invalid template type', details: params.error.issues });
+    }
+
+    const stats = await getKBStats(params.data.templateType);
+    res.json(stats);
+  } catch (error) {
+    handleAdapterError(res, error, 'KB stats');
   }
 });
 
