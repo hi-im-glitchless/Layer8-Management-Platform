@@ -28,6 +28,7 @@ import {
   queryFewShotExamples,
   bulkUpsertMappings,
   upsertMapping,
+  normalizeSectionText,
   queryByZone,
   queryBlueprints,
   getBoilerplateStyles,
@@ -966,9 +967,13 @@ export async function generatePlaceholderPreview(
 /**
  * Persist confirmed mappings from the wizard state to the knowledge base.
  *
- * Called fire-and-forget after download. Reads the final mapping plan,
- * converts entries to KB format, and bulk upserts them. Errors are logged
- * but never propagated to the caller.
+ * Called fire-and-forget after download. Compares the final mapping plan
+ * against existing KB entries to determine which are:
+ * - Confirmations (same sectionText + gwField already in KB) -> mode='confirm'
+ * - Corrections (same sectionText but different gwField in KB) -> decay old + create new
+ * - New entries (sectionText not in KB) -> mode='create'
+ *
+ * Errors are logged but never propagated to the caller.
  */
 export async function persistMappingsToKB(wizardState: WizardState): Promise<void> {
   const mappingPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
@@ -978,21 +983,47 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
     return;
   }
 
+  const { templateType, language } = mappingPlan;
+
+  // Step 1: Fetch existing KB entries for this (templateType, language)
+  let existingLookup = new Map<string, { gwField: string; markerType: string }>();
+  try {
+    const zoneMap = await queryByZone(templateType, language, 0);
+    for (const [, mappings] of zoneMap) {
+      for (const m of mappings) {
+        // Key by normalizedSectionText so we can detect corrections
+        existingLookup.set(m.normalizedSectionText, {
+          gwField: m.gwField,
+          markerType: m.markerType,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('[templateAdapter] Failed to fetch existing KB entries, using create mode for all:', err);
+  }
+
   // Count zone repetitions: for each gwField in each zone, count occurrences
   const zoneCounts = new Map<string, number>();
   for (const entry of mappingPlan.entries) {
-    // Zone defaults to 'unknown' since wizard state does not store doc_structure zones
     const zone = 'unknown';
     const key = `${entry.gwField}::${zone}`;
     zoneCounts.set(key, (zoneCounts.get(key) ?? 0) + 1);
   }
 
-  const kbEntries: TemplateMappingInput[] = mappingPlan.entries.map((entry) => {
+  let created = 0;
+  let confirmed = 0;
+  let corrected = 0;
+
+  // Step 2: Process each entry with smart mode selection
+  for (const entry of mappingPlan.entries) {
     const zone = 'unknown';
     const repKey = `${entry.gwField}::${zone}`;
-    return {
-      templateType: mappingPlan.templateType,
-      language: mappingPlan.language,
+    const normalizedText = normalizeSectionText(entry.sectionText);
+    const existing = existingLookup.get(normalizedText);
+
+    const baseInput: TemplateMappingInput = {
+      templateType,
+      language,
       sectionText: entry.sectionText,
       gwField: entry.gwField,
       markerType: entry.markerType,
@@ -1000,13 +1031,45 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
       zone,
       zoneRepetitionCount: zoneCounts.get(repKey) ?? 1,
     };
-  });
 
-  // Use mode='confirm' for all entries (download = user confirmation)
-  const result = await bulkUpsertMappings(kbEntries, 'confirm');
+    try {
+      if (existing && existing.gwField !== entry.gwField) {
+        // Correction: same sectionText maps to a DIFFERENT gwField
+        // Decay the old entry
+        await upsertMapping(
+          {
+            templateType,
+            language,
+            sectionText: entry.sectionText,
+            gwField: existing.gwField,
+            markerType: existing.markerType,
+            confidence: 1.0,
+          },
+          'correct',
+        );
+        // Create the new entry
+        await upsertMapping(baseInput, 'create');
+        corrected++;
+      } else if (existing) {
+        // Confirmation: same sectionText + gwField in KB
+        await upsertMapping(baseInput, 'confirm');
+        confirmed++;
+      } else {
+        // New: sectionText not in KB
+        await upsertMapping(baseInput, 'create');
+        created++;
+      }
+    } catch (err) {
+      console.error(
+        `[templateAdapter] KB persistence failed for entry (sectionIndex=${entry.sectionIndex}):`,
+        err,
+      );
+    }
+  }
+
   console.log(
-    `[templateAdapter] KB persistence: ${result.created} created, ${result.updated} updated ` +
-    `(${kbEntries.length} total entries)`,
+    `[templateAdapter] KB persistence: ${created} created, ${confirmed} confirmed, ` +
+    `${corrected} corrected (${mappingPlan.entries.length} total entries)`,
   );
 
   // Fire-and-forget: detect blueprints and store style hints
