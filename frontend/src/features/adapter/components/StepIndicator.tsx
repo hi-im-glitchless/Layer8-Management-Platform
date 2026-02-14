@@ -4,18 +4,16 @@ import type { WizardStep } from '../types'
 
 const STEPS: { key: WizardStep; label: string }[] = [
   { key: 'upload', label: 'Upload' },
-  { key: 'analysis', label: 'Analysis' },
-  { key: 'adaptation', label: 'Adaptation' },
+  { key: 'verify', label: 'Verify Placeholders' },
   { key: 'preview', label: 'Preview' },
   { key: 'download', label: 'Download' },
 ]
 
 const STEP_ORDER: Record<WizardStep, number> = {
   upload: 0,
-  analysis: 1,
-  adaptation: 2,
-  preview: 3,
-  download: 4,
+  verify: 1,
+  preview: 2,
+  download: 3,
 }
 
 interface StepIndicatorProps {
