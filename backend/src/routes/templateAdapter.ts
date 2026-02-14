@@ -34,7 +34,7 @@ import {
   uploadTemplate,
   autoMapTemplate,
   applyInstructions,
-  reapplyFromMappingPlan,
+  regenerateWithLLM,
   generatePreview,
   generateAnnotatedPreview,
   generatePlaceholderPreview,
@@ -720,11 +720,10 @@ router.get('/annotated-preview/:sessionId', requireAuth, async (req: Request, re
 // ---------------------------------------------------------------------------
 
 /**
- * Re-apply the current mapping plan to the original DOCX without an LLM call.
- * Deterministically converts mapping entries → instructions → adapted DOCX.
- * Used after correction-chat updates the mapping plan.
+ * Regenerate placeholders using the LLM placement pipeline.
+ * Sends DOCX + mapping plan through build-placement-prompt -> LLM -> validate -> apply.
  * Body: { sessionId }
- * Returns 200 with { appliedCount, skippedCount }
+ * Returns 200 with { appliedCount, skippedCount, placementWarnings }
  */
 router.post('/reapply', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -750,7 +749,7 @@ router.post('/reapply', requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    const updated = await reapplyFromMappingPlan(state);
+    const updated = await regenerateWithLLM(state);
 
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     await logAuditEvent({
@@ -760,6 +759,7 @@ router.post('/reapply', requireAuth, async (req: Request, res: Response) => {
         sessionId,
         appliedCount: updated.adaptation.appliedCount,
         skippedCount: updated.adaptation.skippedCount,
+        placementWarningsCount: updated.adaptation.placementWarnings.length,
       },
       ipAddress,
     });
@@ -767,9 +767,10 @@ router.post('/reapply', requireAuth, async (req: Request, res: Response) => {
     res.json({
       appliedCount: updated.adaptation.appliedCount,
       skippedCount: updated.adaptation.skippedCount,
+      placementWarnings: updated.adaptation.placementWarnings ?? [],
     });
   } catch (error) {
-    handleAdapterError(res, error, 'Mapping plan reapply');
+    handleAdapterError(res, error, 'LLM placement regeneration');
   }
 });
 
