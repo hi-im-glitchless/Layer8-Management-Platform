@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
@@ -117,21 +116,25 @@ export interface GwFieldAutocompleteProps {
 
 /**
  * Autocomplete/typeahead for GW field selection.
- * Filters known fields by fuzzy match, auto-generates Jinja2 syntax on selection.
- * Raw input (Enter with no dropdown match) falls through to onRawInput.
+ * Uses a plain positioned div instead of Radix Popover to avoid keyboard
+ * input being swallowed on Linux.
  */
 export function GwFieldAutocomplete({
   value,
   onChange,
   onRawInput,
-  placeholder = 'Search GW fields...',
+  placeholder = 'Type field or Jinja2, Enter to confirm...',
   autoFocus = false,
 }: GwFieldAutocompleteProps) {
   const [inputText, setInputText] = useState(value)
-  const [isOpen, setIsOpen] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false)
   const [highlightIndex, setHighlightIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Fixed positioning for the dropdown to escape overflow clipping
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
 
   // Sync external value changes
   useEffect(() => {
@@ -161,10 +164,39 @@ export function GwFieldAutocomplete({
     item?.scrollIntoView({ block: 'nearest' })
   }, [highlightIndex])
 
+  // Compute dropdown position using fixed positioning (escapes overflow-y-auto)
+  useEffect(() => {
+    if (!showDropdown || !inputRef.current) return
+    const rect = inputRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const flipUp = spaceBelow < 260
+
+    setDropdownStyle({
+      position: 'fixed',
+      left: rect.left,
+      width: Math.max(288, rect.width),
+      ...(flipUp
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+    })
+  }, [showDropdown, inputText])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showDropdown) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showDropdown])
+
   const handleSelect = useCallback(
     (option: GwFieldOption) => {
       setInputText(option.gwField)
-      setIsOpen(false)
+      setShowDropdown(false)
       onChange(option.gwField, option.markerType, option.jinja2Template)
     },
     [onChange],
@@ -172,10 +204,9 @@ export function GwFieldAutocomplete({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (!isOpen && e.key !== 'Escape') {
-        // Open on any typing
+      if (!showDropdown && e.key !== 'Escape') {
         if (e.key.length === 1 || e.key === 'ArrowDown') {
-          setIsOpen(true)
+          setShowDropdown(true)
         }
       }
 
@@ -190,57 +221,57 @@ export function GwFieldAutocomplete({
           break
         case 'Enter':
           e.preventDefault()
-          if (isOpen && filtered.length > 0) {
+          if (showDropdown && filtered.length > 0) {
             handleSelect(filtered[highlightIndex])
           } else if (inputText.trim() && onRawInput) {
             onRawInput(inputText.trim())
-            setIsOpen(false)
+            setShowDropdown(false)
           }
           break
         case 'Escape':
           e.preventDefault()
-          setIsOpen(false)
+          setShowDropdown(false)
           break
         case 'Tab':
-          setIsOpen(false)
+          setShowDropdown(false)
           break
       }
     },
-    [isOpen, filtered, highlightIndex, handleSelect, inputText, onRawInput],
+    [showDropdown, filtered, highlightIndex, handleSelect, inputText, onRawInput],
   )
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value)
     setHighlightIndex(0)
-    if (!isOpen) setIsOpen(true)
-  }, [isOpen])
+    if (!showDropdown) setShowDropdown(true)
+  }, [showDropdown])
 
   const handleFocus = useCallback(() => {
-    setIsOpen(true)
+    setShowDropdown(true)
   }, [])
 
+  const isOpen = showDropdown && filtered.length > 0
+
   return (
-    <Popover open={isOpen && filtered.length > 0} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Input
-          ref={inputRef}
-          value={inputText}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onFocus={handleFocus}
-          placeholder={placeholder}
-          autoFocus={autoFocus}
-          className="h-7 text-xs w-full"
-          autoComplete="off"
-        />
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-72 p-0 max-h-60 overflow-hidden"
-        align="start"
-        sideOffset={4}
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <div ref={listRef} className="overflow-y-auto max-h-60" role="listbox">
+    <div ref={wrapperRef} className="relative">
+      <Input
+        ref={inputRef}
+        value={inputText}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        className="h-7 text-xs w-full"
+        autoComplete="off"
+      />
+      {isOpen && (
+        <div
+          ref={listRef}
+          role="listbox"
+          className="z-50 overflow-y-auto max-h-60 rounded-md border bg-popover shadow-md"
+          style={dropdownStyle}
+        >
           {filtered.map((option, index) => (
             <button
               key={option.gwField}
@@ -253,7 +284,7 @@ export function GwFieldAutocomplete({
                 index === highlightIndex && 'bg-accent',
               )}
               onMouseDown={(e) => {
-                e.preventDefault() // prevent input blur
+                e.preventDefault()
                 handleSelect(option)
               }}
               onMouseEnter={() => setHighlightIndex(index)}
@@ -273,7 +304,7 @@ export function GwFieldAutocomplete({
             </button>
           ))}
         </div>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   )
 }

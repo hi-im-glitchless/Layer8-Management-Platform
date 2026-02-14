@@ -1009,11 +1009,30 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
           }
         }
 
+        // Generate correct Jinja2 template syntax based on marker type
+        let placeholderTemplate: string;
+        switch (added.markerType) {
+          case 'paragraph_rt':
+            placeholderTemplate = `{{p ${added.gwField} }}`;
+            break;
+          case 'run_rt':
+            placeholderTemplate = `{{r ${added.gwField} }}`;
+            break;
+          case 'table_row_loop':
+            placeholderTemplate = `{%tr for item in ${added.gwField} %}`;
+            break;
+          case 'control_flow':
+            placeholderTemplate = `{% if ${added.gwField} %}`;
+            break;
+          default: // 'text'
+            placeholderTemplate = `{{ ${added.gwField} }}`;
+        }
+
         const newEntry: MappingEntry = {
           sectionIndex: added.paragraphIndex,
           sectionText,
           gwField: added.gwField,
-          placeholderTemplate: `{{ ${added.gwField} }}`,
+          placeholderTemplate,
           confidence: 1.0,
           markerType: added.markerType,
           rationale: 'User-added mapping',

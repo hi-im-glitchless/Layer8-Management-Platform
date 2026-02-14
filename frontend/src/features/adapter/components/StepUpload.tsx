@@ -32,7 +32,12 @@ const AUTO_MAP_PERCENT: Record<number, number> = {
   3: 90,  // generating preview
 }
 
+/** sessionStorage prefix for auto-map start timestamps */
+const AUTOMAP_STORAGE_PREFIX = 'adapter-automap-start-'
+
 interface StepUploadProps {
+  /** Current session ID (passed back after upload, or restored on page load) */
+  sessionId?: string | null
   onSessionCreate: (sessionId: string) => void
   onAutoMapComplete?: (sessionId: string) => void
   onFileReady: (file: File) => void
@@ -52,7 +57,7 @@ function formatElapsed(seconds: number): string {
   return `${m}m ${s}s`
 }
 
-export function StepUpload({ onSessionCreate, onAutoMapComplete, onFileReady }: StepUploadProps) {
+export function StepUpload({ sessionId: parentSessionId, onSessionCreate, onAutoMapComplete, onFileReady }: StepUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [templateType, setTemplateType] = useState<TemplateType | ''>('')
   const [language, setLanguage] = useState<TemplateLanguage | ''>('')
@@ -62,12 +67,17 @@ export function StepUpload({ onSessionCreate, onAutoMapComplete, onFileReady }: 
   const [autoMapSessionId, setAutoMapSessionId] = useState<string | null>(null)
   const [autoMapStep, setAutoMapStep] = useState(0)
   const [elapsed, setElapsed] = useState(0)
+  // Whether we're polling to resume progress after page refresh
+  const [isResuming, setIsResuming] = useState(false)
 
   const uploadMutation = useUploadTemplate()
   const autoMapMutation = useAutoMap()
 
+  // Effective session ID: from upload or from parent (page refresh)
+  const effectiveSessionId = autoMapSessionId ?? parentSessionId ?? null
+
   // sessionStorage key for elapsed time persistence
-  const storageKey = autoMapSessionId ? `adapter-automap-start-${autoMapSessionId}` : null
+  const storageKey = effectiveSessionId ? `${AUTOMAP_STORAGE_PREFIX}${effectiveSessionId}` : null
 
   const getStoredStart = useCallback((): number | null => {
     if (!storageKey) return null
@@ -83,16 +93,33 @@ export function StepUpload({ onSessionCreate, onAutoMapComplete, onFileReady }: 
     if (storageKey) sessionStorage.removeItem(storageKey)
   }, [storageKey])
 
+  // Resume auto-map progress on mount (page refresh / navigation return).
+  // If sessionStorage has a stored start time for this session, the auto-map
+  // was in progress before the page unloaded. Resume polling until complete.
+  useEffect(() => {
+    if (autoMapMutation.isPending || isResuming) return // already active
+    if (!parentSessionId) return // no session to resume
+    const key = `${AUTOMAP_STORAGE_PREFIX}${parentSessionId}`
+    const storedStart = sessionStorage.getItem(key)
+    if (!storedStart) return // no auto-map was in progress
+    // Resume: set state so progress UI shows
+    setAutoMapSessionId(parentSessionId)
+    setIsResuming(true)
+    const startTs = Number(storedStart)
+    setElapsed(Math.floor((Date.now() - startTs) / 1000))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentSessionId])
+
   // Elapsed timer while auto-mapping -- persisted in sessionStorage
   useEffect(() => {
-    if (!autoMapMutation.isPending) {
+    if (!autoMapMutation.isPending && !isResuming) {
       // Not running -- if we completed, clear stored start
       if (autoMapMutation.isSuccess || autoMapMutation.isError) {
         clearStoredStart()
       }
       return
     }
-    // Currently running -- ensure we have a start time
+    // Currently running (or resuming) -- ensure we have a start time
     let start = getStoredStart()
     if (!start) {
       start = Date.now()
@@ -105,41 +132,43 @@ export function StepUpload({ onSessionCreate, onAutoMapComplete, onFileReady }: 
     tick()
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
-  }, [autoMapMutation.isPending, autoMapMutation.isSuccess, autoMapMutation.isError, getStoredStart, setStoredStart, clearStoredStart])
+  }, [autoMapMutation.isPending, autoMapMutation.isSuccess, autoMapMutation.isError, isResuming, getStoredStart, setStoredStart, clearStoredStart])
 
   // Progress step estimation based on elapsed time
   useEffect(() => {
-    if (!autoMapMutation.isPending) return
+    if (!autoMapMutation.isPending && !isResuming) return
     if (elapsed >= 90) setAutoMapStep(3)       // ~90s+: generating preview
     else if (elapsed >= 45) setAutoMapStep(2)  // ~45-90s: applying placeholders
     else if (elapsed >= 3) setAutoMapStep(1)   // ~3-45s: LLM mapping (bulk of time)
     else setAutoMapStep(0)                      // 0-3s: analyzing structure
-  }, [elapsed, autoMapMutation.isPending])
+  }, [elapsed, autoMapMutation.isPending, isResuming])
 
-  // Poll session as fallback -- if auto-map takes >60s, check session every 10s
-  const sessionPoll = useWizardSession(
-    autoMapMutation.isPending && elapsed >= 60 ? autoMapSessionId : null,
-  )
+  // Poll session: during resume (always) or as fallback when auto-map takes >60s
+  const shouldPoll = (isResuming || (autoMapMutation.isPending && elapsed >= 60)) && !!effectiveSessionId
+  const sessionPoll = useWizardSession(shouldPoll ? effectiveSessionId : null)
 
+  // Detect completion via session poll (works for both resume and long-running auto-map)
   useEffect(() => {
-    if (!autoMapMutation.isPending || !autoMapSessionId || elapsed < 60) return
-    if (elapsed % 10 === 0 && sessionPoll.data?.adaptation?.appliedCount) {
+    if (!shouldPoll || !effectiveSessionId) return
+    if (sessionPoll.data?.adaptation?.appliedCount) {
       // Server-side auto-map completed -- advance
       clearStoredStart()
+      setIsResuming(false)
       toast.success('Template auto-mapped successfully')
       if (onAutoMapComplete) {
-        onAutoMapComplete(autoMapSessionId)
+        onAutoMapComplete(effectiveSessionId)
       }
     }
-  }, [elapsed, autoMapMutation.isPending, autoMapSessionId, sessionPoll.data, onAutoMapComplete, clearStoredStart])
+  }, [shouldPoll, effectiveSessionId, sessionPoll.data, onAutoMapComplete, clearStoredStart])
 
-  // Also trigger session poll refetch periodically
+  // Trigger session poll refetch periodically
   useEffect(() => {
-    if (!autoMapMutation.isPending || !autoMapSessionId || elapsed < 60) return
-    if (elapsed % 10 === 0) {
+    if (!shouldPoll || !effectiveSessionId) return
+    const interval = setInterval(() => {
       sessionPoll.refetch()
-    }
-  }, [elapsed, autoMapMutation.isPending, autoMapSessionId, sessionPoll])
+    }, isResuming ? 3000 : 10000) // poll faster during resume
+    return () => clearInterval(interval)
+  }, [shouldPoll, effectiveSessionId, isResuming, sessionPoll])
 
   const handleFileSelect = useCallback(
     (file: File) => {
@@ -209,7 +238,7 @@ export function StepUpload({ onSessionCreate, onAutoMapComplete, onFileReady }: 
   }, [autoMapSessionId, autoMapMutation, onAutoMapComplete, setStoredStart, clearStoredStart])
 
   const isUploading = uploadMutation.isPending
-  const isAutoMapping = autoMapMutation.isPending
+  const isAutoMapping = autoMapMutation.isPending || isResuming
   const isDisabled = isUploading || isAutoMapping
 
   // Auto-map phase for progress display

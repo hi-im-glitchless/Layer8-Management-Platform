@@ -40,8 +40,12 @@ interface InteractivePdfViewerProps {
   mappedCount?: number
   /** When set to a non-null page number, scroll the PDF to that page. Parent resets to null after scroll. */
   scrollTargetPage?: number | null
+  /** Text to scroll to (searches text layer spans) */
+  scrollTargetText?: string | null
   /** Called after scroll completes so parent can reset scrollTargetPage to null */
   onScrollComplete?: () => void
+  /** Texts to highlight on the PDF text layer */
+  highlightTexts?: string[]
 }
 
 // Status-based badge ring colors (Decision #8)
@@ -145,7 +149,9 @@ export function InteractivePdfViewer({
   isStreaming,
   mappedCount,
   scrollTargetPage,
+  scrollTargetText,
   onScrollComplete,
+  highlightTexts,
 }: InteractivePdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastSelectionTimeRef = useRef<number>(0)
@@ -396,6 +402,7 @@ export function InteractivePdfViewer({
         className="h-full"
         scrollRef={setPdfScrollEl}
         overlay={overlayContent}
+        highlightTexts={highlightTexts}
       />
     </div>
   )

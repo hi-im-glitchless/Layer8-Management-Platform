@@ -45,10 +45,15 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
   // Also used to immediately advance after upload (before session query loads)
   const [overrideStep, setOverrideStep] = useState<WizardStep | null>(null)
 
+  // Track whether we just created this session from upload. When true, skip the
+  // loading guard so StepUpload stays mounted and shows auto-map progress.
+  const [freshUpload, setFreshUpload] = useState(false)
+
   // Set the session ID after upload. Do NOT advance step here --
   // the Upload step handles auto-map internally and calls onAutoMapComplete on completion.
   const handleSessionCreate = useCallback(
     (id: string) => {
+      setFreshUpload(true)
       onSessionCreate(id)
     },
     [onSessionCreate],
@@ -127,6 +132,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
   // Sets the session (if not already set) and advances to 'verify'.
   const handleAutoMapComplete = useCallback(
     (id: string) => {
+      setFreshUpload(false)
       onSessionCreate(id)
       advanceToStep('verify')
     },
@@ -139,6 +145,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
     setOverrideStep(null)
     setLocalMappingPlan(null)
     setLocalFile(null)
+    setFreshUpload(false)
     onSessionClear()
   }, [onSessionClear])
 
@@ -169,8 +176,8 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
     )
   }
 
-  // Loading session
-  if (sessionId && sessionQuery.isLoading) {
+  // Loading session -- skip when we just uploaded (StepUpload shows its own progress)
+  if (sessionId && sessionQuery.isLoading && !freshUpload) {
     return (
       <div className="space-y-6">
         <StepIndicator currentStep="upload" />
@@ -184,6 +191,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
       case 'upload':
         return (
           <StepUpload
+            sessionId={sessionId}
             onSessionCreate={handleSessionCreate}
             onAutoMapComplete={handleAutoMapComplete}
             onFileReady={setLocalFile}

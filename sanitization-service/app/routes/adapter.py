@@ -1083,7 +1083,7 @@ async def apply_from_mapping(body: ApplyFromMappingRequest) -> ApplyResponse:
             ))
         elif entry.marker_type == "paragraph_rt":
             # Replace entire paragraph content with the placeholder.
-            # Verify section_text matches before replacing to prevent corruption.
+            # ALWAYS verify section_text matches before replacing to prevent corruption.
             if entry.section_text and entry.section_text.strip():
                 st = entry.section_text.strip()
                 if st not in para_text and not para_text.strip().startswith(st[:20]):
@@ -1102,6 +1102,15 @@ async def apply_from_mapping(body: ApplyFromMappingRequest) -> ApplyResponse:
                             f"{entry.gw_field}, skipped to prevent corruption"
                         )
                         continue
+            elif para_text.strip():
+                # No section_text but paragraph has content -- too dangerous to
+                # replace entire paragraph without verification
+                build_warnings.append(
+                    f"paragraph_rt: no section_text for {entry.gw_field} at "
+                    f"paragraph {idx}, skipped to prevent corruption "
+                    f"(paragraph has content: '{para_text[:50]}...')"
+                )
+                continue
             instructions.append(Instruction(
                 action="replace_text",
                 paragraph_index=idx,
@@ -1127,18 +1136,28 @@ async def apply_from_mapping(body: ApplyFromMappingRequest) -> ApplyResponse:
                 relocated_idx = _find_paragraph_by_text(original)
                 if relocated_idx is not None:
                     relocated_text = paragraphs[relocated_idx].text
-                    instructions.append(Instruction(
-                        action="replace_text",
-                        paragraph_index=relocated_idx,
-                        original_text=original if original in relocated_text else relocated_text,
-                        replacement_text=entry.placeholder_template,
-                        marker_type=entry.marker_type,
-                        gw_field=entry.gw_field,
-                    ))
-                    build_warnings.append(
-                        f"section_text not found at paragraph {entry.section_index}, "
-                        f"relocated to paragraph {relocated_idx} for {entry.gw_field}"
-                    )
+                    if original in relocated_text:
+                        # Safe: substring found in relocated paragraph
+                        instructions.append(Instruction(
+                            action="replace_text",
+                            paragraph_index=relocated_idx,
+                            original_text=original,
+                            replacement_text=entry.placeholder_template,
+                            marker_type=entry.marker_type,
+                            gw_field=entry.gw_field,
+                        ))
+                        build_warnings.append(
+                            f"section_text not found at paragraph {entry.section_index}, "
+                            f"relocated to paragraph {relocated_idx} for {entry.gw_field}"
+                        )
+                    else:
+                        # Relocated paragraph found but original is NOT a substring --
+                        # skip to prevent replacing entire paragraph with a placeholder
+                        build_warnings.append(
+                            f"section_text relocated to paragraph {relocated_idx} "
+                            f"but not a substring match, skipped {entry.gw_field} "
+                            f"to prevent corruption"
+                        )
                 else:
                     # Cannot find matching text anywhere -- skip to prevent corruption
                     build_warnings.append(
@@ -1191,6 +1210,10 @@ async def apply_from_mapping(body: ApplyFromMappingRequest) -> ApplyResponse:
 
     output_base64 = base64.b64encode(output_bytes).decode("ascii")
     all_warnings = build_warnings + apply_warnings
+
+    if build_warnings:
+        for w in build_warnings:
+            logger.warning("apply-from-mapping build: %s", w)
 
     logger.info(
         "Applied mapping plan directly: %d entries -> %d instructions, applied=%d, skipped=%d",

@@ -29,6 +29,8 @@ interface PdfPreviewProps {
   overlay?: ReactNode
   /** Callback ref exposing the scroll container element */
   scrollRef?: (el: HTMLDivElement | null) => void
+  /** Texts to highlight on the PDF text layer (mapped placeholders / selections) */
+  highlightTexts?: string[]
 }
 
 const ZOOM_STEP = 0.25
@@ -43,6 +45,7 @@ export function PdfPreview({
   onPageChange,
   overlay,
   scrollRef,
+  highlightTexts,
 }: PdfPreviewProps) {
   const [numPages, setNumPages] = useState<number>(0)
   const [scale, setScale] = useState(0) // 0 = fit width
@@ -144,6 +147,31 @@ export function PdfPreview({
     viewer.addEventListener('keydown', handleKeyDown)
     return () => viewer.removeEventListener('keydown', handleKeyDown)
   }, [zoomIn, zoomOut])
+
+  // Highlight matched text spans on the PDF text layer
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || !highlightTexts?.length) return
+    const timer = setTimeout(() => {
+      el.querySelectorAll('.mapped-highlight').forEach((span) => {
+        span.classList.remove('mapped-highlight')
+      })
+      const needles = highlightTexts.filter((t) => t.length >= 4).map((t) => t.toLowerCase().trim())
+      if (needles.length === 0) return
+      const spans = el.querySelectorAll('.react-pdf__Page__textContent span')
+      spans.forEach((span) => {
+        const text = (span.textContent || '').toLowerCase().trim()
+        if (!text || text.length < 3) return
+        for (const needle of needles) {
+          if (text.includes(needle) || (needle.includes(text) && text.length > needle.length * 0.6)) {
+            ;(span as HTMLElement).classList.add('mapped-highlight')
+            break
+          }
+        }
+      })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [highlightTexts, numPages, scale])
 
   // Compute page width for fit-width mode
   const pageWidth = scale === 0 && containerWidth > 0 ? containerWidth - 32 : undefined

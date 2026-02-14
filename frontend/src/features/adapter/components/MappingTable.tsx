@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { AlertCircle, ArrowUpDown, Trash2, Plus } from 'lucide-react'
+import { AlertCircle, ArrowUpDown, Trash2, Plus, Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -337,13 +337,14 @@ export function MappingTable({
                     ) : isEditable ? (
                       <button
                         type="button"
-                        className="text-xs bg-muted px-1.5 py-0.5 rounded hover:bg-muted/80 transition-colors cursor-pointer font-mono"
+                        className="group/edit inline-flex items-center gap-1 text-xs border border-dashed border-muted-foreground/30 bg-muted/50 px-1.5 py-0.5 rounded hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer font-mono"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleStartEdit(entry)
                         }}
                       >
-                        {entry.gwField || 'Click to set...'}
+                        <span className="truncate max-w-[140px]">{entry.gwField || 'Click to set...'}</span>
+                        <Pencil className="h-2.5 w-2.5 text-muted-foreground/50 group-hover/edit:text-primary shrink-0" aria-hidden="true" />
                       </button>
                     ) : (
                       <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
