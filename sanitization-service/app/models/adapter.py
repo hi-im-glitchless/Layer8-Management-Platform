@@ -463,3 +463,44 @@ class KBContext(BaseModel):
     boilerplate_styles: list[str] = Field(default_factory=list)
     repetition_summary: list[dict] = Field(default_factory=list)
     is_cross_type_fallback: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Placement prompt models (consumed by Plan 05.5-01)
+# ---------------------------------------------------------------------------
+
+
+class PlacementPromptRequest(BaseModel):
+    """Request body for POST /adapter/build-placement-prompt."""
+
+    template_base64: str = Field(..., description="Base64-encoded original DOCX")
+    mapping_plan: MappingPlan
+
+
+class PlacementPromptResponse(BaseModel):
+    """Response from POST /adapter/build-placement-prompt."""
+
+    prompt: str = Field(..., description="User prompt for the LLM")
+    system_prompt: str = Field(..., description="System prompt for the LLM")
+    paragraph_count: int = Field(0, description="Total paragraphs for validation bounds")
+
+
+class ValidatePlacementRequest(BaseModel):
+    """Request body for POST /adapter/validate-placement."""
+
+    llm_response: str = Field(..., description="Raw JSON text from LLM response")
+    template_base64: str = Field(..., description="Base64-encoded original DOCX for text verification")
+    template_type: TemplateType
+    language: TemplateLanguage
+    paragraph_count: int = Field(..., description="Total paragraphs for bounds checking")
+
+
+class ValidatePlacementResponse(BaseModel):
+    """Response from POST /adapter/validate-placement."""
+
+    valid: bool
+    instruction_set: InstructionSet | None = None
+    applied_count: int = Field(0, description="Instructions that passed validation")
+    skipped_count: int = Field(0, description="Instructions that failed validation")
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
