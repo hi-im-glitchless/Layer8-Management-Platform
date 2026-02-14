@@ -290,24 +290,100 @@ export async function bulkUpsertMappings(
 /**
  * Query the knowledge base for few-shot examples matching template type and language.
  *
- * Returns top entries ordered by usageCount DESC (most-confirmed patterns first).
+ * Returns top entries ordered by confidence DESC, then usageCount DESC.
+ * Optionally filters by zone when provided.
  * Default limit is 5.
  */
 export async function queryFewShotExamples(
   templateType: string,
   language: string,
   limit: number = 5,
+  zone?: string,
 ): Promise<TemplateMapping[]> {
   const validated = fewShotQuerySchema.parse({ templateType, language, limit });
 
+  const whereClause: Record<string, unknown> = {
+    templateType: validated.templateType,
+    language: validated.language,
+  };
+
+  if (zone !== undefined) {
+    whereClause.zone = zone;
+  }
+
   return prisma.templateMapping.findMany({
-    where: {
-      templateType: validated.templateType,
-      language: validated.language,
-    },
-    orderBy: { usageCount: 'desc' },
+    where: whereClause,
+    orderBy: [{ confidence: 'desc' }, { usageCount: 'desc' }],
     take: validated.limit,
   });
+}
+
+/**
+ * Query all mappings for a template type and language, grouped by zone.
+ *
+ * Only returns mappings with confidence >= minConfidence.
+ * Results within each zone are ordered by confidence descending.
+ */
+export async function queryByZone(
+  templateType: string,
+  language: string,
+  minConfidence: number = 0.3,
+): Promise<Map<string, TemplateMapping[]>> {
+  const mappings = await prisma.templateMapping.findMany({
+    where: {
+      templateType,
+      language,
+      confidence: { gte: minConfidence },
+    },
+    orderBy: [{ confidence: 'desc' }],
+  });
+
+  const grouped = new Map<string, TemplateMapping[]>();
+  for (const mapping of mappings) {
+    const zoneKey = mapping.zone;
+    const existing = grouped.get(zoneKey);
+    if (existing) {
+      existing.push(mapping);
+    } else {
+      grouped.set(zoneKey, [mapping]);
+    }
+  }
+
+  return grouped;
+}
+
+/**
+ * Return aggregated zone repetition counts per (gwField, zone) for a template type.
+ *
+ * Used by the structured prompt builder to understand how many times each
+ * GW field appears in each document zone.
+ */
+export async function queryZoneRepetitionSummary(
+  templateType: string,
+  language: string,
+): Promise<Array<{ gwField: string; zone: string; totalCount: number }>> {
+  const mappings = await prisma.templateMapping.findMany({
+    where: { templateType, language },
+    select: { gwField: true, zone: true, zoneRepetitionCount: true },
+  });
+
+  // Aggregate by (gwField, zone)
+  const aggregated = new Map<string, { gwField: string; zone: string; totalCount: number }>();
+  for (const m of mappings) {
+    const key = `${m.gwField}::${m.zone}`;
+    const existing = aggregated.get(key);
+    if (existing) {
+      existing.totalCount += m.zoneRepetitionCount;
+    } else {
+      aggregated.set(key, {
+        gwField: m.gwField,
+        zone: m.zone,
+        totalCount: m.zoneRepetitionCount,
+      });
+    }
+  }
+
+  return Array.from(aggregated.values());
 }
 
 /**
