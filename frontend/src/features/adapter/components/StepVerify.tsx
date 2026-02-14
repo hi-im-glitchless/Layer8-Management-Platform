@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Tooltip as TooltipUI,
   TooltipTrigger,
@@ -18,12 +18,14 @@ import {
   useAdapterChat,
   useSelectionState,
 } from '../hooks'
+import { adapterApi } from '../api'
 import { InteractivePdfViewer, type TextSelectionPayload } from './InteractivePdfViewer'
 import { PlaceholderNavigator } from './PlaceholderNavigator'
 import type {
   TemplateType,
   TemplateLanguage,
   MappingPlan,
+  MappingEntry,
   PlaceholderInfo,
 } from '../types'
 
@@ -60,6 +62,10 @@ export function StepVerify({
   const hasTriggeredPreview = useRef(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
+  // Track the original mapping plan (from auto-map) to always diff against
+  // the LLM's original output, not intermediate edits
+  const originalMappingPlanRef = useRef<MappingPlan | null>(initialMappingPlan)
+
   // KB badge state
   const [kbPersisted, setKbPersisted] = useState(false)
   const [kbAnimating, setKbAnimating] = useState(false)
@@ -67,15 +73,21 @@ export function StepVerify({
   // PlaceholderNavigator state
   const [navigatorOpen, setNavigatorOpen] = useState(false)
   const [scrollTargetPage, setScrollTargetPage] = useState<number | null>(null)
+  const [scrollTargetText, setScrollTargetText] = useState<string | null>(null)
 
-  // Poll placeholder PDF status
-  const annotatedStatus = useAnnotatedPreviewStatus(sessionId, placeholderPdfJobId)
+  // Restore cached preview on page reload (polls server for existing annotated preview state)
+  const cachedPreview = useCachedAnnotatedPreview(sessionId)
+
+  // Derive pdfJobId from either mutation result or cached wizard state.
+  // This ensures we can poll for PDF status even if the mutation response was lost
+  // (e.g., due to server restart during fetch).
+  const effectivePdfJobId = placeholderPdfJobId ?? cachedPreview.data?.pdfJobId ?? null
+
+  // Poll placeholder PDF status using whichever pdfJobId is available
+  const annotatedStatus = useAnnotatedPreviewStatus(sessionId, effectivePdfJobId)
   const annotatedPdfUrl = annotatedStatus.data?.pdfUrl ?? null
   const isAnnotatedPdfReady = !!annotatedPdfUrl || annotatedStatus.data?.pdfStatus === 'completed'
   const isAnnotatedPdfFailed = annotatedStatus.data?.pdfStatus === 'failed'
-
-  // Restore cached preview on page reload
-  const cachedPreview = useCachedAnnotatedPreview(sessionId)
 
   // Determine the PDF URL to display
   const displayPdfUrl = annotatedPdfUrl
@@ -84,23 +96,43 @@ export function StepVerify({
       ? (cachedPreview.data.pdfUrl.startsWith('http') ? cachedPreview.data.pdfUrl : `${API_BASE_URL}${cachedPreview.data.pdfUrl}`)
       : null
 
-  const isPreviewLoading = placeholderPreviewMutation.isPending ||
-    (!!placeholderPdfJobId && !isAnnotatedPdfReady && !isAnnotatedPdfFailed) ||
+  // Loading: mutation pending (but not if we already have a display URL from cache),
+  // or waiting for PDF conversion, or regenerating
+  const isPreviewLoading = (placeholderPreviewMutation.isPending && !displayPdfUrl) ||
+    (!!effectivePdfJobId && !isAnnotatedPdfReady && !isAnnotatedPdfFailed && !displayPdfUrl) ||
     isRegenerating
+
+  // Derive a meaningful error message for display
+  const previewError = placeholderPreviewMutation.isError && !displayPdfUrl
+    ? (placeholderPreviewMutation.error as Error)?.message || 'Failed to generate placeholder preview'
+    : isAnnotatedPdfFailed && !displayPdfUrl
+      ? 'Failed to convert placeholder preview to PDF'
+      : undefined
 
   // Auto-trigger placeholder preview on mount
   useEffect(() => {
-    if (!hasTriggeredPreview.current && !placeholderPreviewMutation.isPending) {
-      hasTriggeredPreview.current = true
-      placeholderPreviewMutation.mutate(sessionId, {
-        onSuccess: (data) => {
-          setPlaceholderPdfJobId(data.pdfJobId)
-          setPlaceholders(data.placeholders)
-          setPlaceholderCount(data.placeholderCount)
-        },
-      })
+    if (hasTriggeredPreview.current || placeholderPreviewMutation.isPending) return
+    hasTriggeredPreview.current = true
+    placeholderPreviewMutation.mutate(sessionId, {
+      onSuccess: (data) => {
+        setPlaceholderPdfJobId(data.pdfJobId)
+        setPlaceholders(data.placeholders)
+        setPlaceholderCount(data.placeholderCount)
+      },
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId])
+
+  // Sync placeholders from cached preview when mutation didn't provide them
+  // (handles case where mutation response was lost but backend completed)
+  useEffect(() => {
+    if (placeholders.length > 0) return // already have placeholders from mutation
+    const cached = cachedPreview.data
+    if (cached?.placeholders?.length) {
+      setPlaceholders(cached.placeholders)
+      setPlaceholderCount(cached.placeholderCount)
     }
-  }, [sessionId, placeholderPreviewMutation])
+  }, [placeholders.length, cachedPreview.data])
 
   // Watch for mapping updates from chat (standard chat flow returns updated mapping plan)
   useEffect(() => {
@@ -133,6 +165,16 @@ export function StepVerify({
       chat.clearCorrectionState()
     }
   }, [chat.regenerationResult, selectionState, chat])
+
+  // When chat stream finishes and we're still regenerating (regen failed),
+  // reset the regenerating state and show Refresh Preview button
+  useEffect(() => {
+    if (!chat.isStreaming && isRegenerating && !chat.regenerationResult) {
+      // Stream ended without a regeneration_complete event — regen failed
+      setIsRegenerating(false)
+      setPreviewOutdated(true)
+    }
+  }, [chat.isStreaming, isRegenerating, chat.regenerationResult])
 
   // Watch for selection_mapping SSE events (batch mapping flow)
   useEffect(() => {
@@ -198,9 +240,33 @@ export function StepVerify({
     [selectionState],
   )
 
+  // Retry placeholder preview generation (after error)
+  // Re-applies the mapping plan first (deterministic, no LLM), then generates preview.
+  const handleRetryPreview = useCallback(async () => {
+    placeholderPreviewMutation.reset()
+    try {
+      await adapterApi.reapplyMappingPlan(sessionId)
+    } catch {
+      // Reapply failed — still try preview from existing DOCX
+    }
+    placeholderPreviewMutation.mutate(sessionId, {
+      onSuccess: (data) => {
+        setPlaceholderPdfJobId(data.pdfJobId)
+        setPlaceholders(data.placeholders)
+        setPlaceholderCount(data.placeholderCount)
+      },
+    })
+  }, [sessionId, placeholderPreviewMutation])
+
   // Regenerate placeholder preview after corrections (Decision #8: clear selections)
-  const handleRegeneratePreview = useCallback(() => {
+  // Re-applies the mapping plan first (deterministic, no LLM), then generates preview.
+  const handleRegeneratePreview = useCallback(async () => {
     selectionState.resetSelections()
+    try {
+      await adapterApi.reapplyMappingPlan(sessionId)
+    } catch {
+      // Reapply failed — still try preview from existing DOCX
+    }
     placeholderPreviewMutation.mutate(sessionId, {
       onSuccess: (data) => {
         setPlaceholderPdfJobId(data.pdfJobId)
@@ -223,23 +289,79 @@ export function StepVerify({
   // Jump to a placeholder's approximate page in the PDF
   const handleJumpToPlaceholder = useCallback(
     (paragraphIndex: number) => {
-      // Heuristic: estimate page from paragraph position relative to total placeholders
-      const totalParagraphs = placeholders.length > 0
-        ? Math.max(...placeholders.map((p) => p.paragraphIndex)) + 1
-        : 1
-      const totalPages = annotatedStatus.data?.pdfUrl ? 1 : 1 // unknown, default to page estimate
-      // Simple heuristic: assume even distribution of paragraphs across pages
-      // We use the PDF page count from the viewer if available, otherwise estimate
-      const estimatedPages = Math.max(1, Math.ceil(totalParagraphs / 30))
-      const estimatedPage = Math.max(1, Math.ceil((paragraphIndex / totalParagraphs) * estimatedPages))
-      setScrollTargetPage(estimatedPage)
+      // Find the placeholder text for this paragraph index and search for it in the PDF text layer
+      const match = placeholders.find((p) => p.paragraphIndex === paragraphIndex)
+      if (match) {
+        setScrollTargetText(match.placeholderText)
+      }
     },
-    [placeholders, annotatedStatus.data?.pdfUrl],
+    [placeholders],
   )
 
   const handleScrollComplete = useCallback(() => {
     setScrollTargetPage(null)
+    setScrollTargetText(null)
   }, [])
+
+  /**
+   * Handle table-based mapping plan edits. Compares updated entries against
+   * the original auto-map output, builds a corrections array, and fires off
+   * a correction update to the backend KB (fire-and-forget).
+   */
+  const handleMappingPlanChange = useCallback(
+    (updatedPlan: MappingPlan) => {
+      const original = originalMappingPlanRef.current
+      if (!original) {
+        // No original to diff against -- just update state
+        setMappingPlan(updatedPlan)
+        onMappingUpdate(updatedPlan)
+        setPreviewOutdated(true)
+        return
+      }
+
+      // Build a lookup of original entries by sectionIndex
+      const originalByIndex = new Map<number, MappingEntry>()
+      for (const entry of original.entries) {
+        originalByIndex.set(entry.sectionIndex, entry)
+      }
+
+      // Detect changed entries
+      const corrections: Array<{
+        sectionIndex: number
+        oldGwField: string
+        newGwField: string
+        newMarkerType: string
+        sectionText: string
+      }> = []
+
+      for (const updated of updatedPlan.entries) {
+        const orig = originalByIndex.get(updated.sectionIndex)
+        if (!orig) continue // new entry, no correction to track
+        if (orig.gwField !== updated.gwField || orig.markerType !== updated.markerType) {
+          corrections.push({
+            sectionIndex: updated.sectionIndex,
+            oldGwField: orig.gwField,
+            newGwField: updated.gwField,
+            newMarkerType: updated.markerType,
+            sectionText: updated.sectionText,
+          })
+        }
+      }
+
+      // Update local state
+      setMappingPlan(updatedPlan)
+      onMappingUpdate(updatedPlan)
+      setPreviewOutdated(true)
+
+      // Fire-and-forget: send corrections to backend KB
+      if (corrections.length > 0) {
+        adapterApi.correctionUpdate(sessionId, corrections).catch((err) => {
+          console.error('[StepVerify] KB correction update failed (non-blocking):', err)
+        })
+      }
+    },
+    [sessionId, onMappingUpdate],
+  )
 
   return (
     <div className="space-y-4">
@@ -311,15 +433,34 @@ export function StepVerify({
             <InteractivePdfViewer
               url={displayPdfUrl}
               isLoading={isPreviewLoading}
-              error={isAnnotatedPdfFailed ? 'Failed to generate placeholder preview' : undefined}
+              error={previewError}
               onTextSelected={handleTextSelected}
               selections={selectionState.selections}
+              onAccept={selectionState.confirmSelection}
+              onReject={selectionState.rejectSelection}
+              onRemove={selectionState.removeSelection}
               isStreaming={chat.isStreaming || isRegenerating}
               mappedCount={placeholderCount}
               scrollTargetPage={scrollTargetPage}
+              scrollTargetText={scrollTargetText}
               onScrollComplete={handleScrollComplete}
               className="min-h-[600px]"
             />
+            {/* Error overlay with retry */}
+            {placeholderPreviewMutation.isError && !displayPdfUrl && (
+              <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+                <div className="flex flex-col items-center gap-3 rounded-lg bg-background px-6 py-4 shadow-md border max-w-sm text-center">
+                  <p className="text-sm font-medium text-destructive">Failed to generate preview</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(placeholderPreviewMutation.error as Error)?.message || 'Unknown error'}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={handleRetryPreview}>
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            )}
             {/* Regeneration spinner overlay */}
             {(isRegenerating || (chat.isStreaming && chat.latestCorrectionResult)) && (
               <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
@@ -374,14 +515,15 @@ export function StepVerify({
             </div>
 
             {/* Input */}
-            <div className="flex items-center gap-2">
-              <Input
+            <div className="flex items-end gap-2">
+              <Textarea
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Describe corrections, e.g. '#1 should be {{title}}'"
+                placeholder="Describe corrections... (Shift+Enter for newline)"
                 disabled={chat.isStreaming || isRegenerating}
-                className="flex-1"
+                className="flex-1 min-h-[40px] max-h-[120px] resize-none"
+                rows={2}
               />
               <Button
                 variant="ghost"
@@ -389,6 +531,7 @@ export function StepVerify({
                 onClick={handleSendMessage}
                 disabled={chat.isStreaming || isRegenerating || !chatInput.trim()}
                 aria-label="Send message"
+                className="shrink-0 mb-0.5"
               >
                 <Send className="h-4 w-4" aria-hidden="true" />
               </Button>

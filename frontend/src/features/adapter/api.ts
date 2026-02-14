@@ -162,6 +162,18 @@ export const adapterApi = {
   },
 
   /**
+   * Re-apply the current mapping plan to the original DOCX without an LLM call.
+   * POST /api/adapter/reapply with sessionId.
+   * Used after corrections update the mapping plan but regeneration failed.
+   */
+  async reapplyMappingPlan(sessionId: string): Promise<{ appliedCount: number; skippedCount: number }> {
+    return apiClient<{ appliedCount: number; skippedCount: number }>('/api/adapter/reapply', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  },
+
+  /**
    * Request placeholder-styled preview of the adapted DOCX.
    * POST /api/adapter/placeholder-preview with sessionId.
    * Shows Jinja expressions with light blue backgrounds.
@@ -170,6 +182,7 @@ export const adapterApi = {
     return apiClient<PlaceholderPreviewResponse>('/api/adapter/placeholder-preview', {
       method: 'POST',
       body: JSON.stringify({ sessionId }),
+      signal: AbortSignal.timeout(120_000), // 2 min timeout to prevent hanging on dead connections
     })
   },
 
@@ -197,6 +210,28 @@ export const adapterApi = {
     return apiClient<{ mappingPlan: MappingPlan }>('/api/adapter/update-mapping', {
       method: 'POST',
       body: JSON.stringify(request),
+    })
+  },
+
+  /**
+   * Send table-based corrections to update the KB immediately.
+   * POST /api/adapter/correction-update with sessionId + corrections array.
+   * Decays old mappings and creates/boosts corrected entries in the KB.
+   * Fire-and-forget: caller should not block on this.
+   */
+  async correctionUpdate(
+    sessionId: string,
+    corrections: Array<{
+      sectionIndex: number
+      oldGwField: string
+      newGwField: string
+      newMarkerType: string
+      sectionText: string
+    }>,
+  ): Promise<{ updated: number; decayed: number }> {
+    return apiClient<{ updated: number; decayed: number }>('/api/adapter/correction-update', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, corrections }),
     })
   },
 
