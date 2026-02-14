@@ -191,10 +191,13 @@ export interface AnnotatedPreviewResponse {
 
 /** GET /api/adapter/annotated-preview/:sessionId response */
 export interface AnnotatedPreviewStatus {
+  pdfJobId: string | null
   pdfUrl: string | null
   pdfStatus?: 'queued' | 'active' | 'completed' | 'failed' | 'not_found'
   pdfProgress?: number
   pdfError?: string
+  placeholders: PlaceholderInfo[]
+  placeholderCount: number
   tooltipData: TooltipEntry[]
   unmappedParagraphs: UnmappedParagraph[]
   gapSummary: GapSummary | null
@@ -213,6 +216,7 @@ export interface MappingUpdateRequest {
       paragraphIndex: number
       gwField: string
       markerType: string
+      sectionText?: string
     }>
   }
 }

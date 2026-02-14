@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Brain, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -252,14 +252,59 @@ export function StepVerify({
     })
   }, [sessionId, placeholderPreviewMutation])
 
-  // Regenerate: re-apply mapping plan + generate new placeholder preview
+  // Regenerate: save mapping plan to backend, re-apply DOCX, generate new PDF
   const handleRegeneratePreview = useCallback(async () => {
+    if (!mappingPlan) return
     setIsRegenerating(true)
     try {
+      // 1. Save current mapping plan to backend wizard state
+      const original = originalMappingPlanRef.current
+      const originalByIndex = new Map(
+        (original?.entries ?? []).map((e) => [e.sectionIndex, e]),
+      )
+
+      const editedEntries: Array<{ sectionIndex: number; gwField: string; markerType: string }> = []
+      const addedEntries: Array<{ paragraphIndex: number; gwField: string; markerType: string; sectionText?: string }> = []
+
+      for (const entry of mappingPlan.entries) {
+        const orig = originalByIndex.get(entry.sectionIndex)
+        if (!orig) {
+          // New entry added by user
+          if (entry.gwField) {
+            addedEntries.push({
+              paragraphIndex: entry.sectionIndex,
+              gwField: entry.gwField,
+              markerType: entry.markerType,
+              sectionText: entry.sectionText || undefined,
+            })
+          }
+        } else if (orig.gwField !== entry.gwField || orig.markerType !== entry.markerType) {
+          // Edited existing entry
+          editedEntries.push({
+            sectionIndex: entry.sectionIndex,
+            gwField: entry.gwField,
+            markerType: entry.markerType,
+          })
+        }
+      }
+
+      if (editedEntries.length > 0 || addedEntries.length > 0) {
+        await adapterApi.updateMapping({
+          sessionId,
+          updates: { editedEntries, addedEntries },
+        })
+      }
+
+      // 2. Re-apply DOCX with the updated mapping plan
       await adapterApi.reapplyMappingPlan(sessionId)
-    } catch {
-      // Reapply failed -- still try preview from existing DOCX
+    } catch (err) {
+      console.error('[StepVerify] Regenerate save/reapply failed:', err)
+      toast.error('Failed to save mappings -- please try again')
+      setIsRegenerating(false)
+      return
     }
+
+    // 3. Generate new placeholder PDF
     placeholderPreviewMutation.mutate(sessionId, {
       onSuccess: (data) => {
         setPlaceholderPdfJobId(data.pdfJobId)
@@ -271,9 +316,10 @@ export function StepVerify({
       },
       onError: () => {
         setIsRegenerating(false)
+        toast.error('Failed to generate preview')
       },
     })
-  }, [sessionId, placeholderPreviewMutation])
+  }, [sessionId, mappingPlan, placeholderPreviewMutation])
 
   // KB badge animation trigger
   const triggerKbAnimation = useCallback(() => {
@@ -318,6 +364,25 @@ export function StepVerify({
     setNewRowIndex(null)
   }, [])
 
+  // Derive highlight texts for PDF text layer:
+  // 1. Placeholder Jinja2 expressions (already applied, specific strings)
+  // 2. Section text from manually added rows (not yet regenerated)
+  const mappedHighlightTexts = useMemo(() => {
+    const texts: string[] = []
+    // Existing placeholders
+    for (const p of placeholders) {
+      if (p.placeholderText.length >= 4) texts.push(p.placeholderText)
+    }
+    // Manually added entries (from PDF selection, not yet in placeholders)
+    const placeholderIndices = new Set(placeholders.map((p) => p.paragraphIndex))
+    for (const e of mappingPlan?.entries ?? []) {
+      if (!placeholderIndices.has(e.sectionIndex) && e.sectionText.length >= 4) {
+        texts.push(e.sectionText)
+      }
+    }
+    return texts
+  }, [placeholders, mappingPlan])
+
   return (
     <div className="space-y-4">
       {/* Toolbar: placeholder count, KB badge, Regenerate, Approve */}
@@ -339,7 +404,7 @@ export function StepVerify({
               variant="outline"
               size="sm"
               onClick={handleRegeneratePreview}
-              disabled={placeholderPreviewMutation.isPending || isRegenerating}
+              disabled={isRegenerating}
             >
               <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
               Regenerate
@@ -391,7 +456,7 @@ export function StepVerify({
       </div>
 
       {/* Main grid: PDF viewer + Mapping Table */}
-      <div className="grid gap-4 grid-cols-[1fr_400px]">
+      <div className="grid gap-4 grid-cols-[1fr_minmax(420px,1fr)]">
         {/* Left: Interactive PDF Viewer */}
         <Card className="overflow-hidden relative">
           <CardContent className="p-0">
@@ -406,6 +471,7 @@ export function StepVerify({
               scrollTargetPage={scrollTargetPage}
               scrollTargetText={scrollTargetText}
               onScrollComplete={handleScrollComplete}
+              highlightTexts={mappedHighlightTexts}
               className="min-h-[600px]"
             />
             {/* Error overlay with retry */}

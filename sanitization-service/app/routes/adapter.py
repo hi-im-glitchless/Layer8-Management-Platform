@@ -1008,17 +1008,66 @@ async def apply_from_mapping(body: ApplyFromMappingRequest) -> ApplyResponse:
         raise HTTPException(status_code=422, detail=f"Failed to parse DOCX: {exc}")
 
     paragraphs = doc_structure.paragraphs
+    para_count = len(paragraphs)
     instructions: list[Instruction] = []
     build_warnings: list[str] = []
+
+    # Build a text-to-index lookup for fallback paragraph matching.
+    # Maps stripped paragraph text -> list of paragraph indices (handles duplicates).
+    _text_to_indices: dict[str, list[int]] = {}
+    for pi, p in enumerate(paragraphs):
+        stripped = p.text.strip()
+        if stripped:
+            _text_to_indices.setdefault(stripped, []).append(pi)
+
+    def _find_paragraph_by_text(section_text: str) -> int | None:
+        """Search for a paragraph whose text contains section_text.
+
+        Returns the paragraph index if found, None otherwise.
+        Tries exact full-text match first, then substring containment.
+        """
+        st = section_text.strip()
+        if not st:
+            return None
+        # Exact match on stripped text
+        if st in _text_to_indices:
+            return _text_to_indices[st][0]
+        # Substring containment (first match wins)
+        for pi, p in enumerate(paragraphs):
+            if st in p.text:
+                return pi
+        # Try matching if section_text is a truncated prefix (KB stores up to 100 chars)
+        if len(st) >= 20:
+            for pi, p in enumerate(paragraphs):
+                if p.text.strip().startswith(st):
+                    return pi
+        return None
 
     for entry in body.mapping_plan.entries:
         idx = entry.section_index
 
-        if idx < 0 or idx >= len(paragraphs):
-            build_warnings.append(
-                f"section_index {idx} out of range (0-{len(paragraphs)-1}), skipped"
-            )
-            continue
+        # Bounds check -- try text-based fallback before skipping
+        if idx < 0 or idx >= para_count:
+            if entry.section_text:
+                fallback_idx = _find_paragraph_by_text(entry.section_text)
+                if fallback_idx is not None:
+                    build_warnings.append(
+                        f"section_index {idx} out of range, relocated to "
+                        f"paragraph {fallback_idx} by text match for {entry.gw_field}"
+                    )
+                    idx = fallback_idx
+                else:
+                    build_warnings.append(
+                        f"section_index {idx} out of range (0-{para_count-1}) "
+                        f"and text match failed, skipped {entry.gw_field}"
+                    )
+                    continue
+            else:
+                build_warnings.append(
+                    f"section_index {idx} out of range (0-{para_count-1}), "
+                    f"skipped {entry.gw_field}"
+                )
+                continue
 
         para_text = paragraphs[idx].text
 
@@ -1033,7 +1082,26 @@ async def apply_from_mapping(body: ApplyFromMappingRequest) -> ApplyResponse:
                 gw_field=entry.gw_field,
             ))
         elif entry.marker_type == "paragraph_rt":
-            # Replace entire paragraph content with the placeholder
+            # Replace entire paragraph content with the placeholder.
+            # Verify section_text matches before replacing to prevent corruption.
+            if entry.section_text and entry.section_text.strip():
+                st = entry.section_text.strip()
+                if st not in para_text and not para_text.strip().startswith(st[:20]):
+                    # Index mismatch -- try to find the correct paragraph
+                    relocated_idx = _find_paragraph_by_text(entry.section_text)
+                    if relocated_idx is not None:
+                        idx = relocated_idx
+                        para_text = paragraphs[idx].text
+                        build_warnings.append(
+                            f"paragraph_rt: relocated {entry.gw_field} from "
+                            f"{entry.section_index} to {idx} by text match"
+                        )
+                    else:
+                        build_warnings.append(
+                            f"paragraph_rt: section_text mismatch at {idx} for "
+                            f"{entry.gw_field}, skipped to prevent corruption"
+                        )
+                        continue
             instructions.append(Instruction(
                 action="replace_text",
                 paragraph_index=idx,
@@ -1054,20 +1122,37 @@ async def apply_from_mapping(body: ApplyFromMappingRequest) -> ApplyResponse:
                     marker_type=entry.marker_type,
                     gw_field=entry.gw_field,
                 ))
+            elif original and original.strip():
+                # section_text not found at this index -- try relocating by text match
+                relocated_idx = _find_paragraph_by_text(original)
+                if relocated_idx is not None:
+                    relocated_text = paragraphs[relocated_idx].text
+                    instructions.append(Instruction(
+                        action="replace_text",
+                        paragraph_index=relocated_idx,
+                        original_text=original if original in relocated_text else relocated_text,
+                        replacement_text=entry.placeholder_template,
+                        marker_type=entry.marker_type,
+                        gw_field=entry.gw_field,
+                    ))
+                    build_warnings.append(
+                        f"section_text not found at paragraph {entry.section_index}, "
+                        f"relocated to paragraph {relocated_idx} for {entry.gw_field}"
+                    )
+                else:
+                    # Cannot find matching text anywhere -- skip to prevent corruption
+                    build_warnings.append(
+                        f"section_text not found at paragraph {idx} or anywhere "
+                        f"in document, skipped {entry.gw_field} to prevent corruption"
+                    )
             elif para_text.strip():
-                # Fallback: section_text was truncated or doesn't match exactly.
-                # Replace the full paragraph text.
-                instructions.append(Instruction(
-                    action="replace_text",
-                    paragraph_index=idx,
-                    original_text=para_text,
-                    replacement_text=entry.placeholder_template,
-                    marker_type=entry.marker_type,
-                    gw_field=entry.gw_field,
-                ))
+                # No section_text provided but paragraph has content.
+                # Only safe to replace if this entry came from the original analysis
+                # (section_text may be empty/truncated). Skip if we cannot verify.
                 build_warnings.append(
-                    f"section_text not found at paragraph {idx}, "
-                    f"falling back to full paragraph replacement for {entry.gw_field}"
+                    f"No section_text for {entry.gw_field} at paragraph {idx}, "
+                    f"skipped to prevent corruption (paragraph has content: "
+                    f"'{para_text[:50]}...')"
                 )
             else:
                 # Empty paragraph — use insert_after

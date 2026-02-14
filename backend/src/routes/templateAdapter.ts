@@ -129,6 +129,7 @@ const updateMappingSchema = z.object({
       paragraphIndex: z.number().int().min(0),
       gwField: z.string().min(1),
       markerType: z.string().min(1),
+      sectionText: z.string().optional(),
     })).optional(),
   }),
 });
@@ -980,14 +981,32 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
 
     // Apply added entries -- create new MappingEntry with confidence 1.0
     if (updates.addedEntries) {
+      // Try to get cached document structure for text lookup
+      const docStructure = (state as unknown as Record<string, unknown>).documentStructure as
+        { paragraphs: Array<{ paragraphIndex: number; text: string }> } | undefined;
+
       for (const added of updates.addedEntries) {
-        // Lookup section text from unmapped paragraphs in annotated preview
-        let sectionText = '';
-        const unmapped = state.annotatedPreview?.unmappedParagraphs?.find(
-          (u) => u.paragraphIndex === added.paragraphIndex,
-        );
-        if (unmapped) {
-          sectionText = unmapped.text;
+        // Use provided sectionText first, then try document structure, then unmapped paragraphs
+        let sectionText = added.sectionText ?? '';
+
+        if (!sectionText) {
+          // Try document structure cache (DOCX paragraph text by index)
+          const docPara = docStructure?.paragraphs?.find(
+            (p) => p.paragraphIndex === added.paragraphIndex,
+          );
+          if (docPara) {
+            sectionText = docPara.text;
+          }
+        }
+
+        if (!sectionText) {
+          // Fall back to unmapped paragraphs from annotated preview
+          const unmapped = state.annotatedPreview?.unmappedParagraphs?.find(
+            (u) => u.paragraphIndex === added.paragraphIndex,
+          );
+          if (unmapped) {
+            sectionText = unmapped.text;
+          }
         }
 
         const newEntry: MappingEntry = {
