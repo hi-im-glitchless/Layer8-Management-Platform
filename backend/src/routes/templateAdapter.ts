@@ -1109,6 +1109,19 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
         );
       }
 
+      // Correction flow events
+      if ('correctionResult' in chunk && chunk.correctionResult) {
+        res.write(
+          `event: correction_result\ndata: ${JSON.stringify({ mappingPlan: chunk.correctionResult })}\n\n`,
+        );
+      }
+
+      if ('regenerationComplete' in chunk && chunk.regenerationComplete) {
+        res.write(
+          `event: regeneration_complete\ndata: ${JSON.stringify(chunk.regenerationComplete)}\n\n`,
+        );
+      }
+
       if (chunk.done) {
         res.write(`event: done\ndata: ${JSON.stringify({ usage: chunk.usage })}\n\n`);
       }

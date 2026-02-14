@@ -865,13 +865,29 @@ export interface SelectionMappingResult {
 }
 
 /**
- * Extended yield type for processChatFeedback -- includes batch mapping events.
+ * Extended yield type for processChatFeedback -- includes batch mapping and correction events.
  */
 export type ChatFeedbackChunk = LLMStreamChunk & {
   mappingUpdate?: MappingPlan;
   selectionMapping?: SelectionMappingResult;
   batchComplete?: { resolvedCount: number; totalCount: number };
+  correctionResult?: MappingPlan;
+  regenerationComplete?: { pdfJobId: string; placeholderCount: number };
 };
+
+/** Response from Python /adapter/build-correction-prompt */
+interface CorrectionPromptResponse {
+  prompt: string;
+  system_prompt: string;
+}
+
+/**
+ * Check whether the wizard is in correction mode.
+ * Returns true when the user is on the 'verify' step (placeholder review).
+ */
+function isInCorrectionMode(wizardState: WizardState): boolean {
+  return wizardState.currentStep === 'verify';
+}
 
 /**
  * Process iterative chat feedback via SSE streaming.
@@ -881,8 +897,12 @@ export type ChatFeedbackChunk = LLMStreamChunk & {
  * If the LLM response contains JSON mapping plan modifications,
  * the mapping plan in session state is updated.
  *
- * When the message contains #N batch selection references, switches to
- * the batch mapping prompt and emits per-selection mapping events.
+ * When in correction mode (verify step) and the message contains #N
+ * selection references, uses the correction prompt for full pipeline
+ * regeneration (update mapping -> re-apply DOCX -> new placeholder PDF).
+ *
+ * When in interactive mapping mode with #N batch selections, uses the
+ * batch mapping prompt and emits per-selection mapping events.
  *
  * Includes a soft warning in the system prompt after 5 iterations.
  */
@@ -911,7 +931,19 @@ export async function* processChatFeedback(
     },
   });
 
-  // --- Batch selection flow ---
+  // --- Correction mode: verify step + #N references ---
+  // Takes priority over batch selection when in the verify step
+  if (isBatchMessage && isInCorrectionMode(wizardState)) {
+    yield* processCorrectionChat(
+      wizardState,
+      userMessage,
+      updatedHistory,
+      signal,
+    );
+    return;
+  }
+
+  // --- Batch selection flow (interactive mapping mode) ---
   if (isBatchMessage && wizardState.interactiveSelections.length > 0) {
     yield* processBatchSelectionChat(
       wizardState,
@@ -1248,6 +1280,247 @@ async function* processBatchSelectionChat(
     });
   } catch (err) {
     console.error('[templateAdapter] Failed to log batch chat interaction:', err);
+  }
+
+  // Final done chunk
+  yield {
+    text: '',
+    done: true,
+    usage,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Correction Chat (Placeholder Verification Flow)
+// ---------------------------------------------------------------------------
+
+/**
+ * Process correction chat -- builds correction prompt via Python service,
+ * calls LLM for updated mapping plan, validates, regenerates DOCX + PDF.
+ *
+ * Flow:
+ * 1. Build correction prompt via Python /adapter/build-correction-prompt
+ * 2. Call LLM with correction prompts (streaming)
+ * 3. Validate response via /adapter/validate-mapping (same as Pass 1)
+ * 4. If valid: update mapping plan in wizard state
+ * 5. Yield correction_result SSE event with updated mapping plan
+ * 6. Trigger regeneration: applyInstructions() to re-run Pass 2
+ * 7. Generate new placeholder preview PDF
+ * 8. Yield regeneration_complete SSE event with new pdfJobId
+ */
+async function* processCorrectionChat(
+  wizardState: WizardState,
+  userMessage: string,
+  updatedHistory: Array<{ role: string; content: string; timestamp: string }>,
+  signal?: AbortSignal,
+): AsyncGenerator<ChatFeedbackChunk> {
+  const { userId, sessionId } = wizardState;
+  const sanitizerUrl = config.SANITIZER_URL;
+  const iterationCount = wizardState.chat.iterationCount;
+  const currentPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
+
+  if (!currentPlan) {
+    yield { text: 'No mapping plan available for correction.', done: false };
+    yield { text: '', done: true };
+    return;
+  }
+
+  // Extract selection references from message
+  const referencedNumbers = parseBatchSelectionNumbers(userMessage);
+
+  // Build selections array from interactive selections if available
+  const selections = wizardState.interactiveSelections
+    ? wizardState.interactiveSelections
+        .filter((s) => referencedNumbers.includes(s.selectionNumber))
+        .map((s) => ({
+          selection_number: s.selectionNumber,
+          text: s.text,
+          paragraph_index: s.paragraphIndex,
+        }))
+    : [];
+
+  // Step 1: Build correction prompt via Python service
+  let correctionSystemPrompt: string;
+  let correctionUserPrompt: string;
+
+  try {
+    const promptRes = await fetch(`${sanitizerUrl}/adapter/build-correction-prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        template_base64: wizardState.templateFile.base64,
+        current_mapping_plan: mappingPlanToSnakeCase(currentPlan),
+        user_corrections: userMessage,
+        selections,
+      }),
+    });
+
+    if (!promptRes.ok) {
+      const detail = await promptRes.text();
+      yield { text: `Error building correction prompt: ${detail}`, done: false };
+      yield { text: '', done: true };
+      return;
+    }
+
+    const promptData = await promptRes.json() as CorrectionPromptResponse;
+    correctionSystemPrompt = promptData.system_prompt;
+    correctionUserPrompt = promptData.prompt;
+  } catch (err) {
+    console.error('[templateAdapter] Correction prompt build failed:', err);
+    yield { text: 'Failed to build correction prompt. Please try again.', done: false };
+    yield { text: '', done: true };
+    return;
+  }
+
+  // Step 2: Call LLM with correction prompts (streaming)
+  const messages: LLMMessage[] = [
+    { role: 'system', content: correctionSystemPrompt },
+    { role: 'user', content: correctionUserPrompt },
+  ];
+
+  const client = await createLLMClient();
+  let fullResponse = '';
+  let usage = { inputTokens: 0, outputTokens: 0 };
+  const model = client.resolveModel('template-adapter');
+
+  try {
+    const stream = client.generateStream(messages, {
+      maxTokens: 8192,
+      feature: 'template-adapter',
+      signal,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.text) {
+        fullResponse += chunk.text;
+        yield { text: chunk.text, done: false };
+      }
+      if (chunk.done && chunk.usage) {
+        usage = chunk.usage;
+      }
+    }
+  } catch (err) {
+    console.error('[templateAdapter] Correction LLM call failed:', err);
+    yield { text: '\n\nLLM request failed. Please try again.', done: false };
+    yield { text: '', done: true };
+    return;
+  }
+
+  // Step 3: Validate LLM response via /adapter/validate-mapping
+  let updatedMappingPlan: MappingPlan | null = null;
+
+  try {
+    // Count paragraphs for validation bounds
+    const paragraphCount = currentPlan.entries.reduce(
+      (max, e) => Math.max(max, e.sectionIndex),
+      0,
+    ) + 100; // generous upper bound
+
+    const validateRes = await fetch(`${sanitizerUrl}/adapter/validate-mapping`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        llm_response: fullResponse,
+        template_type: currentPlan.templateType,
+        language: currentPlan.language,
+        paragraph_count: paragraphCount,
+      }),
+    });
+
+    if (validateRes.ok) {
+      const validateData = await validateRes.json() as ValidateServiceResponse;
+
+      if (validateData.valid && validateData.mapping_plan) {
+        const plan = validateData.mapping_plan;
+        updatedMappingPlan = {
+          entries: plan.entries.map((e) => ({
+            sectionIndex: e.section_index,
+            sectionText: e.section_text,
+            gwField: e.gw_field,
+            placeholderTemplate: e.placeholder_template,
+            confidence: e.confidence,
+            markerType: e.marker_type,
+            rationale: e.rationale,
+          })),
+          templateType: plan.template_type,
+          language: plan.language,
+          warnings: plan.warnings,
+        };
+      }
+    }
+  } catch (err) {
+    console.error('[templateAdapter] Correction validation failed:', err);
+  }
+
+  // Step 4-5: If valid, update mapping plan and yield correction_result
+  if (updatedMappingPlan) {
+    await updateWizardSession(userId, sessionId, {
+      analysis: {
+        ...wizardState.analysis,
+        mappingPlan: updatedMappingPlan as unknown as Record<string, unknown>,
+      },
+    });
+
+    yield {
+      text: '',
+      done: false,
+      correctionResult: updatedMappingPlan,
+    };
+
+    // Step 6-8: Regeneration pipeline
+    try {
+      // Re-read wizard state after mapping plan update
+      const refreshedState = await getWizardSession(userId, sessionId);
+      if (refreshedState) {
+        // Re-run Pass 2 (applyInstructions) with updated mapping plan
+        const regeneratedState = await applyInstructions(refreshedState);
+
+        // Generate new placeholder preview PDF
+        const previewResult = await generatePlaceholderPreview(regeneratedState);
+
+        // Yield regeneration_complete with new pdfJobId
+        yield {
+          text: '',
+          done: false,
+          regenerationComplete: {
+            pdfJobId: previewResult.pdfJobId,
+            placeholderCount: previewResult.placeholderCount,
+          },
+        };
+      }
+    } catch (regenErr) {
+      console.error('[templateAdapter] Regeneration pipeline failed:', regenErr);
+      yield {
+        text: '\n\nCorrection applied but regeneration failed. Try refreshing the preview.',
+        done: false,
+      };
+    }
+  }
+
+  // Record assistant message in history
+  const assistantHistory = [
+    ...updatedHistory,
+    { role: 'assistant', content: fullResponse, timestamp: new Date().toISOString() },
+  ];
+
+  await updateWizardSession(userId, sessionId, {
+    chat: {
+      iterationCount: iterationCount + 1,
+      history: assistantHistory,
+    },
+  });
+
+  // Log the interaction
+  try {
+    await logLLMInteraction(userId, 'system', {
+      promptSanitized: userMessage,
+      responseFull: fullResponse,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      model,
+    });
+  } catch (err) {
+    console.error('[templateAdapter] Failed to log correction chat interaction:', err);
   }
 
   // Final done chunk
