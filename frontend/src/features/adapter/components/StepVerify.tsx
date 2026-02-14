@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Send, ArrowRight, Brain, RefreshCw } from 'lucide-react'
+import { Send, ArrowRight, Brain, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -51,6 +51,7 @@ export function StepVerify({
   const [placeholders, setPlaceholders] = useState<PlaceholderInfo[]>([])
   const [placeholderCount, setPlaceholderCount] = useState(0)
   const [previewOutdated, setPreviewOutdated] = useState(false)
+  const [isRegenerating, setIsRegenerating] = useState(false)
 
   const placeholderPreviewMutation = usePlaceholderPreview()
   const chat = useAdapterChat(sessionId)
@@ -79,7 +80,8 @@ export function StepVerify({
       : null
 
   const isPreviewLoading = placeholderPreviewMutation.isPending ||
-    (!!placeholderPdfJobId && !isAnnotatedPdfReady && !isAnnotatedPdfFailed)
+    (!!placeholderPdfJobId && !isAnnotatedPdfReady && !isAnnotatedPdfFailed) ||
+    isRegenerating
 
   // Auto-trigger placeholder preview on mount
   useEffect(() => {
@@ -95,7 +97,7 @@ export function StepVerify({
     }
   }, [sessionId, placeholderPreviewMutation])
 
-  // Watch for mapping updates from chat (correction flow returns updated mapping plan)
+  // Watch for mapping updates from chat (standard chat flow returns updated mapping plan)
   useEffect(() => {
     if (chat.latestMappingUpdate) {
       setMappingPlan(chat.latestMappingUpdate)
@@ -103,6 +105,28 @@ export function StepVerify({
       setPreviewOutdated(true)
     }
   }, [chat.latestMappingUpdate, onMappingUpdate])
+
+  // Watch for correction_result SSE event (correction flow: mapping plan updated)
+  useEffect(() => {
+    if (chat.latestCorrectionResult) {
+      setMappingPlan(chat.latestCorrectionResult)
+      onMappingUpdate(chat.latestCorrectionResult)
+      setIsRegenerating(true) // backend is now regenerating DOCX + PDF
+    }
+  }, [chat.latestCorrectionResult, onMappingUpdate])
+
+  // Watch for regeneration_complete SSE event (new PDF ready)
+  useEffect(() => {
+    if (chat.regenerationResult) {
+      setPlaceholderPdfJobId(chat.regenerationResult.pdfJobId)
+      setPlaceholderCount(chat.regenerationResult.placeholderCount)
+      selectionState.resetSelections() // Decision #7: clear selections on regeneration
+      setPreviewOutdated(false)
+      setIsRegenerating(false)
+      toast.success('Placeholders updated -- review the changes')
+      chat.clearCorrectionState()
+    }
+  }, [chat.regenerationResult, selectionState, chat])
 
   // Watch for selection_mapping SSE events (batch mapping flow)
   useEffect(() => {
@@ -134,6 +158,7 @@ export function StepVerify({
     const trimmed = chatInput.trim()
     if (!trimmed) return
     chat.clearSelectionMappings()
+    chat.clearCorrectionState()
     chat.sendMessage(trimmed)
     setChatInput('')
   }, [chatInput, chat])
@@ -237,7 +262,7 @@ export function StepVerify({
             variant="gradient"
             size="sm"
             onClick={onApprove}
-            disabled={!displayPdfUrl}
+            disabled={!displayPdfUrl || isRegenerating}
           >
             Approve &amp; Continue
             <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
@@ -248,7 +273,7 @@ export function StepVerify({
       {/* Main grid: PDF viewer + Chat panel */}
       <div className="grid gap-4 grid-cols-[1fr_320px]">
         {/* Left: Interactive PDF Viewer */}
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden relative">
           <CardContent className="p-0">
             <InteractivePdfViewer
               url={displayPdfUrl}
@@ -256,10 +281,19 @@ export function StepVerify({
               error={isAnnotatedPdfFailed ? 'Failed to generate placeholder preview' : undefined}
               onTextSelected={handleTextSelected}
               selections={selectionState.selections}
-              isStreaming={chat.isStreaming}
+              isStreaming={chat.isStreaming || isRegenerating}
               mappedCount={placeholderCount}
               className="min-h-[600px]"
             />
+            {/* Regeneration spinner overlay */}
+            {isRegenerating && (
+              <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
+                <div className="flex items-center gap-2 rounded-lg bg-background px-4 py-2 shadow-md border">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
+                  <span className="text-sm text-muted-foreground">Regenerating...</span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -309,14 +343,14 @@ export function StepVerify({
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Describe corrections, e.g. '#1 should be {{title}}'"
-                disabled={chat.isStreaming}
+                disabled={chat.isStreaming || isRegenerating}
                 className="flex-1"
               />
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleSendMessage}
-                disabled={chat.isStreaming || !chatInput.trim()}
+                disabled={chat.isStreaming || isRegenerating || !chatInput.trim()}
                 aria-label="Send message"
               >
                 <Send className="h-4 w-4" aria-hidden="true" />
