@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Send, ArrowRight, Brain, RefreshCw, Loader2 } from 'lucide-react'
+import { ArrowRight, Brain, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Tooltip as TooltipUI,
   TooltipTrigger,
@@ -16,12 +15,11 @@ import {
   usePlaceholderPreview,
   useAnnotatedPreviewStatus,
   useCachedAnnotatedPreview,
-  useAdapterChat,
-  useSelectionState,
 } from '../hooks'
 import { adapterApi } from '../api'
 import { InteractivePdfViewer, type TextSelectionPayload } from './InteractivePdfViewer'
 import { PlaceholderNavigator } from './PlaceholderNavigator'
+import { MappingTable } from './MappingTable'
 import type {
   TemplateType,
   TemplateLanguage,
@@ -50,18 +48,14 @@ export function StepVerify({
   onApprove,
 }: StepVerifyProps) {
   const [mappingPlan, setMappingPlan] = useState<MappingPlan | null>(initialMappingPlan)
-  const [chatInput, setChatInput] = useState('')
   const [placeholderPdfJobId, setPlaceholderPdfJobId] = useState<string | null>(null)
   const [placeholders, setPlaceholders] = useState<PlaceholderInfo[]>([])
   const [placeholderCount, setPlaceholderCount] = useState(0)
-  const [previewOutdated, setPreviewOutdated] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
   const [isRegenerating, setIsRegenerating] = useState(false)
 
   const placeholderPreviewMutation = usePlaceholderPreview()
-  const chat = useAdapterChat(sessionId)
-  const selectionState = useSelectionState()
   const hasTriggeredPreview = useRef(false)
-  const chatEndRef = useRef<HTMLDivElement>(null)
 
   // Track the original mapping plan (from auto-map) to always diff against
   // the LLM's original output, not intermediate edits
@@ -75,8 +69,8 @@ export function StepVerify({
   const kbStatsQuery = useQuery({
     queryKey: ['kb-stats', templateType],
     queryFn: () => adapterApi.kbStats(templateType),
-    staleTime: 60_000, // cache for 1 minute
-    retry: false, // non-critical, don't retry on failure
+    staleTime: 60_000,
+    retry: false,
   })
 
   // PlaceholderNavigator state
@@ -84,15 +78,17 @@ export function StepVerify({
   const [scrollTargetPage, setScrollTargetPage] = useState<number | null>(null)
   const [scrollTargetText, setScrollTargetText] = useState<string | null>(null)
 
-  // Restore cached preview on page reload (polls server for existing annotated preview state)
+  // Bidirectional sync state
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null)
+  const [newRowIndex, setNewRowIndex] = useState<number | null>(null)
+
+  // Restore cached preview on page reload
   const cachedPreview = useCachedAnnotatedPreview(sessionId)
 
-  // Derive pdfJobId from either mutation result or cached wizard state.
-  // This ensures we can poll for PDF status even if the mutation response was lost
-  // (e.g., due to server restart during fetch).
+  // Derive pdfJobId from either mutation result or cached wizard state
   const effectivePdfJobId = placeholderPdfJobId ?? cachedPreview.data?.pdfJobId ?? null
 
-  // Poll placeholder PDF status using whichever pdfJobId is available
+  // Poll placeholder PDF status
   const annotatedStatus = useAnnotatedPreviewStatus(sessionId, effectivePdfJobId)
   const annotatedPdfUrl = annotatedStatus.data?.pdfUrl ?? null
   const isAnnotatedPdfReady = !!annotatedPdfUrl || annotatedStatus.data?.pdfStatus === 'completed'
@@ -105,13 +101,12 @@ export function StepVerify({
       ? (cachedPreview.data.pdfUrl.startsWith('http') ? cachedPreview.data.pdfUrl : `${API_BASE_URL}${cachedPreview.data.pdfUrl}`)
       : null
 
-  // Loading: mutation pending (but not if we already have a display URL from cache),
-  // or waiting for PDF conversion, or regenerating
+  // Loading state
   const isPreviewLoading = (placeholderPreviewMutation.isPending && !displayPdfUrl) ||
     (!!effectivePdfJobId && !isAnnotatedPdfReady && !isAnnotatedPdfFailed && !displayPdfUrl) ||
     isRegenerating
 
-  // Derive a meaningful error message for display
+  // Error state
   const previewError = placeholderPreviewMutation.isError && !displayPdfUrl
     ? (placeholderPreviewMutation.error as Error)?.message || 'Failed to generate placeholder preview'
     : isAnnotatedPdfFailed && !displayPdfUrl
@@ -133,204 +128,14 @@ export function StepVerify({
   }, [sessionId])
 
   // Sync placeholders from cached preview when mutation didn't provide them
-  // (handles case where mutation response was lost but backend completed)
   useEffect(() => {
-    if (placeholders.length > 0) return // already have placeholders from mutation
+    if (placeholders.length > 0) return
     const cached = cachedPreview.data
     if (cached?.placeholders?.length) {
       setPlaceholders(cached.placeholders)
       setPlaceholderCount(cached.placeholderCount)
     }
   }, [placeholders.length, cachedPreview.data])
-
-  // Watch for mapping updates from chat (standard chat flow returns updated mapping plan)
-  useEffect(() => {
-    if (chat.latestMappingUpdate) {
-      setMappingPlan(chat.latestMappingUpdate)
-      onMappingUpdate(chat.latestMappingUpdate)
-      setPreviewOutdated(true)
-    }
-  }, [chat.latestMappingUpdate, onMappingUpdate])
-
-  // Watch for correction_result SSE event (correction flow: mapping plan updated)
-  useEffect(() => {
-    if (chat.latestCorrectionResult) {
-      setMappingPlan(chat.latestCorrectionResult)
-      onMappingUpdate(chat.latestCorrectionResult)
-      setIsRegenerating(true) // backend is now regenerating DOCX + PDF
-    }
-  }, [chat.latestCorrectionResult, onMappingUpdate])
-
-  // Watch for regeneration_complete SSE event (new PDF ready)
-  useEffect(() => {
-    if (chat.regenerationResult) {
-      setPlaceholderPdfJobId(chat.regenerationResult.pdfJobId)
-      setPlaceholderCount(chat.regenerationResult.placeholderCount)
-      selectionState.resetSelections() // Decision #7: clear selections on regeneration
-      setPreviewOutdated(false)
-      setIsRegenerating(false)
-      toast.success('Placeholders updated -- review the changes')
-      toast.info('Selections cleared -- review fresh PDF', { duration: 3000 })
-      chat.clearCorrectionState()
-    }
-  }, [chat.regenerationResult, selectionState, chat])
-
-  // When chat stream finishes and we're still regenerating (regen failed),
-  // reset the regenerating state and show Refresh Preview button
-  useEffect(() => {
-    if (!chat.isStreaming && isRegenerating && !chat.regenerationResult) {
-      // Stream ended without a regeneration_complete event — regen failed
-      setIsRegenerating(false)
-      setPreviewOutdated(true)
-    }
-  }, [chat.isStreaming, isRegenerating, chat.regenerationResult])
-
-  // Watch for selection_mapping SSE events (batch mapping flow)
-  useEffect(() => {
-    if (chat.selectionMappings.size === 0) return
-    for (const [selNum, result] of chat.selectionMappings) {
-      selectionState.updateSelectionMapping(
-        selNum,
-        result.gwField,
-        result.markerType,
-        result.confidence,
-      )
-    }
-  }, [chat.selectionMappings, selectionState])
-
-  // Watch for batch_complete event
-  useEffect(() => {
-    if (chat.isBatchComplete) {
-      const resolvedCount = chat.selectionMappings.size
-      toast.success(`${resolvedCount} corrections resolved -- review results`)
-    }
-  }, [chat.isBatchComplete, chat.selectionMappings.size])
-
-  // Auto-scroll chat
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [chat.messages])
-
-  const handleSendMessage = useCallback(() => {
-    const trimmed = chatInput.trim()
-    if (!trimmed) return
-    chat.clearSelectionMappings()
-    chat.clearCorrectionState()
-    chat.sendMessage(trimmed)
-    setChatInput('')
-  }, [chatInput, chat])
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        handleSendMessage()
-      }
-    },
-    [handleSendMessage],
-  )
-
-  // Handle text selection from InteractivePdfViewer
-  const handleTextSelected = useCallback(
-    (selection: TextSelectionPayload) => {
-      selectionState.addSelection({
-        paragraphIndex: selection.paragraphIndex,
-        text: selection.text,
-        boundingRect: {
-          top: selection.boundingRect.top,
-          left: selection.boundingRect.left,
-          width: selection.boundingRect.width,
-          height: selection.boundingRect.height,
-          pageNumber: selection.pageNumber,
-        },
-        pageNumber: selection.pageNumber,
-      })
-    },
-    [selectionState],
-  )
-
-  // Retry placeholder preview generation (after error)
-  // Re-applies the mapping plan first (deterministic, no LLM), then generates preview.
-  const handleRetryPreview = useCallback(async () => {
-    placeholderPreviewMutation.reset()
-    try {
-      await adapterApi.reapplyMappingPlan(sessionId)
-    } catch {
-      // Reapply failed — still try preview from existing DOCX
-    }
-    placeholderPreviewMutation.mutate(sessionId, {
-      onSuccess: (data) => {
-        setPlaceholderPdfJobId(data.pdfJobId)
-        setPlaceholders(data.placeholders)
-        setPlaceholderCount(data.placeholderCount)
-      },
-    })
-  }, [sessionId, placeholderPreviewMutation])
-
-  // Regenerate placeholder preview after table edits.
-  // Full cycle: save mapping -> re-apply DOCX -> generate placeholder PDF -> poll
-  const handleRegeneratePreview = useCallback(async () => {
-    setIsRegenerating(true)
-    selectionState.resetSelections()
-
-    try {
-      // Step 1: Save current mapping plan to wizard state
-      if (mappingPlan) {
-        const editedEntries = mappingPlan.entries.map((e) => ({
-          sectionIndex: e.sectionIndex,
-          gwField: e.gwField,
-          markerType: e.markerType,
-        }))
-        await adapterApi.updateMapping({
-          sessionId,
-          updates: { editedEntries },
-        })
-      }
-
-      // Step 2: Re-apply mapping plan to original DOCX (deterministic, no LLM)
-      await adapterApi.reapplyMappingPlan(sessionId)
-
-      // Step 3: Generate new placeholder preview PDF
-      const data = await adapterApi.requestPlaceholderPreview(sessionId)
-      setPlaceholderPdfJobId(data.pdfJobId)
-      setPlaceholders(data.placeholders)
-      setPlaceholderCount(data.placeholderCount)
-      setPreviewOutdated(false)
-      setIsRegenerating(false)
-    } catch (err) {
-      setIsRegenerating(false)
-      setPreviewOutdated(true) // keep Regenerate button visible
-      const msg = err instanceof Error ? err.message : 'Unknown error'
-      toast.error(`Regeneration failed: ${msg}`)
-      console.error('[StepVerify] Regeneration failed:', err)
-    }
-  }, [sessionId, mappingPlan, selectionState])
-
-  // KB badge animation trigger
-  const triggerKbAnimation = useCallback(() => {
-    setKbPersisted(true)
-    setKbAnimating(true)
-    const timer = setTimeout(() => setKbAnimating(false), 600)
-    return () => clearTimeout(timer)
-  }, [])
-  void triggerKbAnimation // wired in download step
-
-  // Jump to a placeholder's approximate page in the PDF
-  const handleJumpToPlaceholder = useCallback(
-    (paragraphIndex: number) => {
-      // Find the placeholder text for this paragraph index and search for it in the PDF text layer
-      const match = placeholders.find((p) => p.paragraphIndex === paragraphIndex)
-      if (match) {
-        setScrollTargetText(match.placeholderText)
-      }
-    },
-    [placeholders],
-  )
-
-  const handleScrollComplete = useCallback(() => {
-    setScrollTargetPage(null)
-    setScrollTargetText(null)
-  }, [])
 
   /**
    * Handle table-based mapping plan edits. Compares updated entries against
@@ -341,10 +146,9 @@ export function StepVerify({
     (updatedPlan: MappingPlan) => {
       const original = originalMappingPlanRef.current
       if (!original) {
-        // No original to diff against -- just update state
         setMappingPlan(updatedPlan)
         onMappingUpdate(updatedPlan)
-        setPreviewOutdated(true)
+        setIsDirty(true)
         return
       }
 
@@ -365,7 +169,7 @@ export function StepVerify({
 
       for (const updated of updatedPlan.entries) {
         const orig = originalByIndex.get(updated.sectionIndex)
-        if (!orig) continue // new entry, no correction to track
+        if (!orig) continue
         if (orig.gwField !== updated.gwField || orig.markerType !== updated.markerType) {
           corrections.push({
             sectionIndex: updated.sectionIndex,
@@ -380,7 +184,7 @@ export function StepVerify({
       // Update local state
       setMappingPlan(updatedPlan)
       onMappingUpdate(updatedPlan)
-      setPreviewOutdated(true)
+      setIsDirty(true)
 
       // Fire-and-forget: send corrections to backend KB
       if (corrections.length > 0) {
@@ -392,9 +196,131 @@ export function StepVerify({
     [sessionId, onMappingUpdate],
   )
 
+  // Handle text selection from InteractivePdfViewer -- add new row to mapping table
+  const handleTextSelected = useCallback(
+    (selection: TextSelectionPayload) => {
+      if (!mappingPlan) return
+
+      const newEntry: MappingEntry = {
+        sectionIndex: selection.paragraphIndex,
+        sectionText: selection.text,
+        gwField: '',
+        placeholderTemplate: '',
+        confidence: 0,
+        markerType: 'text',
+        rationale: 'Added via PDF selection',
+      }
+
+      // Deduplicate: if this sectionIndex already exists, highlight instead
+      const exists = mappingPlan.entries.some(
+        (e) => e.sectionIndex === selection.paragraphIndex,
+      )
+      if (exists) {
+        toast.info(`Paragraph #${selection.paragraphIndex} is already in the mapping table`)
+        setHighlightedIndex(selection.paragraphIndex)
+        return
+      }
+
+      const updatedPlan: MappingPlan = {
+        ...mappingPlan,
+        entries: [...mappingPlan.entries, newEntry],
+      }
+
+      setMappingPlan(updatedPlan)
+      onMappingUpdate(updatedPlan)
+      setIsDirty(true)
+      setNewRowIndex(selection.paragraphIndex)
+      toast.success(`#${selection.paragraphIndex} added to mapping table`)
+    },
+    [mappingPlan, onMappingUpdate],
+  )
+
+  // Retry placeholder preview generation (after error)
+  const handleRetryPreview = useCallback(async () => {
+    placeholderPreviewMutation.reset()
+    try {
+      await adapterApi.reapplyMappingPlan(sessionId)
+    } catch {
+      // Reapply failed -- still try preview from existing DOCX
+    }
+    placeholderPreviewMutation.mutate(sessionId, {
+      onSuccess: (data) => {
+        setPlaceholderPdfJobId(data.pdfJobId)
+        setPlaceholders(data.placeholders)
+        setPlaceholderCount(data.placeholderCount)
+      },
+    })
+  }, [sessionId, placeholderPreviewMutation])
+
+  // Regenerate: re-apply mapping plan + generate new placeholder preview
+  const handleRegeneratePreview = useCallback(async () => {
+    setIsRegenerating(true)
+    try {
+      await adapterApi.reapplyMappingPlan(sessionId)
+    } catch {
+      // Reapply failed -- still try preview from existing DOCX
+    }
+    placeholderPreviewMutation.mutate(sessionId, {
+      onSuccess: (data) => {
+        setPlaceholderPdfJobId(data.pdfJobId)
+        setPlaceholders(data.placeholders)
+        setPlaceholderCount(data.placeholderCount)
+        setIsDirty(false)
+        setIsRegenerating(false)
+        toast.success('Placeholders updated -- review the changes')
+      },
+      onError: () => {
+        setIsRegenerating(false)
+      },
+    })
+  }, [sessionId, placeholderPreviewMutation])
+
+  // KB badge animation trigger
+  const triggerKbAnimation = useCallback(() => {
+    setKbPersisted(true)
+    setKbAnimating(true)
+    const timer = setTimeout(() => setKbAnimating(false), 600)
+    return () => clearTimeout(timer)
+  }, [])
+  void triggerKbAnimation // wired in download step
+
+  // Jump to a placeholder's approximate page in the PDF
+  const handleJumpToPlaceholder = useCallback(
+    (paragraphIndex: number) => {
+      const match = placeholders.find((p) => p.paragraphIndex === paragraphIndex)
+      if (match) {
+        setScrollTargetText(match.placeholderText)
+      }
+    },
+    [placeholders],
+  )
+
+  const handleScrollComplete = useCallback(() => {
+    setScrollTargetPage(null)
+    setScrollTargetText(null)
+  }, [])
+
+  // Table row click -> scroll PDF to corresponding placeholder
+  const handleRowClick = useCallback(
+    (entry: MappingEntry) => {
+      setHighlightedIndex(entry.sectionIndex)
+      const match = placeholders.find((p) => p.paragraphIndex === entry.sectionIndex)
+      if (match) {
+        setScrollTargetText(match.placeholderText)
+      }
+      // Clear highlight after a brief moment
+      setTimeout(() => setHighlightedIndex(null), 2000)
+    },
+    [placeholders],
+  )
+
+  const handleNewRowHandled = useCallback(() => {
+    setNewRowIndex(null)
+  }, [])
+
   return (
     <div className="space-y-4">
-      {/* Toolbar: placeholder count, KB badge, Approve button */}
+      {/* Toolbar: placeholder count, KB badge, Regenerate, Approve */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {placeholderCount > 0 && (
@@ -408,12 +334,12 @@ export function StepVerify({
             onToggle={() => setNavigatorOpen((prev) => !prev)}
             onJumpToPlaceholder={handleJumpToPlaceholder}
           />
-          {previewOutdated && !isRegenerating && (
+          {isDirty && (
             <Button
               variant="outline"
               size="sm"
               onClick={handleRegeneratePreview}
-              disabled={isRegenerating || placeholderPreviewMutation.isPending}
+              disabled={placeholderPreviewMutation.isPending || isRegenerating}
             >
               <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
               Regenerate
@@ -456,7 +382,7 @@ export function StepVerify({
             variant="gradient"
             size="sm"
             onClick={onApprove}
-            disabled={!displayPdfUrl || isRegenerating || chat.isStreaming || isPreviewLoading || previewOutdated}
+            disabled={!displayPdfUrl || isRegenerating || isPreviewLoading}
           >
             Approve &amp; Continue
             <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
@@ -464,8 +390,8 @@ export function StepVerify({
         </div>
       </div>
 
-      {/* Main grid: PDF viewer + Chat panel */}
-      <div className="grid gap-4 grid-cols-[1fr_320px]">
+      {/* Main grid: PDF viewer + Mapping Table */}
+      <div className="grid gap-4 grid-cols-[1fr_400px]">
         {/* Left: Interactive PDF Viewer */}
         <Card className="overflow-hidden relative">
           <CardContent className="p-0">
@@ -474,11 +400,8 @@ export function StepVerify({
               isLoading={isPreviewLoading}
               error={previewError}
               onTextSelected={handleTextSelected}
-              selections={selectionState.selections}
-              onAccept={selectionState.confirmSelection}
-              onReject={selectionState.rejectSelection}
-              onRemove={selectionState.removeSelection}
-              isStreaming={chat.isStreaming || isRegenerating}
+              selections={[]}
+              isStreaming={isRegenerating}
               mappedCount={placeholderCount}
               scrollTargetPage={scrollTargetPage}
               scrollTargetText={scrollTargetText}
@@ -501,12 +424,12 @@ export function StepVerify({
               </div>
             )}
             {/* Regeneration spinner overlay */}
-            {(isRegenerating || (chat.isStreaming && chat.latestCorrectionResult)) && (
+            {isRegenerating && (
               <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
                 <div className="flex items-center gap-2 rounded-lg bg-background px-4 py-2 shadow-md border">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
                   <span className="text-sm text-muted-foreground">
-                    {isRegenerating ? 'Regenerating placeholders...' : 'Processing corrections...'}
+                    Regenerating placeholders...
                   </span>
                 </div>
               </div>
@@ -514,67 +437,27 @@ export function StepVerify({
           </CardContent>
         </Card>
 
-        {/* Right: Chat Panel (always visible, Decision #12) */}
+        {/* Right: Editable Mapping Table */}
         <Card className="flex flex-col max-h-[700px]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Correction Chat</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Mapping Table</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col min-h-0">
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-[200px]">
-              {chat.messages.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-8">
-                  Describe corrections, e.g. &apos;#1 should be {'{{'}title{'}}'}, #2 remove this&apos;
-                </p>
-              )}
-              {chat.messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                      msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                </div>
-              ))}
-              {chat.isStreaming && (
-                <div className="flex justify-start">
-                  <div className="bg-muted rounded-lg px-3 py-2">
-                    <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse" />
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="flex items-end gap-2">
-              <Textarea
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Describe corrections... (Shift+Enter for newline)"
-                disabled={chat.isStreaming || isRegenerating}
-                className="flex-1 min-h-[40px] max-h-[120px] resize-none"
-                rows={2}
+          <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0">
+            {mappingPlan ? (
+              <MappingTable
+                mappingPlan={mappingPlan}
+                isEditable={true}
+                onMappingPlanChange={handleMappingPlanChange}
+                onRowClick={handleRowClick}
+                highlightedIndex={highlightedIndex}
+                newRowIndex={newRowIndex}
+                onNewRowHandled={handleNewRowHandled}
               />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSendMessage}
-                disabled={chat.isStreaming || isRegenerating || !chatInput.trim()}
-                aria-label="Send message"
-                className="shrink-0 mb-0.5"
-              >
-                <Send className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                No mapping plan available. Run analysis first.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
