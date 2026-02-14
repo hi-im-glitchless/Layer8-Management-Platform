@@ -161,22 +161,4 @@
     }
   }
 
-  /* Highlight mapped text spans in PDF text layer */
-  .mapped-highlight {
-    background-color: oklch(0.85 0.12 145 / 0.35) !important;
-    border-radius: 2px;
-  }
-  .dark .mapped-highlight {
-    background-color: oklch(0.45 0.12 145 / 0.3) !important;
-  }
-
-  /* Flash highlight for scroll-to-text target */
-  .mapped-highlight-flash {
-    background-color: oklch(0.80 0.18 85 / 0.5) !important;
-    border-radius: 2px;
-    transition: background-color 0.3s ease-out;
-  }
-  .dark .mapped-highlight-flash {
-    background-color: oklch(0.50 0.18 85 / 0.4) !important;
-  }
 }
