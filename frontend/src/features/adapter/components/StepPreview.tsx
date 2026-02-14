@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, ArrowRight, ArrowLeft, RefreshCw, Clock } from 'lucide-react'
 import { toast } from 'sonner'
-import type { MappingPlan } from '../types'
 
 /** Format seconds as "Xm Ys" or "Xs" */
 function formatElapsed(seconds: number): string {
@@ -14,7 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { PdfPreview } from '@/components/ui/pdf-preview'
 import { useRequestPreview, usePreviewStatus, useWizardSession } from '../hooks'
-import { ChatPanel } from './ChatPanel'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -28,10 +26,8 @@ export function StepPreview({ sessionId, onSatisfied, onReAdapt }: StepPreviewPr
   const previewMutation = useRequestPreview()
   const hasTriggered = useRef(false)
   const [pdfJobId, setPdfJobId] = useState<string | null>(null)
-  const [hasMappingUpdate, setHasMappingUpdate] = useState(false)
 
   const previewStatus = usePreviewStatus(pdfJobId ? sessionId : null)
-  const sessionQuery = useWizardSession(sessionId)
 
   // Auto-trigger preview on mount
   useEffect(() => {
@@ -85,15 +81,6 @@ export function StepPreview({ sessionId, onSatisfied, onReAdapt }: StepPreviewPr
     }
   }, [previewMutation.isPending, sessionPoll.data])
 
-  const handleMappingUpdate = useCallback((_plan: MappingPlan) => {
-    setHasMappingUpdate(true)
-  }, [])
-
-  const handleReApply = useCallback(() => {
-    setHasMappingUpdate(false)
-    onReAdapt()
-  }, [onReAdapt])
-
   // Compute progress percentage based on phase
   const progressPercent = previewStatus.data?.progress
     ? Math.round(previewStatus.data.progress)
@@ -126,11 +113,9 @@ export function StepPreview({ sessionId, onSatisfied, onReAdapt }: StepPreviewPr
     )
   }
 
-  const iterationCount = sessionQuery.data?.chat.iterationCount ?? 0
-
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-      {/* Left: PDF Preview */}
+    <div className="space-y-6">
+      {/* PDF Preview -- single column layout */}
       <Card className="flex flex-col">
         <CardHeader>
           <CardTitle>Template Preview</CardTitle>
@@ -138,7 +123,7 @@ export function StepPreview({ sessionId, onSatisfied, onReAdapt }: StepPreviewPr
             {isGenerating
               ? 'Generating PDF preview...'
               : pdfUrl
-                ? 'Review the adapted template below.'
+                ? 'Review the adapted template with Ghostwriter data.'
                 : 'Waiting for preview...'}
           </CardDescription>
         </CardHeader>
@@ -189,26 +174,11 @@ export function StepPreview({ sessionId, onSatisfied, onReAdapt }: StepPreviewPr
             </Button>
             <Button variant="outline" onClick={onReAdapt}>
               <ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true" />
-              Re-adapt
+              Back to Verify
             </Button>
-            {hasMappingUpdate && (
-              <Button variant="secondary" onClick={handleReApply}>
-                <RefreshCw className="h-4 w-4 mr-1" aria-hidden="true" />
-                Re-apply Changes
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
-
-      {/* Right: Chat Panel */}
-      <div className="max-h-[700px]">
-        <ChatPanel
-          sessionId={sessionId}
-          onMappingUpdate={handleMappingUpdate}
-          iterationCount={iterationCount}
-        />
-      </div>
     </div>
   )
 }
