@@ -114,6 +114,23 @@ interface ApplyServiceResponse {
   warnings: string[];
 }
 
+/** Response from Python /adapter/build-placement-prompt */
+interface PlacementPromptResponse {
+  prompt: string;
+  system_prompt: string;
+  paragraph_count: number;
+}
+
+/** Response from Python /adapter/validate-placement */
+interface ValidatePlacementResponse {
+  valid: boolean;
+  instruction_set: Record<string, unknown> | null;
+  applied_count: number;
+  skipped_count: number;
+  warnings: string[];
+  errors: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Upload
 // ---------------------------------------------------------------------------
@@ -622,6 +639,159 @@ export async function reapplyFromMappingPlan(
       appliedCount: data.applied_count,
       skippedCount: data.skipped_count,
       placementWarnings: data.warnings ?? [],
+    },
+  });
+
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// LLM Placement Pipeline (regeneration via build-placement-prompt -> LLM -> validate -> apply)
+// ---------------------------------------------------------------------------
+
+/**
+ * Regenerate the adapted DOCX using the LLM placement pipeline.
+ *
+ * Flow:
+ * 1. Build placement prompt via Python /adapter/build-placement-prompt
+ * 2. Call LLM for InstructionSet JSON (non-streaming, collect full response)
+ * 3. Validate via Python /adapter/validate-placement
+ * 4. Apply validated instructions via Python /adapter/apply
+ * 5. Save adapted DOCX to disk
+ * 6. Update wizard state with appliedCount, skippedCount, placementWarnings
+ *
+ * On LLM failure, wizard state is preserved (no partial DOCX corruption).
+ */
+export async function regenerateWithLLM(
+  wizardState: WizardState,
+): Promise<WizardState> {
+  const sanitizerUrl = config.SANITIZER_URL;
+  const { userId, sessionId } = wizardState;
+  const mappingPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
+
+  if (!mappingPlan) {
+    throw new Error('No mapping plan in wizard state -- run analysis first');
+  }
+
+  const templateBase64 = wizardState.templateFile.base64;
+  if (!templateBase64) {
+    throw new Error('No template file in wizard state -- upload first');
+  }
+
+  // Step 1: Build placement prompt via Python service
+  const promptRes = await fetch(`${sanitizerUrl}/adapter/build-placement-prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      template_base64: templateBase64,
+      mapping_plan: mappingPlanToSnakeCase(mappingPlan),
+    }),
+  });
+
+  if (!promptRes.ok) {
+    const detail = await promptRes.text();
+    throw new Error(`Sanitizer /adapter/build-placement-prompt failed (${promptRes.status}): ${detail}`);
+  }
+
+  const promptData = await promptRes.json() as PlacementPromptResponse;
+
+  // Step 2: Call LLM with placement prompt (non-streaming for structured JSON)
+  let llmResponse = '';
+  try {
+    const client = await createLLMClient();
+    const messages: LLMMessage[] = [
+      { role: 'system', content: promptData.system_prompt },
+      { role: 'user', content: promptData.prompt },
+    ];
+
+    const stream = client.generateStream(messages, {
+      maxTokens: 8192,
+      feature: 'template-adapter',
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.text) {
+        llmResponse += chunk.text;
+      }
+    }
+  } catch (error) {
+    // LLM failure: preserve wizard state (no partial corruption)
+    console.error('[templateAdapter] LLM placement pipeline failed, preserving state:', error);
+    throw new Error(
+      `LLM placement generation failed: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
+      'Your current state is preserved. You can retry.',
+    );
+  }
+
+  if (!llmResponse.trim()) {
+    throw new Error('LLM returned empty response for placement generation');
+  }
+
+  // Step 3: Validate LLM response via Python /adapter/validate-placement
+  const validateRes = await fetch(`${sanitizerUrl}/adapter/validate-placement`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      llm_response: llmResponse,
+      template_base64: templateBase64,
+      template_type: wizardState.config.templateType,
+      language: wizardState.config.language,
+      paragraph_count: promptData.paragraph_count,
+    }),
+  });
+
+  if (!validateRes.ok) {
+    const detail = await validateRes.text();
+    throw new Error(`Sanitizer /adapter/validate-placement failed (${validateRes.status}): ${detail}`);
+  }
+
+  const validateData = await validateRes.json() as ValidatePlacementResponse;
+
+  if (!validateData.valid || !validateData.instruction_set) {
+    throw new Error(
+      `Placement validation failed: ${validateData.errors.join('; ')}`,
+    );
+  }
+
+  // Step 4: Apply validated instructions via Python /adapter/apply
+  const applyRes = await fetch(`${sanitizerUrl}/adapter/apply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      template_base64: templateBase64,
+      instruction_set: validateData.instruction_set,
+    }),
+  });
+
+  if (!applyRes.ok) {
+    const detail = await applyRes.text();
+    throw new Error(`Sanitizer /adapter/apply failed (${applyRes.status}): ${detail}`);
+  }
+
+  const applyData = await applyRes.json() as ApplyServiceResponse;
+
+  // Step 5: Save adapted DOCX to disk
+  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+  const adaptedFilename = `${randomUUID()}_adapted.docx`;
+  const adaptedPath = path.join(DOCUMENTS_DIR, adaptedFilename);
+  const adaptedBuffer = Buffer.from(applyData.output_base64, 'base64');
+  fs.writeFileSync(adaptedPath, adaptedBuffer);
+
+  // Step 6: Update wizard state with results + placement warnings
+  // Combine validation warnings + apply warnings for full visibility
+  const placementWarnings = [
+    ...validateData.warnings,
+    ...applyData.warnings,
+  ];
+
+  const updated = await updateWizardSession(userId, sessionId, {
+    currentStep: 'verify',
+    adaptation: {
+      instructions: validateData.instruction_set,
+      appliedDocxPath: adaptedPath,
+      appliedCount: applyData.applied_count,
+      skippedCount: applyData.skipped_count,
+      placementWarnings,
     },
   });
 
