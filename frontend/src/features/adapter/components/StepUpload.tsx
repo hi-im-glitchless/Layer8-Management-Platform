@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, FileText } from 'lucide-react'
+import { Loader2, FileText, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -338,6 +338,19 @@ export function StepUpload({ onSessionCreate, onAutoMapComplete, onFileReady }: 
                   ? 'Auto-mapping complete'
                   : 'Auto-mapping template'}
             </h3>
+            {autoMapPhase === 'error' && (
+              <div className="flex justify-center mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetryAutoMap}
+                  disabled={autoMapMutation.isPending}
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                  Retry Auto-map
+                </Button>
+              </div>
+            )}
             <AnalysisProgressDisplay
               activePhase={autoMapPhase}
               activeStepIndex={autoMapStep}

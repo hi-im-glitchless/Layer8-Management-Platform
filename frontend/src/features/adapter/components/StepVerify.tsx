@@ -129,6 +129,7 @@ export function StepVerify({
       setPreviewOutdated(false)
       setIsRegenerating(false)
       toast.success('Placeholders updated -- review the changes')
+      toast.info('Selections cleared -- review fresh PDF', { duration: 3000 })
       chat.clearCorrectionState()
     }
   }, [chat.regenerationResult, selectionState, chat])
@@ -294,7 +295,7 @@ export function StepVerify({
             variant="gradient"
             size="sm"
             onClick={onApprove}
-            disabled={!displayPdfUrl || isRegenerating}
+            disabled={!displayPdfUrl || isRegenerating || chat.isStreaming || isPreviewLoading}
           >
             Approve &amp; Continue
             <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
@@ -320,11 +321,13 @@ export function StepVerify({
               className="min-h-[600px]"
             />
             {/* Regeneration spinner overlay */}
-            {isRegenerating && (
+            {(isRegenerating || (chat.isStreaming && chat.latestCorrectionResult)) && (
               <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
                 <div className="flex items-center gap-2 rounded-lg bg-background px-4 py-2 shadow-md border">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
-                  <span className="text-sm text-muted-foreground">Regenerating...</span>
+                  <span className="text-sm text-muted-foreground">
+                    {isRegenerating ? 'Regenerating placeholders...' : 'Processing corrections...'}
+                  </span>
                 </div>
               </div>
             )}
