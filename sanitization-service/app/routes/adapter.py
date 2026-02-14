@@ -9,6 +9,7 @@ POST /build-insertion-prompt -- Build LLM Pass 2 prompt from doc structure + map
 POST /build-correction-prompt -- Build LLM correction prompt for placeholder corrections
 POST /annotate -- Generate annotated DOCX preview with paragraph shading + metadata
 POST /placeholder-preview -- Generate placeholder-styled DOCX preview with Jinja shading
+POST /detect-blueprints -- Detect structural blueprints and style hints from mapping plan
 """
 import base64
 import json
@@ -28,16 +29,21 @@ from app.models.adapter import (
     BatchMappingEntry,
     BatchMappingRequest,
     BatchMappingResponse,
+    BlueprintResult,
     CorrectionPromptRequest,
     CorrectionPromptResponse,
+    DetectBlueprintsRequest,
+    DetectBlueprintsResponse,
     DocumentStructureRequest,
     DocumentStructureResponse,
+    Instruction,
     InstructionSet,
     MappingEntry,
     MappingPlan,
     ParagraphInfo,
     PlaceholderPreviewRequest,
     PlaceholderPreviewResponse,
+    StyleHintResult,
     ValidateMappingRequest,
     ValidateMappingResponse,
 )
@@ -46,6 +52,7 @@ from app.services.annotated_preview import (
     generate_annotation_metadata,
     generate_placeholder_preview,
 )
+from app.services.blueprint_detector import collect_style_hints, detect_blueprints
 from app.services.gap_detector import detect_gaps
 from app.models.docx import DocxStructure
 from app.services.analysis_prompt import (
@@ -954,4 +961,257 @@ async def placeholder_preview(body: PlaceholderPreviewRequest) -> PlaceholderPre
         annotated_base64=annotated_base64,
         placeholders=placeholders,
         placeholder_count=len(placeholders),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Deterministic apply-from-mapping (bypasses LLM Pass 2)
+# ---------------------------------------------------------------------------
+
+
+class ApplyFromMappingRequest(BaseModel):
+    """Request body for POST /adapter/apply-from-mapping."""
+
+    template_base64: str = Field(..., description="Base64-encoded original DOCX")
+    mapping_plan: MappingPlan
+
+
+@router.post("/apply-from-mapping", response_model=ApplyResponse)
+async def apply_from_mapping(body: ApplyFromMappingRequest) -> ApplyResponse:
+    """Deterministically apply a mapping plan to a DOCX without an LLM call.
+
+    Converts each MappingEntry into an Instruction by reading the actual
+    paragraph text from the DOCX, then applies via InstructionApplier.
+    Used for correction-chat regeneration where the mapping plan has already
+    been updated by the LLM and we just need to re-apply.
+    """
+    # Decode base64 template
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded template is empty.")
+
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    # Parse DOCX to get actual paragraph texts
+    try:
+        doc_structure = _parser.parse(template_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to parse DOCX: {exc}")
+
+    paragraphs = doc_structure.paragraphs
+    instructions: list[Instruction] = []
+    build_warnings: list[str] = []
+
+    for entry in body.mapping_plan.entries:
+        idx = entry.section_index
+
+        if idx < 0 or idx >= len(paragraphs):
+            build_warnings.append(
+                f"section_index {idx} out of range (0-{len(paragraphs)-1}), skipped"
+            )
+            continue
+
+        para_text = paragraphs[idx].text
+
+        if entry.marker_type == "table_row_loop":
+            # Wrap table row with loop markers
+            instructions.append(Instruction(
+                action="wrap_table_row",
+                paragraph_index=idx,
+                original_text=entry.section_text,
+                replacement_text=entry.placeholder_template,
+                marker_type=entry.marker_type,
+                gw_field=entry.gw_field,
+            ))
+        elif entry.marker_type == "paragraph_rt":
+            # Replace entire paragraph content with the placeholder
+            instructions.append(Instruction(
+                action="replace_text",
+                paragraph_index=idx,
+                original_text=para_text,
+                replacement_text=entry.placeholder_template,
+                marker_type=entry.marker_type,
+                gw_field=entry.gw_field,
+            ))
+        else:
+            # text, run_rt, control_flow: find section_text in paragraph
+            original = entry.section_text
+            if original and original in para_text:
+                instructions.append(Instruction(
+                    action="replace_text",
+                    paragraph_index=idx,
+                    original_text=original,
+                    replacement_text=entry.placeholder_template,
+                    marker_type=entry.marker_type,
+                    gw_field=entry.gw_field,
+                ))
+            elif para_text.strip():
+                # Fallback: section_text was truncated or doesn't match exactly.
+                # Replace the full paragraph text.
+                instructions.append(Instruction(
+                    action="replace_text",
+                    paragraph_index=idx,
+                    original_text=para_text,
+                    replacement_text=entry.placeholder_template,
+                    marker_type=entry.marker_type,
+                    gw_field=entry.gw_field,
+                ))
+                build_warnings.append(
+                    f"section_text not found at paragraph {idx}, "
+                    f"falling back to full paragraph replacement for {entry.gw_field}"
+                )
+            else:
+                # Empty paragraph — use insert_after
+                instructions.append(Instruction(
+                    action="insert_after",
+                    paragraph_index=max(0, idx - 1),
+                    original_text="",
+                    replacement_text=entry.placeholder_template,
+                    marker_type=entry.marker_type,
+                    gw_field=entry.gw_field,
+                ))
+                build_warnings.append(
+                    f"Empty paragraph at {idx}, inserting placeholder for {entry.gw_field}"
+                )
+
+    instruction_set = InstructionSet(
+        instructions=instructions,
+        template_type=body.mapping_plan.template_type,
+        language=body.mapping_plan.language,
+    )
+
+    # Enrich via rules engine
+    enriched = enrich_instructions(instruction_set)
+
+    # Apply to DOCX
+    try:
+        output_bytes, applied_count, skipped_count, apply_warnings = _applier.apply(
+            template_bytes, enriched
+        )
+    except Exception as exc:
+        logger.error("Mapping plan application failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to apply mapping plan: {exc}",
+        )
+
+    output_base64 = base64.b64encode(output_bytes).decode("ascii")
+    all_warnings = build_warnings + apply_warnings
+
+    logger.info(
+        "Applied mapping plan directly: %d entries -> %d instructions, applied=%d, skipped=%d",
+        len(body.mapping_plan.entries),
+        len(instructions),
+        applied_count,
+        skipped_count,
+    )
+
+    return ApplyResponse(
+        output_base64=output_base64,
+        applied_count=applied_count,
+        skipped_count=skipped_count,
+        warnings=all_warnings,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plan 05.4-02 endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/detect-blueprints", response_model=DetectBlueprintsResponse)
+async def detect_blueprints_endpoint(
+    body: DetectBlueprintsRequest,
+) -> DetectBlueprintsResponse:
+    """Detect structural blueprints and style hints from a mapping plan.
+
+    Decodes the base64 template, parses the DOCX with zone tagging, then
+    runs heuristic blueprint detection and style hint collection. Returns
+    both results for KB storage by the Node.js backend.
+    """
+    # Decode base64 template
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded template is empty.")
+
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    # Parse DOCX (zone-tagged)
+    try:
+        doc_structure = _parser.parse(template_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to parse DOCX: {exc}")
+    except Exception as exc:
+        logger.error("DOCX parse failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error while parsing DOCX.")
+
+    # Detect blueprints
+    try:
+        raw_blueprints = detect_blueprints(body.mapping_plan, doc_structure)
+    except Exception as exc:
+        logger.error("Blueprint detection failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to detect blueprints: {exc}",
+        )
+
+    # Collect style hints
+    try:
+        raw_hints = collect_style_hints(doc_structure, body.mapping_plan)
+    except Exception as exc:
+        logger.error("Style hint collection failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to collect style hints: {exc}",
+        )
+
+    # Convert to response models
+    blueprints = [
+        BlueprintResult(
+            template_type=bp["templateType"],
+            zone=bp["zone"],
+            pattern_type=bp["patternType"],
+            markers=bp["markers"],
+            anchor_style=bp.get("anchorStyle"),
+        )
+        for bp in raw_blueprints
+    ]
+
+    style_hints = [
+        StyleHintResult(
+            template_type=sh["templateType"],
+            style_name=sh["styleName"],
+            zone=sh["zone"],
+            mapped_count=sh["mappedCount"],
+            skipped_count=sh["skippedCount"],
+        )
+        for sh in raw_hints
+    ]
+
+    logger.info(
+        "Blueprint detection: %d blueprints, %d style hints for type=%s",
+        len(blueprints),
+        len(style_hints),
+        body.template_type,
+    )
+
+    return DetectBlueprintsResponse(
+        blueprints=blueprints,
+        style_hints=style_hints,
     )

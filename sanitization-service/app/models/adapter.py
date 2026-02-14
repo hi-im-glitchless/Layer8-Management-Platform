@@ -377,3 +377,44 @@ class CorrectionPromptResponse(BaseModel):
 
     prompt: str = Field(..., description="User prompt for the LLM")
     system_prompt: str = Field(..., description="System prompt for the LLM")
+
+
+# ---------------------------------------------------------------------------
+# Blueprint detection models (consumed by Plan 05.4-02)
+# ---------------------------------------------------------------------------
+
+
+class DetectBlueprintsRequest(BaseModel):
+    """Request body for POST /adapter/detect-blueprints."""
+
+    template_base64: str = Field(..., description="Base64-encoded client DOCX template")
+    mapping_plan: MappingPlan
+    template_type: TemplateType
+    language: TemplateLanguage
+
+
+class BlueprintResult(BaseModel):
+    """A single detected blueprint pattern."""
+
+    template_type: str
+    zone: str
+    pattern_type: str
+    markers: list[dict]
+    anchor_style: str | None = None
+
+
+class StyleHintResult(BaseModel):
+    """Style-to-mappability hint for a single (style, zone) combination."""
+
+    template_type: str
+    style_name: str
+    zone: str
+    mapped_count: int
+    skipped_count: int
+
+
+class DetectBlueprintsResponse(BaseModel):
+    """Response from POST /adapter/detect-blueprints."""
+
+    blueprints: list[BlueprintResult] = Field(default_factory=list)
+    style_hints: list[StyleHintResult] = Field(default_factory=list)
