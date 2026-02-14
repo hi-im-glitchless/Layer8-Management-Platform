@@ -288,13 +288,19 @@ export function MappingTable({
               return (
                 <TableRow
                   key={`entry-${entry.sectionIndex}`}
+                  tabIndex={0}
                   className={cn(
-                    'cursor-pointer transition-colors',
-                    isHighlighted && 'ring-1 ring-primary/50 bg-primary/5',
+                    'cursor-pointer transition-all duration-300',
+                    isHighlighted && 'ring-2 ring-primary/60 bg-primary/5 animate-pulse',
                     !isHighlighted && 'hover:bg-muted/50',
                   )}
                   onClick={() => {
                     if (!isEditing) onRowClick?.(entry)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !isEditing) {
+                      onRowClick?.(entry)
+                    }
                   }}
                   onDoubleClick={() => {
                     if (isEditable && !isEditing) handleStartEdit(entry)
