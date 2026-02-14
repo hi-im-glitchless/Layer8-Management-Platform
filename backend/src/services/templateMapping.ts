@@ -9,7 +9,7 @@
  */
 import { z } from 'zod';
 import { prisma } from '@/db/prisma.js';
-import type { TemplateMapping } from '@prisma/client';
+import type { TemplateMapping, BlueprintPattern, StyleHint } from '@prisma/client';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -407,4 +407,80 @@ export function formatFewShotExamples(examples: TemplateMapping[]): string {
   );
 
   return header + lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// BlueprintPattern CRUD
+// ---------------------------------------------------------------------------
+
+export type BlueprintMarker = { gwField: string; markerType: string };
+
+const blueprintSchema = z.object({
+  templateType: z.string().min(1),
+  zone: z.string().min(1),
+  patternType: z.enum(['loop', 'conditional', 'group']),
+  markers: z.array(z.object({ gwField: z.string(), markerType: z.string() })),
+  anchorStyle: z.string().nullable().optional(),
+});
+
+export type BlueprintPatternInput = z.infer<typeof blueprintSchema>;
+
+/**
+ * Upsert a blueprint pattern into the knowledge base.
+ *
+ * Serializes the markers array to JSON for storage.
+ * Upserts by the unique constraint [templateType, zone, patternType, markers].
+ */
+export async function upsertBlueprint(
+  input: BlueprintPatternInput,
+): Promise<BlueprintPattern> {
+  const validated = blueprintSchema.parse(input);
+  const markersJson = JSON.stringify(validated.markers);
+
+  return prisma.blueprintPattern.upsert({
+    where: {
+      templateType_zone_patternType_markers: {
+        templateType: validated.templateType,
+        zone: validated.zone,
+        patternType: validated.patternType,
+        markers: markersJson,
+      },
+    },
+    create: {
+      templateType: validated.templateType,
+      zone: validated.zone,
+      patternType: validated.patternType,
+      markers: markersJson,
+      anchorStyle: validated.anchorStyle ?? null,
+    },
+    update: {
+      anchorStyle: validated.anchorStyle ?? null,
+    },
+  });
+}
+
+/**
+ * Query blueprint patterns for a template type, optionally filtered by zone.
+ *
+ * Deserializes the markers JSON string back into an array of BlueprintMarker objects.
+ * Returns results with a parsed `parsedMarkers` property for convenience.
+ */
+export async function queryBlueprints(
+  templateType: string,
+  zone?: string,
+): Promise<(BlueprintPattern & { parsedMarkers: BlueprintMarker[] })[]> {
+  const whereClause: Record<string, unknown> = { templateType };
+  if (zone !== undefined) {
+    whereClause.zone = zone;
+  }
+
+  const results = await prisma.blueprintPattern.findMany({
+    where: whereClause,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return results.map((bp) => ({
+    ...bp,
+    parsedMarkers: JSON.parse(bp.markers) as BlueprintMarker[],
+  }));
 }
