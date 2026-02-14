@@ -47,7 +47,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
   const [overrideStep, setOverrideStep] = useState<WizardStep | null>(null)
 
   // Set the session ID after upload. Do NOT advance step here --
-  // the Upload step handles auto-map internally and calls advanceToStep('verify') on completion.
+  // the Upload step handles auto-map internally and calls onAutoMapComplete on completion.
   const handleSessionCreate = useCallback(
     (id: string) => {
       onSessionCreate(id)
@@ -124,6 +124,16 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
     [sessionQuery],
   )
 
+  // Called by StepUpload after auto-map completes successfully.
+  // Sets the session (if not already set) and advances to 'verify'.
+  const handleAutoMapComplete = useCallback(
+    (id: string) => {
+      onSessionCreate(id)
+      advanceToStep('verify')
+    },
+    [onSessionCreate, advanceToStep],
+  )
+
   const resetMutation = useResetSession()
 
   const handleNewSession = useCallback(() => {
@@ -176,6 +186,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
         return (
           <StepUpload
             onSessionCreate={handleSessionCreate}
+            onAutoMapComplete={handleAutoMapComplete}
             onFileReady={setLocalFile}
           />
         )
