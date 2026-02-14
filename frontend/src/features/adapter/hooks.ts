@@ -253,7 +253,12 @@ export function useCachedAnnotatedPreview(sessionId: string | null) {
     queryKey: ['adapter', 'annotated-preview', sessionId],
     queryFn: () => adapterApi.getAnnotatedPreview(sessionId!),
     enabled: !!sessionId,
-    staleTime: 60_000,
+    staleTime: 5_000,
+    // Poll every 3s until we have a pdfUrl (handles mutation response loss)
+    refetchInterval: (query) => {
+      if (query.state.data?.pdfUrl) return false
+      return 3_000
+    },
   })
 }
 
@@ -319,12 +324,15 @@ function selectionReducer(state: SelectionState, action: SelectionAction): Selec
         nextNumber: state.nextNumber + 1,
       }
     }
-    case 'remove':
+    case 'remove': {
+      const remaining = state.selections.filter((s) => s.id !== action.id)
+      // Recalculate nextNumber so removed trailing numbers get reused
+      const maxNum = remaining.reduce((max, s) => Math.max(max, s.selectionNumber), 0)
       return {
-        ...state,
-        selections: state.selections.filter((s) => s.id !== action.id),
-        // nextNumber is NOT decremented -- numbers are stable
+        selections: remaining,
+        nextNumber: remaining.length === 0 ? 1 : maxNum + 1,
       }
+    }
     case 'confirm':
       return {
         ...state,
@@ -358,6 +366,10 @@ function selectionReducer(state: SelectionState, action: SelectionAction): Selec
 /**
  * Manages numbered text selections on the interactive PDF viewer.
  * Auto-increments selection numbers that remain stable on removal.
+ *
+ * NOTE (Phase 5.4): StepVerify no longer uses this hook. PDF text selections
+ * now add rows directly to the mapping table. This hook is retained for
+ * InteractivePdfViewer overlay rendering compatibility.
  */
 export function useSelectionState() {
   const [state, dispatch] = useReducer(selectionReducer, initialSelectionState)
@@ -375,14 +387,6 @@ export function useSelectionState() {
     dispatch({ type: 'remove', id })
   }, [])
 
-  const confirmSelection = useCallback((id: string) => {
-    dispatch({ type: 'confirm', id })
-  }, [])
-
-  const rejectSelection = useCallback((id: string) => {
-    dispatch({ type: 'reject', id })
-  }, [])
-
   const updateSelectionMapping = useCallback(
     (selectionNumber: number, gwField: string, markerType: string, confidence: number) => {
       dispatch({ type: 'update_mapping', selectionNumber, gwField, markerType, confidence })
@@ -393,16 +397,6 @@ export function useSelectionState() {
   const resetSelections = useCallback(() => {
     dispatch({ type: 'reset' })
   }, [])
-
-  const getPendingSelections = useCallback(
-    () => state.selections.filter((s) => s.status === 'pending'),
-    [state.selections],
-  )
-
-  const getRejectedSelections = useCallback(
-    () => state.selections.filter((s) => s.status === 'rejected'),
-    [state.selections],
-  )
 
   const counter = useMemo(
     () => ({
@@ -418,12 +412,8 @@ export function useSelectionState() {
     counter,
     addSelection,
     removeSelection,
-    confirmSelection,
-    rejectSelection,
     updateSelectionMapping,
     resetSelections,
-    getPendingSelections,
-    getRejectedSelections,
   }
 }
 

@@ -30,5 +30,4 @@ export {
   useWizardSession,
   useActiveSession,
   useResetSession,
-  useAdapterChat,
 } from './hooks'
