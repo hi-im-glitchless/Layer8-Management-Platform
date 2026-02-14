@@ -661,12 +661,16 @@ export async function reapplyFromMappingPlan(
  * 3. Validate via Python /adapter/validate-placement
  * 4. Apply validated instructions via Python /adapter/apply
  * 5. Save adapted DOCX to disk
- * 6. Update wizard state with appliedCount, skippedCount, placementWarnings
+ * 6. Update wizard state with appliedCount, skippedCount, placementWarnings, zoneMap
  *
  * On LLM failure, wizard state is preserved (no partial DOCX corruption).
+ *
+ * @param wizardState - Current wizard state with mapping plan and template
+ * @param source - Caller identification for logging ('auto-map' | 'reapply' | 'correction')
  */
 export async function regenerateWithLLM(
   wizardState: WizardState,
+  source: 'auto-map' | 'reapply' | 'correction' = 'reapply',
 ): Promise<WizardState> {
   const sanitizerUrl = config.SANITIZER_URL;
   const { userId, sessionId } = wizardState;
@@ -680,6 +684,10 @@ export async function regenerateWithLLM(
   if (!templateBase64) {
     throw new Error('No template file in wizard state -- upload first');
   }
+
+  console.log(
+    `[templateAdapter] regenerateWithLLM: starting placement for session ${sessionId} (source: ${source})`,
+  );
 
   // Step 1: Build placement prompt via Python service
   const promptRes = await fetch(`${sanitizerUrl}/adapter/build-placement-prompt`, {
@@ -802,6 +810,12 @@ export async function regenerateWithLLM(
     },
   });
 
+  console.log(
+    `[templateAdapter] regenerateWithLLM: completed (source: ${source}), ` +
+    `applied=${applyData.applied_count}, skipped=${applyData.skipped_count}, ` +
+    `warnings=${placementWarnings.length}`,
+  );
+
   return updated;
 }
 
@@ -856,7 +870,7 @@ export async function autoMapTemplate(
   // Pass 2: LLM Placement (builds placement prompt, LLM generates instructions,
   // validates via Python, applies to DOCX)
   // regenerateWithLLM() saves the adapted DOCX and sets currentStep to 'verify'
-  const finalState = await regenerateWithLLM(stateAfterAnalysis);
+  const finalState = await regenerateWithLLM(stateAfterAnalysis, 'auto-map');
 
   return finalState;
 }
@@ -1962,7 +1976,7 @@ async function* processBatchSelectionChat(
  * 3. Validate response via /adapter/validate-mapping (same as Pass 1)
  * 4. If valid: update mapping plan in wizard state
  * 5. Yield correction_result SSE event with updated mapping plan
- * 6. Trigger regeneration: applyInstructions() to re-run Pass 2
+ * 6. Trigger regeneration: regenerateWithLLM() for LLM placement pipeline
  * 7. Generate new placeholder preview PDF
  * 8. Yield regeneration_complete SSE event with new pdfJobId
  */
@@ -2131,7 +2145,7 @@ async function* processCorrectionChat(
       const refreshedState = await getWizardSession(userId, sessionId);
       if (refreshedState) {
         // Regenerate via LLM placement pipeline
-        const regeneratedState = await regenerateWithLLM(refreshedState);
+        const regeneratedState = await regenerateWithLLM(refreshedState, 'correction');
 
         // Generate new placeholder preview PDF
         const previewResult = await generatePlaceholderPreview(regeneratedState);
