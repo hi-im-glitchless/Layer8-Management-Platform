@@ -122,7 +122,7 @@ export async function uploadTemplate(
   const templateBase64 = file.buffer.toString('base64');
 
   return updateWizardSession(userId, state.sessionId, {
-    currentStep: 'analysis',
+    currentStep: 'upload',
     templateFile: {
       originalName: file.originalname,
       storagePath: '',
@@ -409,7 +409,7 @@ export async function applyInstructions(
 
   // Step 5: Update wizard state
   const updated = await updateWizardSession(userId, sessionId, {
-    currentStep: 'adaptation',
+    currentStep: 'verify',
     adaptation: {
       instructions: instructionSet as Record<string, unknown>,
       appliedDocxPath: adaptedPath,

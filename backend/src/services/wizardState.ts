@@ -1,7 +1,7 @@
 /**
  * Wizard Session State Manager -- Redis-backed state for the template adapter wizard.
  *
- * Persists wizard progress (upload -> analysis -> adaptation -> preview -> download)
+ * Persists wizard progress (upload -> verify -> preview -> download)
  * across page navigation with a 24h TTL. Each user can have one active session.
  *
  * Redis key pattern: layer8:wizard:{userId}:{sessionId}
@@ -13,7 +13,7 @@ import { redisClient } from '../db/redis.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export type WizardStep = 'upload' | 'analysis' | 'adaptation' | 'preview' | 'download';
+export type WizardStep = 'upload' | 'verify' | 'preview' | 'download';
 
 export interface WizardTemplateFile {
   originalName: string;

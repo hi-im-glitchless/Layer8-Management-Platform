@@ -95,7 +95,7 @@ function makeWizardState(overrides: Record<string, unknown> = {}) {
   return {
     sessionId: 'sess-test',
     userId: 'user-123',
-    currentStep: 'analysis',
+    currentStep: 'verify',
     templateFile: {
       originalName: 'client-report.docx',
       storagePath: '',
@@ -343,7 +343,7 @@ describe('templateAdapter service', () => {
 
       const result = await applyInstructions(wizardState as any);
 
-      expect(result.currentStep).toBe('adaptation');
+      expect(result.currentStep).toBe('verify');
       expect(result.adaptation.appliedCount).toBe(3);
       expect(result.adaptation.skippedCount).toBe(1);
 
@@ -405,7 +405,7 @@ describe('templateAdapter service', () => {
 
   describe('generatePreview', () => {
     it('calls render pipeline and queues PDF conversion', async () => {
-      const wizardState = makeWizardState({ currentStep: 'adaptation' });
+      const wizardState = makeWizardState({ currentStep: 'verify' });
       mockRedisClient.get.mockResolvedValue(JSON.stringify(wizardState));
 
       const result = await generatePreview(wizardState as any);
@@ -458,7 +458,7 @@ describe('templateAdapter service', () => {
 
   describe('processChatFeedback', () => {
     it('increments iteration count', async () => {
-      const wizardState = makeWizardState({ currentStep: 'analysis' });
+      const wizardState = makeWizardState({ currentStep: 'verify' });
       mockRedisClient.get.mockResolvedValue(JSON.stringify(wizardState));
 
       mockGenerateStream.mockReturnValue(
@@ -483,7 +483,7 @@ describe('templateAdapter service', () => {
 
     it('includes warning after 5 iterations', async () => {
       const wizardState = makeWizardState({
-        currentStep: 'analysis',
+        currentStep: 'verify',
         chat: { iterationCount: 5, history: [] },
       });
       mockRedisClient.get.mockResolvedValue(JSON.stringify(wizardState));

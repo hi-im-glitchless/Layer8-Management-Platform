@@ -133,7 +133,7 @@ function makeWizardState(overrides: Record<string, unknown> = {}) {
   return {
     sessionId: TEST_SESSION_ID,
     userId: TEST_USER_ID,
-    currentStep: 'analysis',
+    currentStep: 'verify',
     templateFile: {
       originalName: 'client-report.docx',
       storagePath: '',
@@ -265,12 +265,12 @@ describe('annotated preview and mapping update endpoints', () => {
       });
     });
 
-    it('rejects session not in analysis step', async () => {
+    it('rejects session not in verify step', async () => {
       const state = makeWizardState({ currentStep: 'upload' });
       mockGetWizardSession.mockResolvedValue(state);
 
-      // Route would check currentStep !== 'analysis' and return 400
-      expect(state.currentStep).not.toBe('analysis');
+      // Route would check currentStep !== 'verify' and return 400
+      expect(state.currentStep).not.toBe('verify');
     });
 
     it('returns 404 for invalid sessionId', async () => {

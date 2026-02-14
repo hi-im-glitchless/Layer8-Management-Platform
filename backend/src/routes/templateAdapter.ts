@@ -312,7 +312,7 @@ router.post('/analyze-session', requireAuth, async (req: Request, res: Response)
 
     // Update session with analysis results
     await updateWizardSession(userId, body.data.sessionId, {
-      currentStep: 'analysis',
+      currentStep: 'verify',
       analysis: {
         mappingPlan: result.mappingPlan as unknown as Record<string, unknown>,
         referenceTemplateHash: result.referenceTemplateHash,
@@ -353,7 +353,6 @@ router.post('/analyze-session', requireAuth, async (req: Request, res: Response)
 /**
  * Apply instructions to the template (LLM Pass 2 + apply pipeline).
  * Body: { sessionId }
- * Requires currentStep to be "analysis".
  * Returns { currentStep, appliedCount, skippedCount, warnings }
  */
 router.post('/apply', requireAuth, async (req: Request, res: Response) => {
@@ -372,12 +371,6 @@ router.post('/apply', requireAuth, async (req: Request, res: Response) => {
     const state = await getWizardSession(userId, sessionId);
     if (!state) {
       return res.status(404).json({ error: 'Wizard session not found' });
-    }
-
-    if (state.currentStep !== 'analysis') {
-      return res.status(400).json({
-        error: `Cannot apply from step "${state.currentStep}". Must be in "analysis" step.`,
-      });
     }
 
     const updated = await applyInstructions(state);
@@ -413,7 +406,7 @@ router.post('/apply', requireAuth, async (req: Request, res: Response) => {
 /**
  * Generate a preview of the adapted template rendered with GW dummy data.
  * Body: { sessionId }
- * Requires currentStep to be "adaptation".
+ * Requires currentStep to be "verify".
  * Returns 202 with { pdfJobId, docxUrl }
  */
 router.post('/preview', requireAuth, async (req: Request, res: Response) => {
@@ -434,9 +427,9 @@ router.post('/preview', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Wizard session not found' });
     }
 
-    if (state.currentStep !== 'adaptation') {
+    if (state.currentStep !== 'verify') {
       return res.status(400).json({
-        error: `Cannot preview from step "${state.currentStep}". Must be in "adaptation" step.`,
+        error: `Cannot preview from step "${state.currentStep}". Must be in "verify" step.`,
       });
     }
 
@@ -540,9 +533,9 @@ router.post('/annotated-preview', requireAuth, async (req: Request, res: Respons
       return res.status(404).json({ error: 'Wizard session not found' });
     }
 
-    if (state.currentStep !== 'analysis') {
+    if (state.currentStep !== 'verify') {
       return res.status(400).json({
-        error: `Cannot generate annotated preview from step "${state.currentStep}". Must be in "analysis" step.`,
+        error: `Cannot generate annotated preview from step "${state.currentStep}". Must be in "verify" step.`,
       });
     }
 

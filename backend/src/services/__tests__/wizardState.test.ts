@@ -83,7 +83,7 @@ describe('wizardState service', () => {
       const mockState = {
         sessionId: 'sess-abc',
         userId: 'user-123',
-        currentStep: 'analysis',
+        currentStep: 'verify',
         templateFile: { originalName: 'test.docx', storagePath: '', base64: '', uploadedAt: '' },
         config: { templateType: 'web', language: 'en' },
         analysis: { mappingPlan: null, referenceTemplateHash: null, llmPrompt: null },
@@ -99,7 +99,7 @@ describe('wizardState service', () => {
 
       expect(result).not.toBeNull();
       expect(result!.sessionId).toBe('sess-abc');
-      expect(result!.currentStep).toBe('analysis');
+      expect(result!.currentStep).toBe('verify');
       expect(mockRedisClient.get).toHaveBeenCalledWith('layer8:wizard:user-123:sess-abc');
     });
 
@@ -152,11 +152,11 @@ describe('wizardState service', () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(baseState));
 
       const updated = await updateWizardSession('user-123', 'sess-abc', {
-        currentStep: 'analysis',
+        currentStep: 'verify',
         analysis: { mappingPlan: { entries: [] } as any, referenceTemplateHash: 'abc123', llmPrompt: null },
       });
 
-      expect(updated.currentStep).toBe('analysis');
+      expect(updated.currentStep).toBe('verify');
       expect(updated.analysis.referenceTemplateHash).toBe('abc123');
       // Preserved fields
       expect(updated.templateFile.originalName).toBe('old.docx');
@@ -183,7 +183,7 @@ describe('wizardState service', () => {
     it('resets TTL on update', async () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(baseState));
 
-      await updateWizardSession('user-123', 'sess-abc', { currentStep: 'analysis' });
+      await updateWizardSession('user-123', 'sess-abc', { currentStep: 'verify' });
 
       const [, , options] = mockRedisClient.set.mock.calls[0];
       expect(options.EX).toBe(86400);
@@ -193,7 +193,7 @@ describe('wizardState service', () => {
       mockRedisClient.get.mockResolvedValue(null);
 
       await expect(
-        updateWizardSession('user-123', 'nonexistent', { currentStep: 'analysis' }),
+        updateWizardSession('user-123', 'nonexistent', { currentStep: 'verify' }),
       ).rejects.toThrow('Wizard session not found');
     });
 
@@ -201,7 +201,7 @@ describe('wizardState service', () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(baseState));
 
       const updated = await updateWizardSession('user-123', 'sess-abc', {
-        currentStep: 'analysis',
+        currentStep: 'verify',
       });
 
       expect(updated.updatedAt).not.toBe('2026-01-01T00:00:00.000Z');

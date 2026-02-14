@@ -119,7 +119,7 @@ function makeWizardState(overrides: Record<string, unknown> = {}) {
   return {
     sessionId: TEST_SESSION_ID,
     userId: TEST_USER_ID,
-    currentStep: 'analysis',
+    currentStep: 'verify',
     templateFile: {
       originalName: 'client-report.docx',
       storagePath: '',
@@ -259,7 +259,7 @@ describe('templateAdapter route handlers', () => {
     it('returns appliedCount from service', async () => {
       const wizardState = makeWizardState();
       const updatedState = makeWizardState({
-        currentStep: 'adaptation',
+        currentStep: 'verify',
         adaptation: {
           instructions: {},
           appliedDocxPath: '/uploads/documents/adapted.docx',
@@ -272,7 +272,7 @@ describe('templateAdapter route handlers', () => {
 
       const result = await mockApplyInstructions(wizardState);
 
-      expect(result.currentStep).toBe('adaptation');
+      expect(result.currentStep).toBe('verify');
       expect(result.adaptation.appliedCount).toBe(3);
       expect(result.adaptation.skippedCount).toBe(1);
     });
@@ -284,7 +284,7 @@ describe('templateAdapter route handlers', () => {
 
   describe('POST /api/adapter/preview', () => {
     it('returns pdfJobId from preview generation', async () => {
-      const wizardState = makeWizardState({ currentStep: 'adaptation' });
+      const wizardState = makeWizardState({ currentStep: 'verify' });
       const previewState = makeWizardState({
         currentStep: 'preview',
         preview: {
