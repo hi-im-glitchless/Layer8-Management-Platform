@@ -63,10 +63,32 @@ class DocxParserService:
     # ------------------------------------------------------------------
 
     def _extract_paragraphs(self, doc: Document) -> list[DocxParagraph]:
-        """Extract all body paragraphs with text, style, heading level, and runs."""
+        """Extract all body paragraphs with text, style, heading level, runs, and zone tags.
+
+        Cover detection: paragraphs before the first heading (or before index 15,
+        whichever comes first) get zone="cover" instead of "body".
+        """
         result: list[DocxParagraph] = []
-        for para in doc.paragraphs:
-            result.append(self._parse_paragraph(para))
+
+        # First pass: find the index of the first heading for cover detection
+        first_heading_idx: int | None = None
+        for idx, para in enumerate(doc.paragraphs):
+            if idx >= 15:
+                break
+            level = self._heading_level(para)
+            if level is not None:
+                first_heading_idx = idx
+                break
+
+        for idx, para in enumerate(doc.paragraphs):
+            parsed = self._parse_paragraph(para)
+            # Determine zone: cover for pre-heading paragraphs, body otherwise
+            if first_heading_idx is not None and idx < first_heading_idx:
+                parsed.zone = "cover"
+            else:
+                parsed.zone = "body"
+            result.append(parsed)
+
         return result
 
     def _parse_paragraph(self, para: Any) -> DocxParagraph:
@@ -123,14 +145,23 @@ class DocxParserService:
     # ------------------------------------------------------------------
 
     def _extract_tables(self, doc: Document) -> list[DocxTable]:
-        """Extract all tables with rows, cells, and nested paragraphs."""
+        """Extract all tables with rows, cells, and nested paragraphs.
+
+        Cell paragraphs are tagged with zone="table_cell" and table_index
+        set to the table's position in the document.
+        """
         result: list[DocxTable] = []
-        for table in doc.tables:
+        for tbl_idx, table in enumerate(doc.tables):
             rows: list[DocxRow] = []
             for row in table.rows:
                 cells: list[DocxCell] = []
                 for cell in row.cells:
-                    cell_paras = [self._parse_paragraph(p) for p in cell.paragraphs]
+                    cell_paras: list[DocxParagraph] = []
+                    for p in cell.paragraphs:
+                        parsed = self._parse_paragraph(p)
+                        parsed.zone = "table_cell"
+                        parsed.table_index = tbl_idx
+                        cell_paras.append(parsed)
                     merge_info = self._get_merge_info(cell)
                     cells.append(
                         DocxCell(
@@ -260,7 +291,11 @@ class DocxParserService:
     def _extract_header_footer_paras(
         self, section: Any, part_type: str
     ) -> list[DocxParagraph]:
-        """Extract paragraphs from a section's header or footer."""
+        """Extract paragraphs from a section's header or footer.
+
+        Tags each paragraph with zone="header" or zone="footer".
+        """
+        zone = "header" if part_type == "header" else "footer"
         paras: list[DocxParagraph] = []
         try:
             hf = section.header if part_type == "header" else section.footer
@@ -268,7 +303,9 @@ class DocxParserService:
                 pass  # Extract even linked headers for completeness
             if hf is not None:
                 for para in hf.paragraphs:
-                    paras.append(self._parse_paragraph(para))
+                    parsed = self._parse_paragraph(para)
+                    parsed.zone = zone
+                    paras.append(parsed)
         except Exception:
             logger.debug("Failed to extract %s paragraphs", part_type)
         return paras
