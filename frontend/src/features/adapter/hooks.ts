@@ -89,6 +89,23 @@ export function useApplyInstructions() {
 }
 
 /**
+ * Run auto-map: LLM analysis + placeholder insertion in one shot.
+ * Used by StepUpload to run the full mapping pipeline after upload.
+ */
+export function useAutoMap() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (sessionId: string) => adapterApi.autoMap(sessionId),
+    onSuccess: (_data, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['adapter', 'session', sessionId] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Auto-mapping failed')
+    },
+  })
+}
+
+/**
  * Request preview generation (render + PDF conversion).
  */
 export function useRequestPreview() {

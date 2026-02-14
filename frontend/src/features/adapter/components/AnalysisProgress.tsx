@@ -2,19 +2,19 @@ import { Check, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-interface StepDef {
+export interface StepDef {
   step: string
   message: string
 }
 
-const STEPS: StepDef[] = [
+const DEFAULT_STEPS: StepDef[] = [
   { step: 'prompt', message: 'Preparing analysis prompt...' },
   { step: 'llm', message: 'LLM analyzing template structure...' },
   { step: 'validation', message: 'Validating mapping plan...' },
 ]
 
 /** Estimated percentage for each step while running */
-const STEP_PERCENT: Record<number, number> = {
+const DEFAULT_STEP_PERCENT: Record<number, number> = {
   0: 5,   // building prompt (fast, ~2s)
   1: 40,  // LLM generating analysis (30-120s, bulk of time)
   2: 85,  // validating result
@@ -34,6 +34,10 @@ interface AnalysisProgressProps {
   elapsed: number
   errorMessage?: string
   onRetry?: () => void
+  /** Custom step definitions (defaults to analysis steps) */
+  steps?: StepDef[]
+  /** Custom step percent mapping (defaults to analysis percentages) */
+  stepPercent?: Record<number, number>
 }
 
 export function AnalysisProgressDisplay({
@@ -42,15 +46,20 @@ export function AnalysisProgressDisplay({
   elapsed,
   errorMessage,
   onRetry,
+  steps: customSteps,
+  stepPercent: customStepPercent,
 }: AnalysisProgressProps) {
+  const stepDefs = customSteps ?? DEFAULT_STEPS
+  const percentMap = customStepPercent ?? DEFAULT_STEP_PERCENT
+
   const overallPercent =
     activePhase === 'complete'
       ? 100
       : activePhase === 'running'
-        ? STEP_PERCENT[activeStepIndex] ?? 0
+        ? percentMap[activeStepIndex] ?? 0
         : 0
 
-  const steps = STEPS.map((step, index) => {
+  const steps = stepDefs.map((step, index) => {
     let status: 'pending' | 'active' | 'complete' | 'error' = 'pending'
     if (activePhase === 'complete') {
       status = 'complete'
@@ -138,7 +147,7 @@ export function AnalysisProgressDisplay({
             {/* Per-step percentage */}
             {step.status === 'active' && (
               <span className="text-xs text-muted-foreground tabular-nums">
-                {STEP_PERCENT[index] ?? 0}%
+                {percentMap[index] ?? 0}%
               </span>
             )}
             {step.status === 'complete' && activePhase !== 'complete' && (
