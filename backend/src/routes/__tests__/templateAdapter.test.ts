@@ -250,33 +250,6 @@ describe('templateAdapter route handlers', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Apply
-  // -----------------------------------------------------------------------
-
-  describe('POST /api/adapter/apply', () => {
-    it('returns appliedCount from service', async () => {
-      const wizardState = makeWizardState();
-      const updatedState = makeWizardState({
-        currentStep: 'verify',
-        adaptation: {
-          instructions: {},
-          appliedDocxPath: '/uploads/documents/adapted.docx',
-          appliedCount: 3,
-          skippedCount: 1,
-        },
-      });
-      mockGetWizardSession.mockResolvedValue(wizardState);
-      mockApplyInstructions.mockResolvedValue(updatedState);
-
-      const result = await mockApplyInstructions(wizardState);
-
-      expect(result.currentStep).toBe('verify');
-      expect(result.adaptation.appliedCount).toBe(3);
-      expect(result.adaptation.skippedCount).toBe(1);
-    });
-  });
-
-  // -----------------------------------------------------------------------
   // Preview
   // -----------------------------------------------------------------------
 

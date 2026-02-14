@@ -73,22 +73,6 @@ export function useAnalyzeFromSession() {
 }
 
 /**
- * Apply LLM Pass 2 instructions to adapt the template.
- */
-export function useApplyInstructions() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (sessionId: string) => adapterApi.applyInstructions(sessionId),
-    onSuccess: (_data, sessionId) => {
-      queryClient.invalidateQueries({ queryKey: ['adapter', 'session', sessionId] })
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to apply instructions')
-    },
-  })
-}
-
-/**
  * Run auto-map: LLM analysis + placeholder insertion in one shot.
  * Used by StepUpload to run the full mapping pipeline after upload.
  */

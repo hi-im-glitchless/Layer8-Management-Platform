@@ -69,10 +69,6 @@ from app.services.correction_prompt import (
     build_correction_system_prompt,
     build_correction_user_prompt,
 )
-from app.services.insertion_prompt import (
-    build_insertion_prompt,
-    build_insertion_system_prompt,
-)
 from app.services.placement_prompt import (
     build_placement_prompt,
     build_placement_system_prompt,
@@ -363,20 +359,6 @@ def _validate_entry(
 # ---------------------------------------------------------------------------
 
 
-class BuildInsertionPromptRequest(BaseModel):
-    """Request body for POST /adapter/build-insertion-prompt."""
-
-    template_base64: str = Field(..., description="Base64-encoded DOCX file")
-    mapping_plan: MappingPlan
-
-
-class BuildInsertionPromptResponse(BaseModel):
-    """Response from POST /adapter/build-insertion-prompt."""
-
-    prompt: str
-    system_prompt: str
-
-
 class EnrichRequest(BaseModel):
     """Request body for POST /adapter/enrich."""
 
@@ -483,51 +465,6 @@ async def enrich_instruction_set(body: EnrichRequest) -> EnrichResponse:
     return EnrichResponse(instruction_set=enriched)
 
 
-@router.post("/build-insertion-prompt", response_model=BuildInsertionPromptResponse)
-async def build_insertion_prompt_endpoint(
-    body: BuildInsertionPromptRequest,
-) -> BuildInsertionPromptResponse:
-    """Build the LLM Pass 2 prompt for generating insertion instructions.
-
-    Decodes the base64 template, parses its DOCX structure, and combines it
-    with the approved mapping plan to produce LLM prompts for InstructionSet JSON.
-    """
-    # Decode and parse DOCX
-    try:
-        template_bytes = base64.b64decode(body.template_base64)
-    except Exception:
-        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
-
-    if len(template_bytes) == 0:
-        raise HTTPException(status_code=400, detail="Decoded template is empty.")
-
-    if template_bytes[:4] != _DOCX_MAGIC:
-        raise HTTPException(
-            status_code=400,
-            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
-        )
-
-    try:
-        doc_structure = _parser.parse(template_bytes)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=f"Failed to parse DOCX: {exc}")
-
-    try:
-        system_prompt = build_insertion_system_prompt()
-        prompt = build_insertion_prompt(doc_structure, body.mapping_plan)
-    except Exception as exc:
-        logger.error("Insertion prompt build failed: %s", exc, exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to build insertion prompt: {exc}",
-        )
-
-    return BuildInsertionPromptResponse(
-        prompt=prompt,
-        system_prompt=system_prompt,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Plan 05.3-04 endpoint
 # ---------------------------------------------------------------------------
@@ -542,7 +479,7 @@ async def build_correction_prompt_endpoint(
     Decodes the base64 template, parses its DOCX structure for paragraph
     context, and combines it with the current mapping plan and user
     corrections to produce LLM prompts for a corrected mapping plan.
-    Follows the same pattern as /build-insertion-prompt.
+    Follows the same pattern as /build-placement-prompt.
     """
     # Decode and parse DOCX for paragraph context
     try:

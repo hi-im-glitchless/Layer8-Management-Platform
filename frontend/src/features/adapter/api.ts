@@ -4,7 +4,6 @@ import type {
   TemplateLanguage,
   UploadResponse,
   AnalyzeResponse,
-  ApplyResponse,
   AutoMapResponse,
   PreviewResponse,
   PreviewStatusResponse,
@@ -63,17 +62,6 @@ export const adapterApi = {
    */
   async analyzeFromSession(sessionId: string): Promise<AnalyzeResponse> {
     return apiClient<AnalyzeResponse>('/api/adapter/analyze-session', {
-      method: 'POST',
-      body: JSON.stringify({ sessionId }),
-    })
-  },
-
-  /**
-   * Apply LLM Pass 2 instructions to the template.
-   * POST to /api/adapter/apply with sessionId.
-   */
-  async applyInstructions(sessionId: string): Promise<ApplyResponse> {
-    return apiClient<ApplyResponse>('/api/adapter/apply', {
       method: 'POST',
       body: JSON.stringify({ sessionId }),
     })
