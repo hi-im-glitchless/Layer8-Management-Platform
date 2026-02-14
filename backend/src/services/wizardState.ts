@@ -38,6 +38,7 @@ export interface WizardAdaptation {
   appliedDocxPath: string | null;
   appliedCount: number;
   skippedCount: number;
+  placementWarnings: string[];  // skip/mismatch warnings from LLM placement validation
 }
 
 export interface WizardPreview {
@@ -158,6 +159,7 @@ export async function createWizardSession(userId: string): Promise<WizardState> 
       appliedDocxPath: null,
       appliedCount: 0,
       skippedCount: 0,
+      placementWarnings: [],
     },
     preview: {
       pdfJobId: null,

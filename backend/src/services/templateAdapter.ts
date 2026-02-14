@@ -559,6 +559,7 @@ export async function applyInstructions(
       appliedDocxPath: adaptedPath,
       appliedCount: applyData.applied_count,
       skippedCount: applyData.skipped_count,
+      placementWarnings: applyData.warnings ?? [],
     },
   });
 
@@ -620,6 +621,7 @@ export async function reapplyFromMappingPlan(
       appliedDocxPath: adaptedPath,
       appliedCount: data.applied_count,
       skippedCount: data.skipped_count,
+      placementWarnings: data.warnings ?? [],
     },
   });
 
