@@ -94,13 +94,37 @@ export function StepVerify({
     }
   }, [sessionId, placeholderPreviewMutation])
 
-  // Watch for mapping updates from chat
+  // Watch for mapping updates from chat (correction flow returns updated mapping plan)
   useEffect(() => {
     if (chat.latestMappingUpdate) {
       setMappingPlan(chat.latestMappingUpdate)
       onMappingUpdate(chat.latestMappingUpdate)
+      // Flag for regeneration: after correction, a fresh placeholder preview
+      // would be needed. For now, the mapping plan update is tracked and the
+      // user can re-trigger via Approve flow (which reads latest state).
     }
   }, [chat.latestMappingUpdate, onMappingUpdate])
+
+  // Watch for selection_mapping SSE events (batch mapping flow)
+  useEffect(() => {
+    if (chat.selectionMappings.size === 0) return
+    for (const [selNum, result] of chat.selectionMappings) {
+      selectionState.updateSelectionMapping(
+        selNum,
+        result.gwField,
+        result.markerType,
+        result.confidence,
+      )
+    }
+  }, [chat.selectionMappings, selectionState])
+
+  // Watch for batch_complete event
+  useEffect(() => {
+    if (chat.isBatchComplete) {
+      const resolvedCount = chat.selectionMappings.size
+      toast.success(`${resolvedCount} corrections resolved -- review results`)
+    }
+  }, [chat.isBatchComplete, chat.selectionMappings.size])
 
   // Auto-scroll chat
   useEffect(() => {
