@@ -322,3 +322,63 @@ def _detect_conditionals(
             if_stack.append(cf)
 
     return blueprints
+
+
+# ---------------------------------------------------------------------------
+# Style hint collection
+# ---------------------------------------------------------------------------
+
+
+def collect_style_hints(
+    doc_structure: DocxStructure, mapping_plan: MappingPlan
+) -> list[dict]:
+    """Collect style-to-mappability hints from document structure and mapping plan.
+
+    For each (style_name, zone) combination in the document, counts how many
+    paragraphs with that combination were mapped vs skipped. This data helps
+    the KB filter out noise styles in future prompts (Decision #5).
+
+    Args:
+        doc_structure: The parsed DocxStructure with zone-tagged paragraphs.
+        mapping_plan: The validated MappingPlan with entries.
+
+    Returns:
+        A list of dicts with keys: templateType, styleName, zone,
+        mappedCount, skippedCount.
+    """
+    # Build set of mapped paragraph indices
+    mapped_indices: set[int] = {entry.section_index for entry in mapping_plan.entries}
+
+    # Count mapped/skipped per (style, zone)
+    counts: dict[tuple[str, str], dict[str, int]] = defaultdict(
+        lambda: {"mapped": 0, "skipped": 0}
+    )
+
+    for idx, para in enumerate(doc_structure.paragraphs):
+        style = para.style_name or "Normal"
+        zone = para.zone or "unknown"
+        key = (style, zone)
+
+        if idx in mapped_indices:
+            counts[key]["mapped"] += 1
+        else:
+            counts[key]["skipped"] += 1
+
+    # Build result
+    result: list[dict] = []
+    for (style, zone), stats in sorted(counts.items()):
+        result.append({
+            "templateType": mapping_plan.template_type,
+            "styleName": style,
+            "zone": zone,
+            "mappedCount": stats["mapped"],
+            "skippedCount": stats["skipped"],
+        })
+
+    logger.info(
+        "Collected %d style hints for template_type=%s",
+        len(result),
+        mapping_plan.template_type,
+    )
+
+    return result
