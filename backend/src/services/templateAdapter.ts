@@ -846,9 +846,10 @@ export async function autoMapTemplate(
     },
   });
 
-  // Pass 2: Apply instructions (builds insertion prompt, LLM generates instructions, applies to DOCX)
-  // applyInstructions() saves the adapted DOCX and sets currentStep to 'verify'
-  const finalState = await applyInstructions(stateAfterAnalysis);
+  // Pass 2: LLM Placement (builds placement prompt, LLM generates instructions,
+  // validates via Python, applies to DOCX)
+  // regenerateWithLLM() saves the adapted DOCX and sets currentStep to 'verify'
+  const finalState = await regenerateWithLLM(stateAfterAnalysis);
 
   return finalState;
 }
