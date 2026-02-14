@@ -484,3 +484,126 @@ export async function queryBlueprints(
     parsedMarkers: JSON.parse(bp.markers) as BlueprintMarker[],
   }));
 }
+
+// ---------------------------------------------------------------------------
+// StyleHint CRUD
+// ---------------------------------------------------------------------------
+
+/**
+ * Upsert a style hint, incrementing mappedCount or skippedCount based on
+ * whether the style was mapped or skipped during template analysis.
+ */
+export async function upsertStyleHint(
+  templateType: string,
+  styleName: string,
+  zone: string,
+  mapped: boolean,
+): Promise<StyleHint> {
+  return prisma.styleHint.upsert({
+    where: {
+      templateType_styleName_zone: {
+        templateType,
+        styleName,
+        zone,
+      },
+    },
+    create: {
+      templateType,
+      styleName,
+      zone,
+      mappedCount: mapped ? 1 : 0,
+      skippedCount: mapped ? 0 : 1,
+    },
+    update: mapped
+      ? { mappedCount: { increment: 1 } }
+      : { skippedCount: { increment: 1 } },
+  });
+}
+
+/**
+ * Bulk upsert style hints for all styles encountered in a document analysis.
+ *
+ * @param entries - Array of { styleName, zone, mapped } objects
+ * @returns Count of upserted records
+ */
+export async function bulkUpsertStyleHints(
+  templateType: string,
+  entries: Array<{ styleName: string; zone: string; mapped: boolean }>,
+): Promise<number> {
+  if (entries.length === 0) return 0;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const entry of entries) {
+        await tx.styleHint.upsert({
+          where: {
+            templateType_styleName_zone: {
+              templateType,
+              styleName: entry.styleName,
+              zone: entry.zone,
+            },
+          },
+          create: {
+            templateType,
+            styleName: entry.styleName,
+            zone: entry.zone,
+            mappedCount: entry.mapped ? 1 : 0,
+            skippedCount: entry.mapped ? 0 : 1,
+          },
+          update: entry.mapped
+            ? { mappedCount: { increment: 1 } }
+            : { skippedCount: { increment: 1 } },
+        });
+      }
+    });
+    return entries.length;
+  } catch (error) {
+    console.error('[templateMapping] bulkUpsertStyleHints failed:', error);
+    return 0;
+  }
+}
+
+/**
+ * Query style hints for a template type, ordered by mapping ratio descending.
+ *
+ * Styles that are most frequently mapped (vs skipped) surface first.
+ */
+export async function queryStyleHints(
+  templateType: string,
+): Promise<StyleHint[]> {
+  const hints = await prisma.styleHint.findMany({
+    where: { templateType },
+  });
+
+  // Sort by mapping ratio (mappedCount / total) descending
+  return hints.sort((a, b) => {
+    const totalA = a.mappedCount + a.skippedCount;
+    const totalB = b.mappedCount + b.skippedCount;
+    const ratioA = totalA > 0 ? a.mappedCount / totalA : 0;
+    const ratioB = totalB > 0 ? b.mappedCount / totalB : 0;
+    return ratioB - ratioA;
+  });
+}
+
+/**
+ * Get style names that are almost never mapped (boilerplate/decorative styles).
+ *
+ * Returns styles where mappedCount / (mappedCount + skippedCount) < threshold.
+ * Default threshold is 0.1 (styles mapped less than 10% of the time).
+ */
+export async function getBoilerplateStyles(
+  templateType: string,
+  threshold: number = 0.1,
+): Promise<string[]> {
+  const hints = await prisma.styleHint.findMany({
+    where: { templateType },
+  });
+
+  return hints
+    .filter((h) => {
+      const total = h.mappedCount + h.skippedCount;
+      if (total === 0) return false; // No data yet, don't classify
+      return h.mappedCount / total < threshold;
+    })
+    .map((h) => h.styleName);
+}
