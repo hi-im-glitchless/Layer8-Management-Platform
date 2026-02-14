@@ -977,20 +977,129 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
     return;
   }
 
-  const kbEntries: TemplateMappingInput[] = mappingPlan.entries.map((entry) => ({
-    templateType: mappingPlan.templateType,
-    language: mappingPlan.language,
-    sectionText: entry.sectionText,
-    gwField: entry.gwField,
-    markerType: entry.markerType,
-    confidence: entry.confidence,
-  }));
+  // Count zone repetitions: for each gwField in each zone, count occurrences
+  const zoneCounts = new Map<string, number>();
+  for (const entry of mappingPlan.entries) {
+    // Zone defaults to 'unknown' since wizard state does not store doc_structure zones
+    const zone = 'unknown';
+    const key = `${entry.gwField}::${zone}`;
+    zoneCounts.set(key, (zoneCounts.get(key) ?? 0) + 1);
+  }
 
-  const result = await bulkUpsertMappings(kbEntries);
+  const kbEntries: TemplateMappingInput[] = mappingPlan.entries.map((entry) => {
+    const zone = 'unknown';
+    const repKey = `${entry.gwField}::${zone}`;
+    return {
+      templateType: mappingPlan.templateType,
+      language: mappingPlan.language,
+      sectionText: entry.sectionText,
+      gwField: entry.gwField,
+      markerType: entry.markerType,
+      confidence: entry.confidence,
+      zone,
+      zoneRepetitionCount: zoneCounts.get(repKey) ?? 1,
+    };
+  });
+
+  // Use mode='confirm' for all entries (download = user confirmation)
+  const result = await bulkUpsertMappings(kbEntries, 'confirm');
   console.log(
     `[templateAdapter] KB persistence: ${result.created} created, ${result.updated} updated ` +
     `(${kbEntries.length} total entries)`,
   );
+
+  // Fire-and-forget: detect blueprints and store style hints
+  persistBlueprintsAndHints(wizardState, mappingPlan).catch((err) => {
+    console.error('[templateAdapter] Blueprint/style hint persistence failed (non-blocking):', err);
+  });
+}
+
+/**
+ * Detect blueprints and style hints from the finalized mapping plan,
+ * then persist them to the knowledge base.
+ *
+ * Called fire-and-forget from persistMappingsToKB(). Errors are logged
+ * but never propagate to the caller.
+ */
+async function persistBlueprintsAndHints(
+  wizardState: WizardState,
+  mappingPlan: MappingPlan,
+): Promise<void> {
+  const sanitizerUrl = config.SANITIZER_URL;
+  const templateBase64 = wizardState.templateFile.base64;
+
+  if (!templateBase64) {
+    console.warn('[templateAdapter] No template base64 for blueprint detection, skipping');
+    return;
+  }
+
+  // Call Python /adapter/detect-blueprints endpoint
+  const detectRes = await fetch(`${sanitizerUrl}/adapter/detect-blueprints`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      template_base64: templateBase64,
+      mapping_plan: mappingPlanToSnakeCase(mappingPlan),
+      template_type: mappingPlan.templateType,
+      language: mappingPlan.language,
+    }),
+  });
+
+  if (!detectRes.ok) {
+    const detail = await detectRes.text();
+    console.warn(`[templateAdapter] Blueprint detection failed (${detectRes.status}): ${detail}`);
+    return;
+  }
+
+  const detectData = await detectRes.json() as {
+    blueprints: Array<{
+      template_type: string;
+      zone: string;
+      pattern_type: string;
+      markers: Array<{ gwField: string; markerType: string }>;
+      anchor_style: string | null;
+    }>;
+    style_hints: Array<{
+      template_type: string;
+      style_name: string;
+      zone: string;
+      mapped_count: number;
+      skipped_count: number;
+    }>;
+  };
+
+  // Store blueprints
+  let blueprintCount = 0;
+  for (const bp of detectData.blueprints) {
+    try {
+      const bpInput: BlueprintPatternInput = {
+        templateType: bp.template_type,
+        zone: bp.zone,
+        patternType: bp.pattern_type as 'loop' | 'conditional' | 'group',
+        markers: bp.markers,
+        anchorStyle: bp.anchor_style,
+      };
+      await upsertBlueprint(bpInput);
+      blueprintCount++;
+    } catch (err) {
+      console.warn('[templateAdapter] Failed to upsert blueprint:', err);
+    }
+  }
+
+  // Store style hints
+  if (detectData.style_hints.length > 0) {
+    const hintEntries = detectData.style_hints.map((sh) => ({
+      styleName: sh.style_name,
+      zone: sh.zone,
+      mapped: sh.mapped_count > 0,
+    }));
+    const hintCount = await bulkUpsertStyleHints(mappingPlan.templateType, hintEntries);
+    console.log(
+      `[templateAdapter] Stored ${blueprintCount} blueprints, ${hintCount} style hints`,
+    );
+  } else {
+    console.log(`[templateAdapter] Stored ${blueprintCount} blueprints, 0 style hints`);
+  }
 }
 
 // ---------------------------------------------------------------------------
