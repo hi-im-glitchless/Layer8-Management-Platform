@@ -12,6 +12,19 @@ import { prisma } from '@/db/prisma.js';
 import type { TemplateMapping } from '@prisma/client';
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/**
+ * Controls how confidence is updated during upsert operations.
+ *
+ * - 'create': initial mapping, sets confidence from input (default behavior)
+ * - 'confirm': user confirmed an existing mapping, boosts confidence by +0.1 (capped at 1.0)
+ * - 'correct': user corrected an existing mapping, decays confidence by 0.7x
+ */
+export type UpsertMode = 'confirm' | 'correct' | 'create';
+
+// ---------------------------------------------------------------------------
 // Zod Schemas
 // ---------------------------------------------------------------------------
 
@@ -22,6 +35,8 @@ export const templateMappingSchema = z.object({
   gwField: z.string().min(1),
   markerType: z.string().min(1),
   confidence: z.number().min(0).max(1).default(1.0),
+  zone: z.string().min(1).optional(),
+  zoneRepetitionCount: z.number().int().min(1).optional(),
 });
 
 export type TemplateMappingInput = z.infer<typeof templateMappingSchema>;
@@ -79,26 +94,82 @@ export function normalizeSectionText(text: string): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Compute updated confidence based on upsert mode.
+ *
+ * - 'confirm': boost by +0.1, capped at 1.0
+ * - 'correct': decay by 0.7x
+ * - 'create': use the provided input confidence as-is
+ */
+function computeConfidence(
+  mode: UpsertMode,
+  existingConfidence: number | undefined,
+  inputConfidence: number,
+): number {
+  if (mode === 'confirm' && existingConfidence !== undefined) {
+    return Math.min(1.0, existingConfidence + 0.1);
+  }
+  if (mode === 'correct' && existingConfidence !== undefined) {
+    return existingConfidence * 0.7;
+  }
+  return inputConfidence;
+}
+
+/**
  * Upsert a single template mapping into the knowledge base.
  *
- * On create: sets usageCount=1, confidence=input.confidence
- * On update (duplicate key): increments usageCount by 1, updates confidence
+ * Mode controls confidence behavior:
+ * - 'create' (default): sets usageCount=1, confidence from input
+ * - 'confirm': increments usageCount, boosts confidence by +0.1 (capped at 1.0)
+ * - 'correct': increments correctionCount, decays confidence by 0.7x
  *
  * @returns The upserted TemplateMapping record
  */
-export async function upsertMapping(input: TemplateMappingInput): Promise<TemplateMapping> {
+export async function upsertMapping(
+  input: TemplateMappingInput,
+  mode: UpsertMode = 'create',
+): Promise<TemplateMapping> {
   const validated = templateMappingSchema.parse(input);
   const normalizedText = normalizeSectionText(validated.sectionText);
 
-  return prisma.templateMapping.upsert({
-    where: {
-      templateType_language_normalizedSectionText_gwField: {
-        templateType: validated.templateType,
-        language: validated.language,
-        normalizedSectionText: normalizedText,
-        gwField: validated.gwField,
-      },
+  const whereClause = {
+    templateType_language_normalizedSectionText_gwField: {
+      templateType: validated.templateType,
+      language: validated.language,
+      normalizedSectionText: normalizedText,
+      gwField: validated.gwField,
     },
+  };
+
+  // For confirm/correct modes, fetch existing record to compute new confidence
+  let existingConfidence: number | undefined;
+  if (mode !== 'create') {
+    const existing = await prisma.templateMapping.findUnique({ where: whereClause });
+    existingConfidence = existing?.confidence;
+  }
+
+  const newConfidence = computeConfidence(mode, existingConfidence, validated.confidence);
+
+  const updateClause: Record<string, unknown> = {
+    markerType: validated.markerType,
+    confidence: newConfidence,
+  };
+
+  if (mode === 'correct') {
+    updateClause.correctionCount = { increment: 1 };
+  } else {
+    updateClause.usageCount = { increment: 1 };
+  }
+
+  // Include zone fields if provided
+  if (validated.zone !== undefined) {
+    updateClause.zone = validated.zone;
+  }
+  if (validated.zoneRepetitionCount !== undefined) {
+    updateClause.zoneRepetitionCount = validated.zoneRepetitionCount;
+  }
+
+  return prisma.templateMapping.upsert({
+    where: whereClause,
     create: {
       templateType: validated.templateType,
       language: validated.language,
@@ -107,12 +178,12 @@ export async function upsertMapping(input: TemplateMappingInput): Promise<Templa
       markerType: validated.markerType,
       confidence: validated.confidence,
       usageCount: 1,
+      ...(validated.zone !== undefined && { zone: validated.zone }),
+      ...(validated.zoneRepetitionCount !== undefined && {
+        zoneRepetitionCount: validated.zoneRepetitionCount,
+      }),
     },
-    update: {
-      usageCount: { increment: 1 },
-      confidence: validated.confidence,
-      markerType: validated.markerType,
-    },
+    update: updateClause,
   });
 }
 
@@ -122,10 +193,13 @@ export async function upsertMapping(input: TemplateMappingInput): Promise<Templa
  * Runs all upserts in a Prisma transaction for atomicity.
  * Non-blocking: errors are logged but not thrown to the caller.
  *
+ * @param mappings - Array of mapping inputs to upsert
+ * @param mode - Controls confidence behavior (default: 'create')
  * @returns Count of created and updated records
  */
 export async function bulkUpsertMappings(
   mappings: TemplateMappingInput[],
+  mode: UpsertMode = 'create',
 ): Promise<{ created: number; updated: number }> {
   if (mappings.length === 0) {
     return { created: 0, updated: 0 };
@@ -140,27 +214,44 @@ export async function bulkUpsertMappings(
         const validated = templateMappingSchema.parse(mapping);
         const normalizedText = normalizeSectionText(validated.sectionText);
 
-        // Check if record exists to track created vs updated
-        const existing = await tx.templateMapping.findUnique({
-          where: {
-            templateType_language_normalizedSectionText_gwField: {
-              templateType: validated.templateType,
-              language: validated.language,
-              normalizedSectionText: normalizedText,
-              gwField: validated.gwField,
-            },
+        const whereClause = {
+          templateType_language_normalizedSectionText_gwField: {
+            templateType: validated.templateType,
+            language: validated.language,
+            normalizedSectionText: normalizedText,
+            gwField: validated.gwField,
           },
-        });
+        };
+
+        // Check if record exists to track created vs updated and for confidence computation
+        const existing = await tx.templateMapping.findUnique({ where: whereClause });
+
+        const newConfidence = computeConfidence(
+          mode,
+          existing?.confidence,
+          validated.confidence,
+        );
+
+        const updateClause: Record<string, unknown> = {
+          markerType: validated.markerType,
+          confidence: newConfidence,
+        };
+
+        if (mode === 'correct') {
+          updateClause.correctionCount = { increment: 1 };
+        } else {
+          updateClause.usageCount = { increment: 1 };
+        }
+
+        if (validated.zone !== undefined) {
+          updateClause.zone = validated.zone;
+        }
+        if (validated.zoneRepetitionCount !== undefined) {
+          updateClause.zoneRepetitionCount = validated.zoneRepetitionCount;
+        }
 
         await tx.templateMapping.upsert({
-          where: {
-            templateType_language_normalizedSectionText_gwField: {
-              templateType: validated.templateType,
-              language: validated.language,
-              normalizedSectionText: normalizedText,
-              gwField: validated.gwField,
-            },
-          },
+          where: whereClause,
           create: {
             templateType: validated.templateType,
             language: validated.language,
@@ -169,12 +260,12 @@ export async function bulkUpsertMappings(
             markerType: validated.markerType,
             confidence: validated.confidence,
             usageCount: 1,
+            ...(validated.zone !== undefined && { zone: validated.zone }),
+            ...(validated.zoneRepetitionCount !== undefined && {
+              zoneRepetitionCount: validated.zoneRepetitionCount,
+            }),
           },
-          update: {
-            usageCount: { increment: 1 },
-            confidence: validated.confidence,
-            markerType: validated.markerType,
-          },
+          update: updateClause,
         });
 
         if (existing) {
