@@ -38,6 +38,10 @@ interface InteractivePdfViewerProps {
   isStreaming?: boolean
   /** Mapped field count for coverage display (Plan 05 stub) */
   mappedCount?: number
+  /** When set to a non-null page number, scroll the PDF to that page. Parent resets to null after scroll. */
+  scrollTargetPage?: number | null
+  /** Called after scroll completes so parent can reset scrollTargetPage to null */
+  onScrollComplete?: () => void
 }
 
 // Status-based badge ring colors (Decision #8)
@@ -140,6 +144,8 @@ export function InteractivePdfViewer({
   onConfirmAll,
   isStreaming,
   mappedCount,
+  scrollTargetPage,
+  onScrollComplete,
 }: InteractivePdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const lastSelectionTimeRef = useRef<number>(0)
@@ -154,6 +160,18 @@ export function InteractivePdfViewer({
     observer.observe(pdfScrollEl)
     return () => observer.disconnect()
   }, [pdfScrollEl])
+
+  // Scroll to a specific page when scrollTargetPage changes
+  useEffect(() => {
+    if (scrollTargetPage == null || !pdfScrollEl) return
+    const pageEl = pdfScrollEl.querySelector(
+      `.react-pdf__Page[data-page-number="${scrollTargetPage}"]`,
+    )
+    if (pageEl) {
+      pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    onScrollComplete?.()
+  }, [scrollTargetPage, pdfScrollEl, onScrollComplete])
 
   const handleMouseUp = useCallback(() => {
     // Debounce: 100ms cooldown between captures

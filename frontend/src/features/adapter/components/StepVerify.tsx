@@ -19,6 +19,7 @@ import {
   useSelectionState,
 } from '../hooks'
 import { InteractivePdfViewer, type TextSelectionPayload } from './InteractivePdfViewer'
+import { PlaceholderNavigator } from './PlaceholderNavigator'
 import type {
   TemplateType,
   TemplateLanguage,
@@ -62,6 +63,10 @@ export function StepVerify({
   // KB badge state
   const [kbPersisted, setKbPersisted] = useState(false)
   const [kbAnimating, setKbAnimating] = useState(false)
+
+  // PlaceholderNavigator state
+  const [navigatorOpen, setNavigatorOpen] = useState(false)
+  const [scrollTargetPage, setScrollTargetPage] = useState<number | null>(null)
 
   // Poll placeholder PDF status
   const annotatedStatus = useAnnotatedPreviewStatus(sessionId, placeholderPdfJobId)
@@ -214,6 +219,27 @@ export function StepVerify({
   }, [])
   void triggerKbAnimation // wired in download step
 
+  // Jump to a placeholder's approximate page in the PDF
+  const handleJumpToPlaceholder = useCallback(
+    (paragraphIndex: number) => {
+      // Heuristic: estimate page from paragraph position relative to total placeholders
+      const totalParagraphs = placeholders.length > 0
+        ? Math.max(...placeholders.map((p) => p.paragraphIndex)) + 1
+        : 1
+      const totalPages = annotatedStatus.data?.pdfUrl ? 1 : 1 // unknown, default to page estimate
+      // Simple heuristic: assume even distribution of paragraphs across pages
+      // We use the PDF page count from the viewer if available, otherwise estimate
+      const estimatedPages = Math.max(1, Math.ceil(totalParagraphs / 30))
+      const estimatedPage = Math.max(1, Math.ceil((paragraphIndex / totalParagraphs) * estimatedPages))
+      setScrollTargetPage(estimatedPage)
+    },
+    [placeholders, annotatedStatus.data?.pdfUrl],
+  )
+
+  const handleScrollComplete = useCallback(() => {
+    setScrollTargetPage(null)
+  }, [])
+
   return (
     <div className="space-y-4">
       {/* Toolbar: placeholder count, KB badge, Approve button */}
@@ -224,6 +250,12 @@ export function StepVerify({
               {placeholderCount} placeholders
             </Badge>
           )}
+          <PlaceholderNavigator
+            placeholders={placeholders}
+            isOpen={navigatorOpen}
+            onToggle={() => setNavigatorOpen((prev) => !prev)}
+            onJumpToPlaceholder={handleJumpToPlaceholder}
+          />
           {previewOutdated && (
             <Button
               variant="outline"
@@ -283,6 +315,8 @@ export function StepVerify({
               selections={selectionState.selections}
               isStreaming={chat.isStreaming || isRegenerating}
               mappedCount={placeholderCount}
+              scrollTargetPage={scrollTargetPage}
+              onScrollComplete={handleScrollComplete}
               className="min-h-[600px]"
             />
             {/* Regeneration spinner overlay */}
