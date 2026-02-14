@@ -1,5 +1,9 @@
 """Pydantic models for DOCX parsing and generation."""
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+ZoneType = Literal["header", "footer", "body", "table_cell", "text_box", "cover", "unknown"]
 
 
 class DocxRun(BaseModel):
@@ -22,6 +26,8 @@ class DocxParagraph(BaseModel):
     heading_level: int | None = None  # 1-9 for headings, None for non-headings
     alignment: str | None = None  # LEFT, CENTER, RIGHT, JUSTIFY, etc.
     runs: list[DocxRun] = Field(default_factory=list)
+    zone: ZoneType | None = None  # Document zone: header, footer, body, table_cell, text_box, cover, unknown
+    table_index: int | None = None  # Which table a paragraph comes from (-1 for body paragraphs)
 
 
 class DocxCell(BaseModel):
