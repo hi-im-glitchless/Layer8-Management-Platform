@@ -3,6 +3,7 @@
  *
  * POST /api/adapter/upload    -- Upload DOCX + create wizard session
  * POST /api/adapter/analyze   -- LLM Pass 1 analysis
+ * POST /api/adapter/auto-map  -- Combined Pass 1 + Pass 2 (auto-map on upload)
  * POST /api/adapter/apply     -- LLM Pass 2 + instruction application
  * POST /api/adapter/preview   -- Render adapted template + queue PDF
  * GET  /api/adapter/preview/:sessionId -- Poll preview status
@@ -27,6 +28,7 @@ import { requireAuth } from '@/middleware/auth.js';
 import {
   analyzeTemplate,
   uploadTemplate,
+  autoMapTemplate,
   applyInstructions,
   generatePreview,
   generateAnnotatedPreview,
@@ -343,6 +345,73 @@ router.post('/analyze-session', requireAuth, async (req: Request, res: Response)
     });
   } catch (error) {
     handleAdapterError(res, error, 'Template analysis');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/adapter/auto-map
+// ---------------------------------------------------------------------------
+
+/**
+ * Auto-map a template by chaining LLM Pass 1 (analysis) + Pass 2 (insertion).
+ * Body: { sessionId }
+ * Requires a template to be uploaded in the session.
+ * Returns { currentStep: 'verify', appliedCount, skippedCount, warnings, mappingPlan }
+ *
+ * This endpoint may take 60-180s (two LLM passes). The frontend uses
+ * an existing polling fallback pattern from StepAnalysis.
+ */
+router.post('/auto-map', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = sessionIdSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: body.error.issues,
+      });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = body.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    if (!state.templateFile.base64) {
+      return res.status(400).json({
+        error: 'No template uploaded in this session. Upload a DOCX first.',
+      });
+    }
+
+    const updated = await autoMapTemplate(state);
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.auto_map',
+      details: {
+        sessionId,
+        appliedCount: updated.adaptation.appliedCount,
+        skippedCount: updated.adaptation.skippedCount,
+        referenceTemplateHash: updated.analysis.referenceTemplateHash,
+      },
+      ipAddress,
+    });
+
+    const mappingPlan = updated.analysis.mappingPlan as unknown as MappingPlan;
+
+    res.json({
+      currentStep: updated.currentStep,
+      appliedCount: updated.adaptation.appliedCount,
+      skippedCount: updated.adaptation.skippedCount,
+      warnings: mappingPlan?.warnings ?? [],
+      mappingPlan,
+    });
+  } catch (error) {
+    handleAdapterError(res, error, 'Auto-map');
   }
 });
 
