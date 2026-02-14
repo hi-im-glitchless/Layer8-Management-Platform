@@ -20,6 +20,14 @@ logger = logging.getLogger(__name__)
 # OOXML namespace constants
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
+# Fields that repeat across headers, footers, and text boxes.
+# Only these get the replace-all-occurrences treatment (strategies 3-6).
+_REPEATING_FIELDS: set[str] = {
+    "report_date", "client.short_name", "title", "project.codename",
+    "project.start_date", "project.end_date",
+    "team[0].name", "team[0].email",
+}
+
 
 class InstructionApplier:
     """Applies structured instructions to modify a DOCX template.
@@ -145,16 +153,21 @@ class InstructionApplier:
         body_paragraphs: list,
         instruction: Instruction,
     ) -> bool:
-        """Replace text using multi-strategy search across the entire document.
+        """Replace text using multi-strategy search across the document.
 
-        Replaces ALL occurrences across all locations (body, headers, footers,
-        tables, text boxes) because fields like report_date, client.short_name,
-        and title commonly repeat in multiple headers/footers/text boxes.
+        For *repeating* fields (report_date, client.short_name, title, etc.)
+        all six strategies run and every occurrence is replaced.
 
-        Strategy order (all locations are searched, not short-circuited):
+        For *content* fields (finding.*, item.*, etc.) only the target
+        paragraph is tried, with a fallback body scan if the target misses.
+        This prevents partial-substring matches in unrelated paragraphs
+        (e.g. replacing "Classification" inside a "Vulnerability Classification" heading).
+
+        Strategy order:
         1. Body paragraph at the given index
-        2. All other body paragraphs
-        3. Header/footer top-level paragraphs (all variants)
+        2. Fallback: other body paragraphs (first match only, only if #1 missed)
+        --- strategies 3-6 only for _REPEATING_FIELDS ---
+        3. Header/footer top-level paragraphs
         4. Body table cell paragraphs
         5. Body text box paragraphs (w:txbxContent)
         6. Header/footer nested tables and text boxes
@@ -162,6 +175,7 @@ class InstructionApplier:
         idx = instruction.paragraph_index
         original = instruction.original_text
         replacement = instruction.replacement_text
+        is_repeating = instruction.gw_field in _REPEATING_FIELDS
         total_replaced = 0
 
         # Strategy 1: Try body paragraph at the given index
@@ -169,75 +183,89 @@ class InstructionApplier:
             if self._replace_in_paragraph(body_paragraphs[idx], original, replacement):
                 total_replaced += 1
 
-        # Strategy 2: Search all body paragraphs
-        for i, para in enumerate(body_paragraphs):
-            if i == idx:
-                continue  # Already tried
-            if self._replace_in_paragraph(para, original, replacement):
-                logger.info(
-                    "Relocated replacement from paragraph %d to %d (gw_field=%s)",
-                    idx, i, instruction.gw_field,
-                )
-                total_replaced += 1
+        # Strategy 2: Search other body paragraphs
+        if is_repeating:
+            # Repeating fields: replace ALL body occurrences
+            for i, para in enumerate(body_paragraphs):
+                if i == idx:
+                    continue
+                if self._replace_in_paragraph(para, original, replacement):
+                    logger.info(
+                        "Replaced additional occurrence in paragraph %d (gw_field=%s)",
+                        i, instruction.gw_field,
+                    )
+                    total_replaced += 1
+        elif total_replaced == 0:
+            # Content fields: fallback to first match only
+            for i, para in enumerate(body_paragraphs):
+                if i == idx:
+                    continue
+                if self._replace_in_paragraph(para, original, replacement):
+                    logger.info(
+                        "Relocated replacement from paragraph %d to %d (gw_field=%s)",
+                        idx, i, instruction.gw_field,
+                    )
+                    total_replaced += 1
+                    break
 
-        # Strategy 3: Search all header/footer variants (default, first-page, even-page)
-        for section in doc.sections:
-            for hf_label, hf in self._iter_header_footers(section):
-                for para in hf.paragraphs:
+        # Strategies 3-6: Only for repeating header/footer/text-box fields
+        if is_repeating:
+            # Strategy 3: Header/footer top-level paragraphs
+            for section in doc.sections:
+                for hf_label, hf in self._iter_header_footers(section):
+                    for para in hf.paragraphs:
+                        if self._replace_in_paragraph(para, original, replacement):
+                            logger.info(
+                                "Applied replacement in %s (gw_field=%s)",
+                                hf_label, instruction.gw_field,
+                            )
+                            total_replaced += 1
+
+            # Strategy 4: Body table cell paragraphs
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for para in cell.paragraphs:
+                            if self._replace_in_paragraph(para, original, replacement):
+                                logger.info(
+                                    "Applied replacement in table cell (gw_field=%s)",
+                                    instruction.gw_field,
+                                )
+                                total_replaced += 1
+
+            # Strategy 5: Body text boxes
+            for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
+                for p_elem in txbx.findall(qn("w:p")):
+                    para = _ParagraphWrapper(p_elem, doc.element.body)
                     if self._replace_in_paragraph(para, original, replacement):
                         logger.info(
-                            "Applied replacement in %s (gw_field=%s)",
-                            hf_label, instruction.gw_field,
+                            "Applied replacement in text box (gw_field=%s)",
+                            instruction.gw_field,
                         )
                         total_replaced += 1
 
-        # Strategy 4: Search body table cell paragraphs
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        if self._replace_in_paragraph(para, original, replacement):
-                            logger.info(
-                                "Applied replacement in table cell (gw_field=%s)",
-                                instruction.gw_field,
-                            )
-                            total_replaced += 1
-
-        # Strategy 5: Search text boxes in the document body
-        for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
-            for p_elem in txbx.findall(qn("w:p")):
-                para = _ParagraphWrapper(p_elem, doc.element.body)
-                if self._replace_in_paragraph(para, original, replacement):
-                    logger.info(
-                        "Applied replacement in text box (gw_field=%s)",
-                        instruction.gw_field,
-                    )
-                    total_replaced += 1
-
-        # Strategy 6: Search header/footer nested tables and text boxes
-        for section in doc.sections:
-            for hf_label, hf in self._iter_header_footers(section):
-                hf_elem = hf._element
-                # Table cells within header/footer
-                for tc_elem in hf_elem.findall(".//" + qn("w:tc")):
-                    for p_elem in tc_elem.findall(qn("w:p")):
-                        para = _ParagraphWrapper(p_elem, hf_elem)
-                        if self._replace_in_paragraph(para, original, replacement):
-                            logger.info(
-                                "Applied replacement in %s table (gw_field=%s)",
-                                hf_label, instruction.gw_field,
-                            )
-                            total_replaced += 1
-                # Text boxes within header/footer
-                for txbx in hf_elem.findall(".//" + qn("w:txbxContent")):
-                    for p_elem in txbx.findall(qn("w:p")):
-                        para = _ParagraphWrapper(p_elem, hf_elem)
-                        if self._replace_in_paragraph(para, original, replacement):
-                            logger.info(
-                                "Applied replacement in %s text box (gw_field=%s)",
-                                hf_label, instruction.gw_field,
-                            )
-                            total_replaced += 1
+            # Strategy 6: Header/footer nested tables and text boxes
+            for section in doc.sections:
+                for hf_label, hf in self._iter_header_footers(section):
+                    hf_elem = hf._element
+                    for tc_elem in hf_elem.findall(".//" + qn("w:tc")):
+                        for p_elem in tc_elem.findall(qn("w:p")):
+                            para = _ParagraphWrapper(p_elem, hf_elem)
+                            if self._replace_in_paragraph(para, original, replacement):
+                                logger.info(
+                                    "Applied replacement in %s table (gw_field=%s)",
+                                    hf_label, instruction.gw_field,
+                                )
+                                total_replaced += 1
+                    for txbx in hf_elem.findall(".//" + qn("w:txbxContent")):
+                        for p_elem in txbx.findall(qn("w:p")):
+                            para = _ParagraphWrapper(p_elem, hf_elem)
+                            if self._replace_in_paragraph(para, original, replacement):
+                                logger.info(
+                                    "Applied replacement in %s text box (gw_field=%s)",
+                                    hf_label, instruction.gw_field,
+                                )
+                                total_replaced += 1
 
         if total_replaced > 1:
             logger.info(
