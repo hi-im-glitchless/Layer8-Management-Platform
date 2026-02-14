@@ -5,6 +5,7 @@ import type {
   UploadResponse,
   AnalyzeResponse,
   ApplyResponse,
+  AutoMapResponse,
   PreviewResponse,
   PreviewStatusResponse,
   WizardState,
@@ -72,6 +73,17 @@ export const adapterApi = {
    */
   async applyInstructions(sessionId: string): Promise<ApplyResponse> {
     return apiClient<ApplyResponse>('/api/adapter/apply', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  },
+
+  /**
+   * Run auto-map: LLM analysis + placeholder insertion in one shot.
+   * POST to /api/adapter/auto-map with sessionId.
+   */
+  async autoMap(sessionId: string): Promise<AutoMapResponse> {
+    return apiClient<AutoMapResponse>('/api/adapter/auto-map', {
       method: 'POST',
       body: JSON.stringify({ sessionId }),
     })

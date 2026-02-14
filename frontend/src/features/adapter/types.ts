@@ -3,7 +3,7 @@
  * Mirrors backend WizardState and API response shapes.
  */
 
-export type WizardStep = 'upload' | 'analysis' | 'adaptation' | 'preview' | 'download'
+export type WizardStep = 'upload' | 'verify' | 'preview' | 'download'
 
 export type TemplateType = 'web' | 'internal' | 'mobile'
 
@@ -91,6 +91,15 @@ export interface ApplyResponse {
   appliedCount: number
   skippedCount: number
   warnings: string[]
+}
+
+/** POST /api/adapter/auto-map response */
+export interface AutoMapResponse {
+  currentStep: WizardStep
+  appliedCount: number
+  skippedCount: number
+  warnings: string[]
+  mappingPlan: MappingPlan
 }
 
 /** POST /api/adapter/preview response */
