@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, Send, ArrowRight, Brain } from 'lucide-react'
+import { Send, ArrowRight, Brain, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -50,6 +50,7 @@ export function StepVerify({
   const [placeholderPdfJobId, setPlaceholderPdfJobId] = useState<string | null>(null)
   const [placeholders, setPlaceholders] = useState<PlaceholderInfo[]>([])
   const [placeholderCount, setPlaceholderCount] = useState(0)
+  const [previewOutdated, setPreviewOutdated] = useState(false)
 
   const placeholderPreviewMutation = usePlaceholderPreview()
   const chat = useAdapterChat(sessionId)
@@ -99,9 +100,7 @@ export function StepVerify({
     if (chat.latestMappingUpdate) {
       setMappingPlan(chat.latestMappingUpdate)
       onMappingUpdate(chat.latestMappingUpdate)
-      // Flag for regeneration: after correction, a fresh placeholder preview
-      // would be needed. For now, the mapping plan update is tracked and the
-      // user can re-trigger via Approve flow (which reads latest state).
+      setPreviewOutdated(true)
     }
   }, [chat.latestMappingUpdate, onMappingUpdate])
 
@@ -168,6 +167,19 @@ export function StepVerify({
     [selectionState],
   )
 
+  // Regenerate placeholder preview after corrections (Decision #8: clear selections)
+  const handleRegeneratePreview = useCallback(() => {
+    selectionState.resetSelections()
+    placeholderPreviewMutation.mutate(sessionId, {
+      onSuccess: (data) => {
+        setPlaceholderPdfJobId(data.pdfJobId)
+        setPlaceholders(data.placeholders)
+        setPlaceholderCount(data.placeholderCount)
+        setPreviewOutdated(false)
+      },
+    })
+  }, [sessionId, placeholderPreviewMutation, selectionState])
+
   // KB badge animation trigger
   const triggerKbAnimation = useCallback(() => {
     setKbPersisted(true)
@@ -186,6 +198,17 @@ export function StepVerify({
             <Badge variant="secondary" className="text-xs">
               {placeholderCount} placeholders
             </Badge>
+          )}
+          {previewOutdated && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRegeneratePreview}
+              disabled={placeholderPreviewMutation.isPending}
+            >
+              <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
+              Refresh Preview
+            </Button>
           )}
         </div>
         <div className="flex items-center gap-2">
