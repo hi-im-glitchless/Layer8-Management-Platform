@@ -9,6 +9,7 @@
  * GET  /api/adapter/preview/:sessionId -- Poll preview status
  * POST /api/adapter/annotated-preview -- Generate annotated preview with shading
  * GET  /api/adapter/annotated-preview/:sessionId -- Get cached annotation data
+ * POST /api/adapter/reapply   -- Deterministic re-apply mapping plan (no LLM)
  * POST /api/adapter/placeholder-preview -- Generate placeholder-styled preview
  * GET  /api/adapter/document-structure/:sessionId -- Document paragraph list
  * POST /api/adapter/update-mapping -- Merge inline edits into mapping plan
@@ -31,14 +32,17 @@ import {
   uploadTemplate,
   autoMapTemplate,
   applyInstructions,
+  reapplyFromMappingPlan,
   generatePreview,
   generateAnnotatedPreview,
   generatePlaceholderPreview,
   persistMappingsToKB,
+  processCorrectionUpdate,
   getDownloadPath,
   processChatFeedback,
   type MappingEntry,
   type MappingPlan,
+  type CorrectionEntry,
 } from '@/services/templateAdapter.js';
 import {
   getWizardSession,
@@ -93,6 +97,17 @@ const chatBodySchema = z.object({
 const annotatedPreviewSchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
   greenOnly: z.boolean().optional().default(false),
+});
+
+const correctionUpdateSchema = z.object({
+  sessionId: z.string().uuid('sessionId must be a valid UUID'),
+  corrections: z.array(z.object({
+    sectionIndex: z.number(),
+    oldGwField: z.string(),
+    newGwField: z.string(),
+    newMarkerType: z.string(),
+    sectionText: z.string(),
+  })),
 });
 
 const updateMappingSchema = z.object({
@@ -663,6 +678,9 @@ router.get('/annotated-preview/:sessionId', requireAuth, async (req: Request, re
     const { annotatedPreview } = state;
 
     const response: Record<string, unknown> = {
+      pdfJobId: annotatedPreview.pdfJobId,
+      placeholders: annotatedPreview.placeholders ?? [],
+      placeholderCount: annotatedPreview.placeholderCount ?? 0,
       tooltipData: annotatedPreview.tooltipData,
       unmappedParagraphs: annotatedPreview.unmappedParagraphs,
       gapSummary: annotatedPreview.gapSummary,
@@ -686,6 +704,64 @@ router.get('/annotated-preview/:sessionId', requireAuth, async (req: Request, re
     res.json(response);
   } catch (error) {
     handleAdapterError(res, error, 'Annotated preview status');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/adapter/reapply
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-apply the current mapping plan to the original DOCX without an LLM call.
+ * Deterministically converts mapping entries → instructions → adapted DOCX.
+ * Used after correction-chat updates the mapping plan.
+ * Body: { sessionId }
+ * Returns 200 with { appliedCount, skippedCount }
+ */
+router.post('/reapply', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = sessionIdSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: body.error.issues,
+      });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = body.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    if (!state.analysis.mappingPlan) {
+      return res.status(400).json({
+        error: 'No mapping plan in session. Run analysis first.',
+      });
+    }
+
+    const updated = await reapplyFromMappingPlan(state);
+
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.reapply',
+      details: {
+        sessionId,
+        appliedCount: updated.adaptation.appliedCount,
+        skippedCount: updated.adaptation.skippedCount,
+      },
+      ipAddress,
+    });
+
+    res.json({
+      appliedCount: updated.adaptation.appliedCount,
+      skippedCount: updated.adaptation.skippedCount,
+    });
+  } catch (error) {
+    handleAdapterError(res, error, 'Mapping plan reapply');
   }
 });
 
@@ -950,6 +1026,65 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/adapter/correction-update
+// ---------------------------------------------------------------------------
+
+/**
+ * Process table-based corrections and update the knowledge base immediately.
+ * Body: { sessionId, corrections: [...] }
+ * Decays old mappings and creates/boosts corrected mappings in the KB.
+ * Returns { updated, decayed }
+ */
+router.post('/correction-update', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = correctionUpdateSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: body.error.issues,
+      });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId, corrections } = body.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    const { templateType, language } = state.config;
+
+    // Fire-and-forget: KB correction errors are logged but not thrown
+    const result = await processCorrectionUpdate(
+      templateType,
+      language,
+      corrections as CorrectionEntry[],
+    );
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.correction_update',
+      details: {
+        sessionId,
+        correctionCount: corrections.length,
+        updated: result.updated,
+        decayed: result.decayed,
+        templateType,
+        language,
+      },
+      ipAddress,
+    });
+
+    res.json(result);
+  } catch (error) {
+    handleAdapterError(res, error, 'Correction update');
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/adapter/download/:sessionId
 // ---------------------------------------------------------------------------
 
@@ -1149,6 +1284,20 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
       });
     } catch (auditErr) {
       console.error('[templateAdapter route] Failed to log chat audit:', auditErr);
+    }
+
+    // Fire-and-forget: persist updated mappings to knowledge base after corrections
+    try {
+      const updatedState = await getWizardSession(userId, sessionId);
+      if (updatedState) {
+        persistMappingsToKB(updatedState).then(() => {
+          console.log('[templateAdapter route] KB persisted after chat correction');
+        }).catch((err) => {
+          console.error('[templateAdapter route] KB persistence after chat failed (non-blocking):', err);
+        });
+      }
+    } catch (kbErr) {
+      console.error('[templateAdapter route] KB persistence lookup failed (non-blocking):', kbErr);
     }
 
     if (!clientDisconnected) {

@@ -27,6 +27,7 @@ import { addPdfConversionJob } from './pdfQueue.js';
 import {
   queryFewShotExamples,
   bulkUpsertMappings,
+  upsertMapping,
   queryByZone,
   queryBlueprints,
   getBoilerplateStyles,
@@ -1100,6 +1101,103 @@ async function persistBlueprintsAndHints(
   } else {
     console.log(`[templateAdapter] Stored ${blueprintCount} blueprints, 0 style hints`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Correction Update (table-based KB corrections)
+// ---------------------------------------------------------------------------
+
+/**
+ * Correction entry from the frontend table edit flow.
+ */
+export interface CorrectionEntry {
+  sectionIndex: number;
+  oldGwField: string;
+  newGwField: string;
+  newMarkerType: string;
+  sectionText: string;
+}
+
+/**
+ * Process table-based corrections and update the knowledge base.
+ *
+ * For each correction:
+ * - If oldGwField differs from newGwField: decay old mapping (mode='correct'),
+ *   create/boost new mapping (mode='create' or 'confirm')
+ * - If only markerType changed: update existing entry with new markerType
+ *
+ * Fire-and-forget: errors are logged but never thrown to the caller.
+ *
+ * @returns Count of updated and decayed entries
+ */
+export async function processCorrectionUpdate(
+  templateType: string,
+  language: string,
+  corrections: CorrectionEntry[],
+): Promise<{ updated: number; decayed: number }> {
+  let updated = 0;
+  let decayed = 0;
+
+  for (const correction of corrections) {
+    try {
+      if (correction.oldGwField !== correction.newGwField) {
+        // Decay old mapping
+        await upsertMapping(
+          {
+            templateType,
+            language,
+            sectionText: correction.sectionText,
+            gwField: correction.oldGwField,
+            markerType: correction.newMarkerType,
+            confidence: 1.0,
+          },
+          'correct',
+        );
+        decayed++;
+
+        // Create/boost new mapping
+        await upsertMapping(
+          {
+            templateType,
+            language,
+            sectionText: correction.sectionText,
+            gwField: correction.newGwField,
+            markerType: correction.newMarkerType,
+            confidence: 1.0,
+          },
+          'create',
+        );
+        updated++;
+      } else {
+        // Only markerType changed -- update existing entry
+        await upsertMapping(
+          {
+            templateType,
+            language,
+            sectionText: correction.sectionText,
+            gwField: correction.newGwField,
+            markerType: correction.newMarkerType,
+            confidence: 1.0,
+          },
+          'confirm',
+        );
+        updated++;
+      }
+    } catch (err) {
+      console.error(
+        `[templateAdapter] processCorrectionUpdate failed for entry ` +
+        `(sectionIndex=${correction.sectionIndex}):`,
+        err,
+      );
+    }
+  }
+
+  console.log(
+    `[templateAdapter] Correction update: ${updated} updated, ${decayed} decayed ` +
+    `(${corrections.length} total corrections)`,
+  );
+
+  return { updated, decayed };
 }
 
 // ---------------------------------------------------------------------------
