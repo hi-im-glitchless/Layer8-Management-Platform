@@ -483,6 +483,10 @@ class PlacementPromptResponse(BaseModel):
     prompt: str = Field(..., description="User prompt for the LLM")
     system_prompt: str = Field(..., description="System prompt for the LLM")
     paragraph_count: int = Field(0, description="Total paragraphs for validation bounds")
+    zone_map: dict[int, str] = Field(
+        default_factory=dict,
+        description="Paragraph index to zone mapping for KB enrichment",
+    )
 
 
 class ValidatePlacementRequest(BaseModel):

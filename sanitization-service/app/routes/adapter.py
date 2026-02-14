@@ -1388,6 +1388,12 @@ async def build_placement_prompt_endpoint(
 
     paragraph_count = len(doc_structure.paragraphs)
 
+    # Build zone map: paragraph_index -> zone for KB enrichment
+    zone_map: dict[int, str] = {
+        i: p.zone or "unknown"
+        for i, p in enumerate(doc_structure.paragraphs)
+    }
+
     logger.info(
         "Built placement prompt: %d entries, %d paragraphs, prompt_len=%d",
         len(body.mapping_plan.entries),
@@ -1399,6 +1405,7 @@ async def build_placement_prompt_endpoint(
         prompt=prompt,
         system_prompt=system_prompt,
         paragraph_count=paragraph_count,
+        zone_map=zone_map,
     )
 
 
