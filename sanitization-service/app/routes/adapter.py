@@ -6,10 +6,12 @@ POST /validate-batch-mapping -- Validate batch mapping LLM response for interact
 POST /apply -- Apply instructions to a DOCX template (validate + enrich + apply)
 POST /enrich -- Enrich an instruction set via rules engine (no DOCX modification)
 POST /build-insertion-prompt -- Build LLM Pass 2 prompt from doc structure + mapping plan
+POST /build-placement-prompt -- Build zone-aware LLM placement prompt from DOCX + mapping plan
 POST /build-correction-prompt -- Build LLM correction prompt for placeholder corrections
 POST /annotate -- Generate annotated DOCX preview with paragraph shading + metadata
 POST /placeholder-preview -- Generate placeholder-styled DOCX preview with Jinja shading
 POST /detect-blueprints -- Detect structural blueprints and style hints from mapping plan
+POST /validate-placement -- Validate LLM placement JSON into an InstructionSet
 """
 import base64
 import json
@@ -43,9 +45,13 @@ from app.models.adapter import (
     ParagraphInfo,
     PlaceholderPreviewRequest,
     PlaceholderPreviewResponse,
+    PlacementPromptRequest,
+    PlacementPromptResponse,
     StyleHintResult,
     ValidateMappingRequest,
     ValidateMappingResponse,
+    ValidatePlacementRequest,
+    ValidatePlacementResponse,
 )
 from app.services.annotated_preview import (
     apply_paragraph_shading,
@@ -67,6 +73,10 @@ from app.services.correction_prompt import (
 from app.services.insertion_prompt import (
     build_insertion_prompt,
     build_insertion_system_prompt,
+)
+from app.services.placement_prompt import (
+    build_placement_prompt,
+    build_placement_system_prompt,
 )
 from app.services.instruction_applier import InstructionApplier
 from app.services.jinja2_validator import validate_instruction_set
@@ -1323,4 +1333,311 @@ async def detect_blueprints_endpoint(
     return DetectBlueprintsResponse(
         blueprints=blueprints,
         style_hints=style_hints,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plan 05.5-01 endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/build-placement-prompt", response_model=PlacementPromptResponse)
+async def build_placement_prompt_endpoint(
+    body: PlacementPromptRequest,
+) -> PlacementPromptResponse:
+    """Build the zone-aware LLM placement prompt from DOCX + mapping plan.
+
+    Decodes the base64 template, parses its DOCX structure with zone tags,
+    and combines it with the approved mapping plan to produce LLM prompts
+    for generating an InstructionSet JSON with confidence scores.
+    """
+    # Decode base64 template
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded template is empty.")
+
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    # Parse DOCX with zone tagging
+    try:
+        doc_structure = _parser.parse(template_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to parse DOCX: {exc}")
+    except Exception as exc:
+        logger.error("DOCX parse failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error while parsing DOCX.")
+
+    # Build prompts
+    try:
+        system_prompt = build_placement_system_prompt()
+        prompt = build_placement_prompt(doc_structure, body.mapping_plan)
+    except Exception as exc:
+        logger.error("Placement prompt build failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build placement prompt: {exc}",
+        )
+
+    paragraph_count = len(doc_structure.paragraphs)
+
+    logger.info(
+        "Built placement prompt: %d entries, %d paragraphs, prompt_len=%d",
+        len(body.mapping_plan.entries),
+        paragraph_count,
+        len(prompt),
+    )
+
+    return PlacementPromptResponse(
+        prompt=prompt,
+        system_prompt=system_prompt,
+        paragraph_count=paragraph_count,
+    )
+
+
+@router.post("/validate-placement", response_model=ValidatePlacementResponse)
+async def validate_placement(body: ValidatePlacementRequest) -> ValidatePlacementResponse:
+    """Validate LLM-generated placement JSON into a checked InstructionSet.
+
+    Parses the LLM JSON response, validates each instruction's paragraph_index
+    bounds, original_text substring match against actual DOCX paragraphs,
+    marker_type validity, and confidence threshold. Produces a validated
+    InstructionSet compatible with the existing POST /apply endpoint.
+    """
+    warnings: list[str] = []
+    errors: list[str] = []
+
+    # Decode base64 and parse DOCX for paragraph text verification
+    try:
+        template_bytes = base64.b64decode(body.template_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="template_base64 is not valid base64.")
+
+    if len(template_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded template is empty.")
+
+    if template_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    try:
+        doc_structure = _parser.parse(template_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Failed to parse DOCX: {exc}")
+    except Exception as exc:
+        logger.error("DOCX parse failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error while parsing DOCX.")
+
+    actual_paragraphs = doc_structure.paragraphs
+
+    # Build text-to-index lookup for relocation fallback
+    _text_to_indices: dict[str, list[int]] = {}
+    for pi, p in enumerate(actual_paragraphs):
+        stripped = p.text.strip()
+        if stripped:
+            _text_to_indices.setdefault(stripped, []).append(pi)
+
+    # Strip markdown code fences if present
+    llm_text = body.llm_response.strip()
+    if llm_text.startswith("```"):
+        first_newline = llm_text.index("\n") if "\n" in llm_text else len(llm_text)
+        llm_text = llm_text[first_newline + 1:]
+        if llm_text.rstrip().endswith("```"):
+            llm_text = llm_text.rstrip()[:-3].rstrip()
+
+    # Parse JSON
+    try:
+        raw = json.loads(llm_text)
+    except json.JSONDecodeError as exc:
+        return ValidatePlacementResponse(
+            valid=False,
+            errors=[f"Invalid JSON from LLM: {exc}"],
+        )
+
+    if not isinstance(raw, dict):
+        return ValidatePlacementResponse(
+            valid=False,
+            errors=["LLM response must be a JSON object with 'instructions' array."],
+        )
+
+    raw_instructions = raw.get("instructions", [])
+    if not isinstance(raw_instructions, list):
+        return ValidatePlacementResponse(
+            valid=False,
+            errors=["'instructions' must be a JSON array."],
+        )
+
+    if not raw_instructions:
+        return ValidatePlacementResponse(
+            valid=False,
+            errors=["LLM returned empty instructions array."],
+        )
+
+    # Valid actions and marker types
+    valid_actions = {"replace_text", "insert_before", "insert_after", "wrap_table_row"}
+    valid_markers = {"text", "paragraph_rt", "run_rt", "table_row_loop", "control_flow"}
+
+    valid_instructions: list[Instruction] = []
+    skipped = 0
+
+    for i, inst in enumerate(raw_instructions):
+        prefix = f"Instruction[{i}]"
+
+        if not isinstance(inst, dict):
+            warnings.append(f"{prefix}: not a JSON object, skipped.")
+            skipped += 1
+            continue
+
+        # Extract fields
+        action = str(inst.get("action", ""))
+        para_idx = inst.get("paragraph_index")
+        original_text = str(inst.get("original_text", ""))
+        replacement_text = str(inst.get("replacement_text", ""))
+        marker_type = str(inst.get("marker_type", "text"))
+        gw_field = str(inst.get("gw_field", ""))
+        confidence = inst.get("confidence", 1.0)
+
+        # Validate confidence
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 0.0
+
+        # Filter low-confidence instructions
+        if confidence < 0.5:
+            warnings.append(
+                f"{prefix}: confidence {confidence:.2f} below threshold 0.5, "
+                f"skipped ({gw_field})."
+            )
+            skipped += 1
+            continue
+
+        # Validate action
+        if action not in valid_actions:
+            warnings.append(
+                f"{prefix}: invalid action '{action}', skipped."
+            )
+            skipped += 1
+            continue
+
+        # Validate paragraph_index
+        if para_idx is None:
+            warnings.append(f"{prefix}: missing paragraph_index, skipped.")
+            skipped += 1
+            continue
+
+        try:
+            para_idx = int(para_idx)
+        except (TypeError, ValueError):
+            warnings.append(f"{prefix}: paragraph_index must be integer, skipped.")
+            skipped += 1
+            continue
+
+        if para_idx < 0 or para_idx >= body.paragraph_count:
+            warnings.append(
+                f"{prefix}: paragraph_index {para_idx} out of bounds "
+                f"(0-{body.paragraph_count - 1}), skipped ({gw_field})."
+            )
+            skipped += 1
+            continue
+
+        # Validate marker_type
+        if marker_type not in valid_markers:
+            warnings.append(
+                f"{prefix}: invalid marker_type '{marker_type}', skipped."
+            )
+            skipped += 1
+            continue
+
+        # Validate gw_field against FIELD_MARKER_MAP (warn only, not skip)
+        if gw_field and gw_field not in FIELD_MARKER_MAP:
+            warnings.append(f"{prefix}: unknown gw_field '{gw_field}'.")
+
+        # For replace_text: verify original_text against actual paragraph
+        if action == "replace_text":
+            # Handle paragraph_rt with empty original_text: use full paragraph text
+            if not original_text and marker_type == "paragraph_rt":
+                if para_idx < len(actual_paragraphs):
+                    original_text = actual_paragraphs[para_idx].text
+                    warnings.append(
+                        f"{prefix}: empty original_text for paragraph_rt, "
+                        f"using full paragraph text."
+                    )
+
+            # Verify original_text is a substring of actual paragraph text
+            if para_idx < len(actual_paragraphs):
+                actual_text = actual_paragraphs[para_idx].text
+                if original_text and original_text not in actual_text:
+                    # Try text-based relocation across all paragraphs
+                    relocated = False
+                    for search_idx, search_para in enumerate(actual_paragraphs):
+                        if original_text in search_para.text:
+                            warnings.append(
+                                f"{prefix}: original_text not found at paragraph "
+                                f"{para_idx}, relocated to paragraph {search_idx} "
+                                f"({gw_field})."
+                            )
+                            para_idx = search_idx
+                            relocated = True
+                            break
+
+                    if not relocated:
+                        warnings.append(
+                            f"{prefix}: original_text not found at paragraph "
+                            f"{para_idx} or anywhere in document, skipped ({gw_field})."
+                        )
+                        skipped += 1
+                        continue
+
+        # Build validated instruction
+        valid_instructions.append(
+            Instruction(
+                action=action,
+                paragraph_index=para_idx,
+                original_text=original_text,
+                replacement_text=replacement_text,
+                marker_type=marker_type,
+                gw_field=gw_field,
+            )
+        )
+
+    applied_count = len(valid_instructions)
+
+    if applied_count == 0:
+        return ValidatePlacementResponse(
+            valid=False,
+            applied_count=0,
+            skipped_count=skipped,
+            warnings=warnings,
+            errors=["No instructions passed validation."],
+        )
+
+    instruction_set = InstructionSet(
+        instructions=valid_instructions,
+        template_type=body.template_type,
+        language=body.language,
+    )
+
+    logger.info(
+        "Validated placement: %d passed, %d skipped, %d warnings",
+        applied_count,
+        skipped,
+        len(warnings),
+    )
+
+    return ValidatePlacementResponse(
+        valid=True,
+        instruction_set=instruction_set,
+        applied_count=applied_count,
+        skipped_count=skipped,
+        warnings=warnings,
     )

@@ -2114,13 +2114,13 @@ async function* processCorrectionChat(
       correctionResult: updatedMappingPlan,
     };
 
-    // Step 6-8: Regeneration pipeline (deterministic, no LLM call)
+    // Step 6-8: Regeneration pipeline (LLM placement)
     try {
       // Re-read wizard state after mapping plan update
       const refreshedState = await getWizardSession(userId, sessionId);
       if (refreshedState) {
-        // Deterministically re-apply mapping plan (bypasses LLM Pass 2)
-        const regeneratedState = await reapplyFromMappingPlan(refreshedState);
+        // Regenerate via LLM placement pipeline
+        const regeneratedState = await regenerateWithLLM(refreshedState);
 
         // Generate new placeholder preview PDF
         const previewResult = await generatePlaceholderPreview(regeneratedState);
@@ -2137,9 +2137,9 @@ async function* processCorrectionChat(
       }
     } catch (regenErr) {
       const errMsg = regenErr instanceof Error ? regenErr.message : String(regenErr);
-      console.error('[templateAdapter] Regeneration pipeline failed:', errMsg, regenErr);
+      console.error('[templateAdapter] LLM placement regeneration failed:', errMsg, regenErr);
       yield {
-        text: `\n\nCorrection applied but regeneration failed: ${errMsg}. Click "Refresh Preview" to retry.`,
+        text: `\n\nCorrection applied but LLM placement failed: ${errMsg}. Click "Regenerate Placeholders" to retry.`,
         done: false,
       };
     }
