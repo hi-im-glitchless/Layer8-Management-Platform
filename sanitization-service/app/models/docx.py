@@ -71,6 +71,13 @@ class DocxSection(BaseModel):
     orientation: str | None = None  # PORTRAIT or LANDSCAPE
 
 
+class DocxTextBox(BaseModel):
+    """A text box (w:txbxContent) extracted from a DOCX document."""
+
+    paragraphs: list[DocxParagraph] = Field(default_factory=list)
+    location: str = "body"  # "body", "header (Section 1)", "footer (Section 1)", etc.
+
+
 class DocxStructure(BaseModel):
     """Complete structured representation of a parsed DOCX document."""
 
@@ -80,6 +87,7 @@ class DocxStructure(BaseModel):
     sections: list[DocxSection] = Field(default_factory=list)
     styles: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
+    text_boxes: list[DocxTextBox] = Field(default_factory=list)
 
 
 class GenerateDocxRequest(BaseModel):

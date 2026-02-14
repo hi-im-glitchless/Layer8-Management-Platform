@@ -147,21 +147,27 @@ class InstructionApplier:
     ) -> bool:
         """Replace text using multi-strategy search across the entire document.
 
-        Strategy 1: Try the body paragraph at the given index.
-        Strategy 2: Search all body paragraphs for the text.
-        Strategy 3: Search all header/footer top-level paragraphs (all variants).
-        Strategy 4: Search body table cell paragraphs.
-        Strategy 5: Search body text box paragraphs (w:txbxContent).
-        Strategy 6: Search header/footer nested tables and text boxes.
+        Replaces ALL occurrences across all locations (body, headers, footers,
+        tables, text boxes) because fields like report_date, client.short_name,
+        and title commonly repeat in multiple headers/footers/text boxes.
+
+        Strategy order (all locations are searched, not short-circuited):
+        1. Body paragraph at the given index
+        2. All other body paragraphs
+        3. Header/footer top-level paragraphs (all variants)
+        4. Body table cell paragraphs
+        5. Body text box paragraphs (w:txbxContent)
+        6. Header/footer nested tables and text boxes
         """
         idx = instruction.paragraph_index
         original = instruction.original_text
         replacement = instruction.replacement_text
+        total_replaced = 0
 
         # Strategy 1: Try body paragraph at the given index
         if 0 <= idx < len(body_paragraphs):
             if self._replace_in_paragraph(body_paragraphs[idx], original, replacement):
-                return True
+                total_replaced += 1
 
         # Strategy 2: Search all body paragraphs
         for i, para in enumerate(body_paragraphs):
@@ -172,7 +178,7 @@ class InstructionApplier:
                     "Relocated replacement from paragraph %d to %d (gw_field=%s)",
                     idx, i, instruction.gw_field,
                 )
-                return True
+                total_replaced += 1
 
         # Strategy 3: Search all header/footer variants (default, first-page, even-page)
         for section in doc.sections:
@@ -183,7 +189,7 @@ class InstructionApplier:
                             "Applied replacement in %s (gw_field=%s)",
                             hf_label, instruction.gw_field,
                         )
-                        return True
+                        total_replaced += 1
 
         # Strategy 4: Search body table cell paragraphs
         for table in doc.tables:
@@ -195,7 +201,7 @@ class InstructionApplier:
                                 "Applied replacement in table cell (gw_field=%s)",
                                 instruction.gw_field,
                             )
-                            return True
+                            total_replaced += 1
 
         # Strategy 5: Search text boxes in the document body
         for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
@@ -206,7 +212,7 @@ class InstructionApplier:
                         "Applied replacement in text box (gw_field=%s)",
                         instruction.gw_field,
                     )
-                    return True
+                    total_replaced += 1
 
         # Strategy 6: Search header/footer nested tables and text boxes
         for section in doc.sections:
@@ -221,7 +227,7 @@ class InstructionApplier:
                                 "Applied replacement in %s table (gw_field=%s)",
                                 hf_label, instruction.gw_field,
                             )
-                            return True
+                            total_replaced += 1
                 # Text boxes within header/footer
                 for txbx in hf_elem.findall(".//" + qn("w:txbxContent")):
                     for p_elem in txbx.findall(qn("w:p")):
@@ -231,9 +237,15 @@ class InstructionApplier:
                                 "Applied replacement in %s text box (gw_field=%s)",
                                 hf_label, instruction.gw_field,
                             )
-                            return True
+                            total_replaced += 1
 
-        return False
+        if total_replaced > 1:
+            logger.info(
+                "Replaced %d occurrences of '%s' -> '%s' (gw_field=%s)",
+                total_replaced, original[:50], replacement[:50], instruction.gw_field,
+            )
+
+        return total_replaced > 0
 
     @staticmethod
     def _iter_header_footers(section):

@@ -168,9 +168,14 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
           <p className="text-sm text-muted-foreground mt-2">
             {(sessionQuery.error as Error)?.message || 'Unknown error'}
           </p>
-          <Button variant="outline" className="mt-4" onClick={() => sessionQuery.refetch()}>
-            Retry
-          </Button>
+          <div className="flex gap-2 justify-center mt-4">
+            <Button variant="outline" onClick={() => sessionQuery.refetch()}>
+              Retry
+            </Button>
+            <Button variant="outline" onClick={handleNewSession}>
+              Start New
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )

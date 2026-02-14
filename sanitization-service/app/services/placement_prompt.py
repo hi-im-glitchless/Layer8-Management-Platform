@@ -120,6 +120,16 @@ def build_zone_map(doc_structure: DocxStructure, mapping_plan: MappingPlan) -> s
                 sections.append(f"  [T{t_idx}.R{r_idx}.C{c_idx}]: {text[:100]}")
         sections.append("")
 
+    # --- Text boxes (body, header/footer) ---
+    for tb_idx, text_box in enumerate(doc_structure.text_boxes):
+        sections.append(f"## ZONE: text_box (TextBox {tb_idx} in {text_box.location})")
+        for p_idx, para in enumerate(text_box.paragraphs):
+            text = para.text.strip()
+            if not text:
+                continue
+            sections.append(f"  [TB{tb_idx}.P{p_idx}]: {text[:200]}")
+        sections.append("")
+
     return "\n".join(sections)
 
 
@@ -251,13 +261,17 @@ def build_placement_prompt(
         "replacement_text should be the loop expression (e.g., '{%tr for item in scope %}').\n"
         "7. For 'control_flow' marker_type: use insert_before/insert_after to add "
         "{% if ... %} / {% endif %} blocks around the target paragraph.\n"
-        "8. Headers and footers often contain run_rt fields (logos, company names). "
-        "Pay attention to the zone when placing these.\n"
+        "8. HEADER/FOOTER ENTRIES ARE CRITICAL: Headers and footers contain report "
+        "titles, dates, and client names that repeat on every page. You MUST generate "
+        "instructions for these entries. Use original_text matching the exact header/footer "
+        "text from the zone map. The applier searches all headers, footers, and body -- "
+        "just set paragraph_index=0 and provide the correct original_text.\n"
         "9. If the section_text does not match the paragraph text at section_index, "
         "search ALL zones (body, headers, footers) in the zone map for the text. "
-        "For header/footer content, use the original section_index as paragraph_index -- "
+        "For header/footer content, use paragraph_index=0 -- "
         "the applier will locate the text by content matching.\n"
-        "10. Set confidence to 1.0 when original_text is an exact match. Lower it "
+        "10. You MUST generate one instruction for EVERY mapping entry. Do not skip any.\n"
+        "11. Set confidence to 1.0 when original_text is an exact match. Lower it "
         "when you had to search or approximate.\n"
     )
 

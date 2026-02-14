@@ -17,6 +17,7 @@ from app.models.docx import (
     DocxSection,
     DocxStructure,
     DocxTable,
+    DocxTextBox,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,7 @@ class DocxParserService:
         sections = self._extract_sections(doc)
         styles = self._extract_styles(doc)
         metadata = self._extract_metadata(doc)
+        text_boxes = self._extract_text_boxes(doc)
 
         return DocxStructure(
             paragraphs=paragraphs,
@@ -56,6 +58,7 @@ class DocxParserService:
             sections=sections,
             styles=styles,
             metadata=metadata,
+            text_boxes=text_boxes,
         )
 
     # ------------------------------------------------------------------
@@ -254,6 +257,72 @@ class DocxParserService:
         except Exception:
             logger.debug("Failed to parse inline image at paragraph %d", para_idx)
             return None
+
+    # ------------------------------------------------------------------
+    # Text box extraction
+    # ------------------------------------------------------------------
+
+    def _extract_text_boxes(self, doc: Document) -> list[DocxTextBox]:
+        """Extract text from text boxes (w:txbxContent) in body and headers/footers.
+
+        Text boxes are inline shapes containing paragraphs. They often hold
+        report titles, dates, client names, and other content that needs
+        placeholder mapping but isn't in the regular paragraph list.
+
+        Uses raw XML extraction instead of ParagraphWrapper because text box
+        paragraphs lack a .part parent needed for style resolution.
+        """
+        result: list[DocxTextBox] = []
+
+        # Body text boxes
+        for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
+            paras = self._parse_textbox_paragraphs(txbx)
+            if paras:
+                result.append(DocxTextBox(paragraphs=paras, location="body"))
+
+        # Header/footer text boxes
+        for sec_idx, section in enumerate(doc.sections):
+            for hf_label, accessor in [
+                ("header", "header"),
+                ("footer", "footer"),
+                ("first-page header", "first_page_header"),
+                ("first-page footer", "first_page_footer"),
+                ("even-page header", "even_page_header"),
+                ("even-page footer", "even_page_footer"),
+            ]:
+                try:
+                    hf = getattr(section, accessor)
+                    if hf is None:
+                        continue
+                    hf_elem = hf._element
+                    for txbx in hf_elem.findall(".//" + qn("w:txbxContent")):
+                        paras = self._parse_textbox_paragraphs(txbx)
+                        if paras:
+                            loc = f"{hf_label} (Section {sec_idx + 1})"
+                            result.append(DocxTextBox(paragraphs=paras, location=loc))
+                except Exception:
+                    continue
+
+        return result
+
+    def _parse_textbox_paragraphs(self, txbx_elem) -> list[DocxParagraph]:
+        """Parse paragraphs from a w:txbxContent element using raw XML.
+
+        Cannot use python-docx ParagraphWrapper here because text box
+        paragraphs don't have a .part parent for style resolution.
+        """
+        paras: list[DocxParagraph] = []
+        for p_elem in txbx_elem.findall(qn("w:p")):
+            # Extract text from all w:t elements within runs
+            texts = [
+                t.text or ""
+                for t in p_elem.findall(".//" + qn("w:t"))
+            ]
+            text = "".join(texts)
+            if not text.strip():
+                continue
+            paras.append(DocxParagraph(text=text, zone="text_box"))
+        return paras
 
     # ------------------------------------------------------------------
     # Section extraction

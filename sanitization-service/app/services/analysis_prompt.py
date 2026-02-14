@@ -186,7 +186,9 @@ _GW_FIELD_DESCRIPTIONS: dict[str, str] = {
     "client.short_name": "Client short name (text)",
     "project.start_date": "Project start date (text, YYYY-MM-DD)",
     "project.end_date": "Project end date (text, YYYY-MM-DD)",
+    "project.codename": "Project codename / internal project identifier (text)",
     "report_date": "Report creation date (text, YYYY-MM-DD)",
+    "title": "Report title (text, often in header/footer/frontpage text box)",
     "team[0].name": "Lead assessor name (text)",
     "team[0].email": "Lead assessor email (text)",
     "finding.title": "Finding title (text, used inside finding loops)",
@@ -309,6 +311,7 @@ def _build_doc_structure_section(
 ) -> str:
     """Section 1: Numbered, condensed client document paragraphs.
 
+    Includes body paragraphs, tables, and header/footer content.
     When boilerplate_styles is provided and non-empty, paragraphs whose
     style_name matches any entry in the list are skipped. Tables are never
     filtered by style. A summary note is appended showing how many paragraphs
@@ -347,6 +350,45 @@ def _build_doc_structure_section(
             if table.rows and table.rows[0].cells:
                 first_cell = table.rows[0].cells[0].text.strip()[:80]
             lines.append(f"  Table {ti}: {row_count}x{col_count}, starts with: \"{first_cell}\"")
+
+    # Include header/footer content -- these often contain report title,
+    # dates, client names, and other fields that need placeholder mapping
+    hf_lines: list[str] = []
+    for sec_idx, section in enumerate(doc.sections):
+        for hf_type in ("header", "footer"):
+            paras = getattr(section, f"{hf_type}_paragraphs", [])
+            for h_idx, para in enumerate(paras):
+                text = para.text.strip()
+                if not text:
+                    continue
+                truncated = text[:200] + ("..." if len(text) > 200 else "")
+                hf_lines.append(
+                    f"  [{hf_type.upper()} S{sec_idx + 1} P{h_idx}] {truncated}"
+                )
+
+    if hf_lines:
+        lines.append("\n### Headers & Footers")
+        lines.append("These appear on every page. Fields here (dates, titles, "
+                     "client names) often need placeholders too.\n")
+        lines.extend(hf_lines)
+
+    # Include text box content -- these contain titles, dates, client names,
+    # project codenames that are embedded in shapes/boxes on the pages
+    txbx_lines: list[str] = []
+    for tb_idx, text_box in enumerate(doc.text_boxes):
+        for para in text_box.paragraphs:
+            text = para.text.strip()
+            if not text:
+                continue
+            truncated = text[:200] + ("..." if len(text) > 200 else "")
+            txbx_lines.append(
+                f"  [TEXTBOX {tb_idx} in {text_box.location}] {truncated}"
+            )
+
+    if txbx_lines:
+        lines.append("\n### Text Boxes")
+        lines.append("Content inside text boxes/shapes (frontpage titles, footer fields, etc.).\n")
+        lines.extend(txbx_lines)
 
     lines.append(f"\nTotal non-empty paragraphs: {para_count}")
 
@@ -561,17 +603,20 @@ def _build_rules_section(
         "6. For rich text fields (_rt suffix), use {{p field }} or {{r field }} markers.",
         "7. For table row loops (scope, findings), use {%tr for ... %} markers.",
         "8. Multiple paragraphs may map to the same GW field if the document repeats it.",
-        f"9. Target template type: {template_type}, language: {language}.",
+        "9. MAP HEADER/FOOTER CONTENT: Fields in headers and footers (dates, titles, "
+        "client names) must also be mapped. Use section_index=0 for header/footer entries "
+        "and include the exact text in section_text -- the applier locates them by text search.",
+        f"10. Target template type: {template_type}, language: {language}.",
     ]
 
     if template_type == "internal":
         lines.append(
-            "10. Internal templates use filter_type() for category-based finding grouping "
+            "11. Internal templates use filter_type() for category-based finding grouping "
             "(AD, Infrastructure, Physical, Servers, UAC, Web) and namespace counters."
         )
     else:
         lines.append(
-            "10. This template type uses scope loops and affected_entities fields."
+            "11. This template type uses scope loops and affected_entities fields."
         )
 
     return "\n".join(lines)

@@ -16,7 +16,9 @@ ALLOWED_VARIABLES: set[str] = {
     "client.short_name",
     "project.start_date",
     "project.end_date",
+    "project.codename",
     "report_date",
+    "title",
     # Team fields
     "team[0].name",
     "team[0].email",
