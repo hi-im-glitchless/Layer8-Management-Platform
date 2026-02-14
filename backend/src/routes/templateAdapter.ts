@@ -836,6 +836,13 @@ router.get('/document-structure/:sessionId', requireAuth, async (req: Request, r
         is_empty: z.boolean(),
         style_name: z.string().nullable(),
       })),
+      header_footer_paragraphs: z.array(z.object({
+        text: z.string(),
+        location: z.string(),
+        section_index: z.number(),
+        paragraph_index: z.number(),
+        style_name: z.string().nullable(),
+      })).optional().default([]),
       total_count: z.number(),
       empty_count: z.number(),
     });
@@ -849,6 +856,13 @@ router.get('/document-structure/:sessionId', requireAuth, async (req: Request, r
         text: p.text,
         headingLevel: p.heading_level,
         isEmpty: p.is_empty,
+        styleName: p.style_name,
+      })),
+      headerFooterParagraphs: validated.header_footer_paragraphs.map((p) => ({
+        text: p.text,
+        location: p.location,
+        sectionIndex: p.section_index,
+        paragraphIndex: p.paragraph_index,
         styleName: p.style_name,
       })),
       totalCount: validated.total_count,
@@ -927,18 +941,100 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
 
     // Apply added entries -- create new MappingEntry with confidence 1.0
     if (updates.addedEntries) {
-      // Try to get cached document structure for text lookup
-      const docStructure = (state as unknown as Record<string, unknown>).documentStructure as
-        { paragraphs: Array<{ paragraphIndex: number; text: string }> } | undefined;
+      // Get document structure for text-based paragraph index resolution.
+      // The frontend sends PDF text layer indices which don't correspond to DOCX
+      // paragraph indices, so we resolve the correct index by text matching.
+      let docStructure = (state as unknown as Record<string, unknown>).documentStructure as
+        {
+          paragraphs: Array<{ paragraphIndex: number; text: string }>;
+          headerFooterParagraphs?: Array<{ text: string; location: string }>;
+        } | undefined;
+
+      // If not cached (or missing header/footer data), fetch from Python service
+      if ((!docStructure || !docStructure.headerFooterParagraphs) && state.templateFile.base64) {
+        try {
+          const sanitizerUrl = config.SANITIZER_URL;
+          const structRes = await fetch(`${sanitizerUrl}/adapter/document-structure`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ template_base64: state.templateFile.base64 }),
+          });
+          if (structRes.ok) {
+            const structData = await structRes.json() as {
+              paragraphs: Array<{ paragraph_index: number; text: string }>;
+              header_footer_paragraphs?: Array<{ text: string; location: string }>;
+            };
+            docStructure = {
+              paragraphs: structData.paragraphs.map((p) => ({
+                paragraphIndex: p.paragraph_index,
+                text: p.text,
+              })),
+              headerFooterParagraphs: structData.header_footer_paragraphs?.map((p) => ({
+                text: p.text,
+                location: p.location,
+              })),
+            };
+            // Cache for future use
+            await updateWizardSession(userId, sessionId, {
+              documentStructure: docStructure,
+            } as Partial<typeof state>);
+          }
+        } catch (err) {
+          console.warn('[update-mapping] Failed to fetch document structure for index resolution:', err);
+        }
+      }
 
       for (const added of updates.addedEntries) {
         // Use provided sectionText first, then try document structure, then unmapped paragraphs
         let sectionText = added.sectionText ?? '';
+        // Resolve the correct DOCX paragraph index by text matching
+        let resolvedIndex = added.paragraphIndex;
+
+        if (sectionText && docStructure?.paragraphs) {
+          // Search for the paragraph that contains the selected text
+          const needle = sectionText.trim().toLowerCase();
+          const match = docStructure.paragraphs.find(
+            (p) => p.text.toLowerCase().includes(needle),
+          );
+          if (match) {
+            resolvedIndex = match.paragraphIndex;
+            console.log(
+              `[update-mapping] Resolved paragraph index: PDF=${added.paragraphIndex} → DOCX=${resolvedIndex} (text: "${sectionText.slice(0, 50)}")`,
+            );
+          } else {
+            // Try partial match (selected text might be a substring)
+            const partialMatch = docStructure.paragraphs.find(
+              (p) => needle.includes(p.text.trim().toLowerCase()) && p.text.trim().length > 3,
+            );
+            if (partialMatch) {
+              resolvedIndex = partialMatch.paragraphIndex;
+              console.log(
+                `[update-mapping] Resolved paragraph index (partial): PDF=${added.paragraphIndex} → DOCX=${resolvedIndex}`,
+              );
+            } else {
+              // Search header/footer paragraphs as last resort
+              const hfMatch = docStructure.headerFooterParagraphs?.find(
+                (p) => p.text.toLowerCase().includes(needle),
+              );
+              if (hfMatch) {
+                // Text is in a header/footer -- keep the provided index.
+                // The instruction applier will locate it via text search.
+                console.log(
+                  `[update-mapping] Text "${sectionText.slice(0, 50)}" found in ${hfMatch.location}, applier will locate by content`,
+                );
+              } else {
+                console.warn(
+                  `[update-mapping] Could not resolve DOCX paragraph for text "${sectionText.slice(0, 50)}", using PDF index ${added.paragraphIndex}`,
+                );
+              }
+            }
+          }
+        }
 
         if (!sectionText) {
           // Try document structure cache (DOCX paragraph text by index)
           const docPara = docStructure?.paragraphs?.find(
-            (p) => p.paragraphIndex === added.paragraphIndex,
+            (p) => p.paragraphIndex === resolvedIndex,
           );
           if (docPara) {
             sectionText = docPara.text;
@@ -948,7 +1044,7 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
         if (!sectionText) {
           // Fall back to unmapped paragraphs from annotated preview
           const unmapped = state.annotatedPreview?.unmappedParagraphs?.find(
-            (u) => u.paragraphIndex === added.paragraphIndex,
+            (u) => u.paragraphIndex === resolvedIndex,
           );
           if (unmapped) {
             sectionText = unmapped.text;
@@ -975,7 +1071,7 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
         }
 
         const newEntry: MappingEntry = {
-          sectionIndex: added.paragraphIndex,
+          sectionIndex: resolvedIndex,
           sectionText,
           gwField: added.gwField,
           placeholderTemplate,

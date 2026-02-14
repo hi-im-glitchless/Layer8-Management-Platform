@@ -245,11 +245,22 @@ class ParagraphInfo(BaseModel):
     style_name: str | None = Field(None, description="Paragraph style name")
 
 
+class HeaderFooterParagraphInfo(BaseModel):
+    """Metadata for a header or footer paragraph."""
+
+    text: str = Field(..., description="Paragraph text, truncated to 200 chars")
+    location: str = Field(..., description="'header' or 'footer'")
+    section_index: int = Field(..., description="DOCX section index (0-based)")
+    paragraph_index: int = Field(..., description="Index within the header/footer")
+    style_name: str | None = Field(None, description="Paragraph style name")
+
+
 class DocumentStructureResponse(BaseModel):
     """Response from POST /adapter/document-structure."""
 
     paragraphs: list[ParagraphInfo] = Field(default_factory=list)
-    total_count: int = Field(0, description="Total number of paragraphs")
+    header_footer_paragraphs: list[HeaderFooterParagraphInfo] = Field(default_factory=list)
+    total_count: int = Field(0, description="Total number of body paragraphs")
     empty_count: int = Field(0, description="Number of empty/whitespace-only paragraphs")
 
 

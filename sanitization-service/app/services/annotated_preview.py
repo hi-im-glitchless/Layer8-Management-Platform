@@ -255,6 +255,36 @@ def generate_placeholder_preview(
     return annotated_bytes, placeholders
 
 
+def _set_run_shading(run, hex_color: str) -> None:
+    """Apply background shading to a single run via OOXML XML manipulation.
+
+    Adds or updates the w:shd element within the run's w:rPr element:
+    <w:shd w:val="clear" w:color="auto" w:fill="{hex_color}"/>
+
+    Args:
+        run: A python-docx Run object.
+        hex_color: Six-character hex color string (e.g. "DAEAF6").
+    """
+    r_elem = run._element
+
+    # Get or create w:rPr (run properties)
+    rPr = r_elem.find(qn("w:rPr"))
+    if rPr is None:
+        rPr = etree.SubElement(r_elem, qn("w:rPr"))
+        # Insert rPr as first child (OOXML schema requires it before w:t)
+        r_elem.insert(0, rPr)
+
+    # Get or create w:shd (shading) within rPr
+    shd = rPr.find(qn("w:shd"))
+    if shd is None:
+        shd = etree.SubElement(rPr, qn("w:shd"))
+
+    # Set shading attributes
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), hex_color)
+
+
 def _scan_paragraph_for_placeholders(
     paragraph,
     paragraph_index: int,
@@ -263,7 +293,8 @@ def _scan_paragraph_for_placeholders(
     """Scan a single paragraph for Jinja2 expressions and apply shading.
 
     If the paragraph text contains one or more ``{{ ... }}`` patterns,
-    light blue shading is applied and a PlaceholderInfo entry is added
+    light blue shading is applied to the specific runs containing them
+    (not the entire paragraph) and a PlaceholderInfo entry is added
     for each match.
 
     Args:
@@ -276,8 +307,10 @@ def _scan_paragraph_for_placeholders(
     if not matches:
         return
 
-    # Apply light blue shading to the paragraph
-    _set_paragraph_shading(paragraph, PLACEHOLDER_SHADING)
+    # Apply light blue shading only to runs that contain Jinja2 expressions
+    for run in paragraph.runs:
+        if _JINJA2_PATTERN.search(run.text):
+            _set_run_shading(run, PLACEHOLDER_SHADING)
 
     # Extract placeholder info for each match
     for match in matches:

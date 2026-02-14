@@ -26,6 +26,7 @@ import type {
   MappingPlan,
   MappingEntry,
   PlaceholderInfo,
+  SelectionEntry,
 } from '../types'
 
 interface StepVerifyProps {
@@ -82,6 +83,10 @@ export function StepVerify({
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null)
   const [newRowIndex, setNewRowIndex] = useState<number | null>(null)
 
+  // Persistent visual selections on PDF
+  const [selections, setSelections] = useState<SelectionEntry[]>([])
+  const selectionCounterRef = useRef(0)
+
   // Restore cached preview on page reload
   const cachedPreview = useCachedAnnotatedPreview(sessionId)
 
@@ -112,6 +117,14 @@ export function StepVerify({
     : isAnnotatedPdfFailed && !displayPdfUrl
       ? 'Failed to convert placeholder preview to PDF'
       : undefined
+
+  // Sync mapping plan when initialMappingPlan arrives after async refetch
+  useEffect(() => {
+    if (initialMappingPlan && !mappingPlan) {
+      setMappingPlan(initialMappingPlan)
+      originalMappingPlanRef.current = initialMappingPlan
+    }
+  }, [initialMappingPlan, mappingPlan])
 
   // Auto-trigger placeholder preview on mount
   useEffect(() => {
@@ -230,6 +243,29 @@ export function StepVerify({
       onMappingUpdate(updatedPlan)
       setIsDirty(true)
       setNewRowIndex(selection.paragraphIndex)
+
+      // Persist visual selection on PDF (green = confirmed)
+      selectionCounterRef.current += 1
+      const selEntry: SelectionEntry = {
+        id: crypto.randomUUID(),
+        selectionNumber: selectionCounterRef.current,
+        paragraphIndex: selection.paragraphIndex,
+        text: selection.text,
+        boundingRect: {
+          top: selection.boundingRect.top,
+          left: selection.boundingRect.left,
+          width: selection.boundingRect.width,
+          height: selection.boundingRect.height,
+          pageNumber: selection.pageNumber,
+        },
+        pageNumber: selection.pageNumber,
+        status: 'confirmed',
+        gwField: null,
+        markerType: null,
+        confidence: null,
+      }
+      setSelections((prev) => [...prev, selEntry])
+
       toast.success(`#${selection.paragraphIndex} added to mapping table`)
     },
     [mappingPlan, onMappingUpdate],
@@ -256,6 +292,8 @@ export function StepVerify({
   const handleRegeneratePreview = useCallback(async () => {
     if (!mappingPlan) return
     setIsRegenerating(true)
+    // Clear visual selections since PDF content will change
+    setSelections([])
     try {
       // 1. Save current mapping plan to backend wizard state
       const original = originalMappingPlanRef.current
@@ -446,7 +484,7 @@ export function StepVerify({
               isLoading={isPreviewLoading}
               error={previewError}
               onTextSelected={handleTextSelected}
-              selections={[]}
+              selections={selections}
               isStreaming={isRegenerating}
               mappedCount={placeholderCount}
               scrollTargetPage={scrollTargetPage}

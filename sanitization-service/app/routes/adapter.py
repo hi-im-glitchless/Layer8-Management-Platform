@@ -37,6 +37,7 @@ from app.models.adapter import (
     DetectBlueprintsResponse,
     DocumentStructureRequest,
     DocumentStructureResponse,
+    HeaderFooterParagraphInfo,
     Instruction,
     InstructionSet,
     MappingEntry,
@@ -90,6 +91,23 @@ _applier = InstructionApplier()
 
 # DOCX magic bytes: PK zip header
 _DOCX_MAGIC = b"PK\x03\x04"
+
+
+def _find_text_in_headers_footers(
+    doc_structure: DocxStructure, text: str,
+) -> str | None:
+    """Search header/footer paragraphs for text.
+
+    Returns a location string (e.g. "header (Section 1)") if found, None otherwise.
+    """
+    for sec_idx, section in enumerate(doc_structure.sections):
+        for para in section.header_paragraphs:
+            if text in para.text:
+                return f"header (Section {sec_idx + 1})"
+        for para in section.footer_paragraphs:
+            if text in para.text:
+                return f"footer (Section {sec_idx + 1})"
+    return None
 
 # All valid GW field paths for validation
 _VALID_GW_FIELDS: set[str] = set(FIELD_MARKER_MAP.keys())
@@ -608,14 +626,42 @@ async def get_document_structure(body: DocumentStructureRequest) -> DocumentStru
             )
         )
 
+    # Build header/footer paragraph list
+    hf_paragraphs: list[HeaderFooterParagraphInfo] = []
+    for sec_idx, section in enumerate(doc_structure.sections):
+        for h_idx, para in enumerate(section.header_paragraphs):
+            if para.text.strip():
+                hf_paragraphs.append(
+                    HeaderFooterParagraphInfo(
+                        text=para.text[:200],
+                        location="header",
+                        section_index=sec_idx,
+                        paragraph_index=h_idx,
+                        style_name=para.style_name,
+                    )
+                )
+        for f_idx, para in enumerate(section.footer_paragraphs):
+            if para.text.strip():
+                hf_paragraphs.append(
+                    HeaderFooterParagraphInfo(
+                        text=para.text[:200],
+                        location="footer",
+                        section_index=sec_idx,
+                        paragraph_index=f_idx,
+                        style_name=para.style_name,
+                    )
+                )
+
     logger.info(
-        "Document structure: %d total paragraphs, %d empty",
+        "Document structure: %d body paragraphs, %d empty, %d header/footer",
         len(paragraphs),
         empty_count,
+        len(hf_paragraphs),
     )
 
     return DocumentStructureResponse(
         paragraphs=paragraphs,
+        header_footer_paragraphs=hf_paragraphs,
         total_count=len(paragraphs),
         empty_count=empty_count,
     )
@@ -1268,12 +1314,25 @@ async def validate_placement(body: ValidatePlacementRequest) -> ValidatePlacemen
                             break
 
                     if not relocated:
-                        warnings.append(
-                            f"{prefix}: original_text not found at paragraph "
-                            f"{para_idx} or anywhere in document, skipped ({gw_field})."
+                        # Search headers and footers before giving up
+                        hf_location = _find_text_in_headers_footers(
+                            doc_structure, original_text,
                         )
-                        skipped += 1
-                        continue
+                        if hf_location:
+                            warnings.append(
+                                f"{prefix}: original_text found in document "
+                                f"{hf_location}, applier will locate by text "
+                                f"({gw_field})."
+                            )
+                            # Keep para_idx as-is; the applier uses text
+                            # search fallback for headers/footers
+                        else:
+                            warnings.append(
+                                f"{prefix}: original_text not found at paragraph "
+                                f"{para_idx} or anywhere in document, skipped ({gw_field})."
+                            )
+                            skipped += 1
+                            continue
 
         # Build validated instruction
         valid_instructions.append(

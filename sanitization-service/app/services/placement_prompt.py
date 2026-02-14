@@ -254,7 +254,9 @@ def build_placement_prompt(
         "8. Headers and footers often contain run_rt fields (logos, company names). "
         "Pay attention to the zone when placing these.\n"
         "9. If the section_text does not match the paragraph text at section_index, "
-        "search nearby paragraphs (within +/- 3 indices) for a match.\n"
+        "search ALL zones (body, headers, footers) in the zone map for the text. "
+        "For header/footer content, use the original section_index as paragraph_index -- "
+        "the applier will locate the text by content matching.\n"
         "10. Set confidence to 1.0 when original_text is an exact match. Lower it "
         "when you had to search or approximate.\n"
     )

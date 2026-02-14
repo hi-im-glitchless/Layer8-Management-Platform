@@ -97,11 +97,21 @@ class InstructionApplier:
     ) -> bool:
         """Apply a single instruction to the document.
 
+        For replace_text actions, uses a multi-strategy approach:
+          1. Try the body paragraph at the given index
+          2. Search all body paragraphs by text
+          3. Search headers and footers by text
+
         Returns True if the instruction was applied successfully, False otherwise.
         """
         idx = instruction.paragraph_index
 
-        # Bounds check
+        if instruction.action == "replace_text":
+            return self._replace_text_with_fallback(
+                doc, body_paragraphs, instruction,
+            )
+
+        # For non-replace actions, use body paragraph at the given index
         if idx < 0 or idx >= len(body_paragraphs):
             logger.warning(
                 "Paragraph index %d out of range (0-%d)",
@@ -112,13 +122,7 @@ class InstructionApplier:
 
         paragraph = body_paragraphs[idx]
 
-        if instruction.action == "replace_text":
-            return self._replace_in_paragraph(
-                paragraph,
-                instruction.original_text,
-                instruction.replacement_text,
-            )
-        elif instruction.action == "insert_before":
+        if instruction.action == "insert_before":
             return self._insert_paragraph(
                 doc, paragraph, instruction.replacement_text, before=True
             )
@@ -133,6 +137,57 @@ class InstructionApplier:
         else:
             logger.warning("Unknown action: %s", instruction.action)
             return False
+
+    def _replace_text_with_fallback(
+        self,
+        doc: Document,
+        body_paragraphs: list,
+        instruction: Instruction,
+    ) -> bool:
+        """Replace text using multi-strategy search across body, headers, and footers.
+
+        Strategy 1: Try the body paragraph at the given index.
+        Strategy 2: Search all body paragraphs for the text.
+        Strategy 3: Search all header and footer paragraphs for the text.
+        """
+        idx = instruction.paragraph_index
+        original = instruction.original_text
+        replacement = instruction.replacement_text
+
+        # Strategy 1: Try body paragraph at the given index
+        if 0 <= idx < len(body_paragraphs):
+            if self._replace_in_paragraph(body_paragraphs[idx], original, replacement):
+                return True
+
+        # Strategy 2: Search all body paragraphs
+        for i, para in enumerate(body_paragraphs):
+            if i == idx:
+                continue  # Already tried
+            if self._replace_in_paragraph(para, original, replacement):
+                logger.info(
+                    "Relocated replacement from paragraph %d to %d (gw_field=%s)",
+                    idx, i, instruction.gw_field,
+                )
+                return True
+
+        # Strategy 3: Search headers and footers
+        for section in doc.sections:
+            for para in section.header.paragraphs:
+                if self._replace_in_paragraph(para, original, replacement):
+                    logger.info(
+                        "Applied replacement in header (gw_field=%s)",
+                        instruction.gw_field,
+                    )
+                    return True
+            for para in section.footer.paragraphs:
+                if self._replace_in_paragraph(para, original, replacement):
+                    logger.info(
+                        "Applied replacement in footer (gw_field=%s)",
+                        instruction.gw_field,
+                    )
+                    return True
+
+        return False
 
     # ------------------------------------------------------------------
     # replace_text

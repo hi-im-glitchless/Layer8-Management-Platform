@@ -445,14 +445,35 @@ class TestWrapTableRow:
 class TestEdgeCases:
     """Tests for edge cases and output validity."""
 
-    def test_invalid_paragraph_index_skipped(self):
-        """Out-of-range paragraph index is skipped with warning."""
+    def test_invalid_paragraph_index_relocated_by_text(self):
+        """Out-of-range paragraph index is relocated via text-based fallback."""
         docx_bytes = _create_test_docx_bytes([
             {"text": "Only paragraph"},
         ])
         inst = _make_instruction(
             paragraph_index=99,
             original_text="Only paragraph",
+            replacement_text="{{ client.short_name }}",
+        )
+        iset = _make_instruction_set([inst])
+        applier = InstructionApplier()
+
+        result_bytes, applied, skipped, warnings = applier.apply(docx_bytes, iset)
+
+        # Text-based fallback finds the paragraph even with wrong index
+        assert applied == 1
+        assert skipped == 0
+        doc = Document(BytesIO(result_bytes))
+        assert "{{ client.short_name }}" in doc.paragraphs[0].text
+
+    def test_invalid_paragraph_index_no_text_match_skipped(self):
+        """Out-of-range paragraph index with non-matching text is skipped."""
+        docx_bytes = _create_test_docx_bytes([
+            {"text": "Only paragraph"},
+        ])
+        inst = _make_instruction(
+            paragraph_index=99,
+            original_text="Text that does not exist anywhere",
             replacement_text="{{ client.short_name }}",
         )
         iset = _make_instruction_set([inst])
@@ -570,8 +591,8 @@ class TestEdgeCases:
         assert run.font.size == Pt(12)
         assert str(run.font.color.rgb) == "0000FF"
 
-    def test_negative_paragraph_index_skipped(self):
-        """Negative paragraph_index is skipped."""
+    def test_negative_paragraph_index_relocated_by_text(self):
+        """Negative paragraph_index is relocated via text-based fallback."""
         docx_bytes = _create_test_docx_bytes([
             {"text": "Hello"},
         ])
@@ -585,5 +606,6 @@ class TestEdgeCases:
 
         result_bytes, applied, skipped, warnings = applier.apply(docx_bytes, iset)
 
-        assert applied == 0
-        assert skipped == 1
+        # Text-based fallback finds the paragraph even with negative index
+        assert applied == 1
+        assert skipped == 0
