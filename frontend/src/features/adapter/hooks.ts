@@ -121,6 +121,23 @@ export function useRequestPreview() {
   })
 }
 
+/**
+ * Request placeholder-styled preview of the adapted DOCX.
+ * Shows Jinja expressions with light blue backgrounds for verification.
+ */
+export function usePlaceholderPreview() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (sessionId: string) => adapterApi.requestPlaceholderPreview(sessionId),
+    onSuccess: (_data, sessionId) => {
+      queryClient.invalidateQueries({ queryKey: ['adapter', 'annotated-preview', sessionId] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to generate placeholder preview')
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------

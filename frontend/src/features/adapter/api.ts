@@ -15,6 +15,7 @@ import type {
   MappingUpdateRequest,
   MappingPlan,
   DocumentStructureResponse,
+  PlaceholderPreviewResponse,
 } from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -157,6 +158,18 @@ export const adapterApi = {
         sessionId,
         ...(options?.greenOnly ? { greenOnly: true } : {}),
       }),
+    })
+  },
+
+  /**
+   * Request placeholder-styled preview of the adapted DOCX.
+   * POST /api/adapter/placeholder-preview with sessionId.
+   * Shows Jinja expressions with light blue backgrounds.
+   */
+  async requestPlaceholderPreview(sessionId: string): Promise<PlaceholderPreviewResponse> {
+    return apiClient<PlaceholderPreviewResponse>('/api/adapter/placeholder-preview', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
     })
   },
 

@@ -285,3 +285,21 @@ export interface BatchMappingResultEntry {
 
 /** LLM batch mapping response */
 export type BatchMappingResult = BatchMappingResultEntry[]
+
+// ---------------------------------------------------------------------------
+// Placeholder Preview Types (Phase 5.3)
+// ---------------------------------------------------------------------------
+
+/** Single placeholder detected in the adapted DOCX */
+export interface PlaceholderInfo {
+  paragraphIndex: number
+  placeholderText: string
+  gwField: string
+}
+
+/** POST /api/adapter/placeholder-preview response */
+export interface PlaceholderPreviewResponse {
+  pdfJobId: string
+  placeholders: PlaceholderInfo[]
+  placeholderCount: number
+}

@@ -9,6 +9,7 @@
  * GET  /api/adapter/preview/:sessionId -- Poll preview status
  * POST /api/adapter/annotated-preview -- Generate annotated preview with shading
  * GET  /api/adapter/annotated-preview/:sessionId -- Get cached annotation data
+ * POST /api/adapter/placeholder-preview -- Generate placeholder-styled preview
  * GET  /api/adapter/document-structure/:sessionId -- Document paragraph list
  * POST /api/adapter/update-mapping -- Merge inline edits into mapping plan
  * GET  /api/adapter/download/:sessionId -- Download adapted DOCX
@@ -32,6 +33,7 @@ import {
   applyInstructions,
   generatePreview,
   generateAnnotatedPreview,
+  generatePlaceholderPreview,
   persistMappingsToKB,
   getDownloadPath,
   processChatFeedback,
@@ -684,6 +686,64 @@ router.get('/annotated-preview/:sessionId', requireAuth, async (req: Request, re
     res.json(response);
   } catch (error) {
     handleAdapterError(res, error, 'Annotated preview status');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/adapter/placeholder-preview
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a placeholder-styled preview of the adapted DOCX.
+ * Body: { sessionId }
+ * Requires session to have adaptation.appliedDocxPath (auto-map completed).
+ * Returns 202 with { pdfJobId, placeholders, placeholderCount }
+ */
+router.post('/placeholder-preview', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = sessionIdSchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        details: body.error.issues,
+      });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = body.data;
+
+    const state = await getWizardSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Wizard session not found' });
+    }
+
+    if (!state.adaptation.appliedDocxPath) {
+      return res.status(400).json({
+        error: 'No adapted DOCX in session. Run auto-map first.',
+      });
+    }
+
+    const result = await generatePlaceholderPreview(state);
+
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'adapter.placeholder_preview',
+      details: {
+        sessionId,
+        pdfJobId: result.pdfJobId,
+        placeholderCount: result.placeholderCount,
+      },
+      ipAddress,
+    });
+
+    res.status(202).json({
+      pdfJobId: result.pdfJobId,
+      placeholders: result.placeholders,
+      placeholderCount: result.placeholderCount,
+    });
+  } catch (error) {
+    handleAdapterError(res, error, 'Placeholder preview generation');
   }
 });
 

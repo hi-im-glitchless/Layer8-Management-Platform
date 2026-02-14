@@ -642,6 +642,118 @@ export async function generateAnnotatedPreview(
 }
 
 // ---------------------------------------------------------------------------
+// Placeholder Preview
+// ---------------------------------------------------------------------------
+
+/** Response from Python /adapter/placeholder-preview */
+interface PlaceholderPreviewServiceResponse {
+  annotated_base64: string;
+  placeholders: Array<{
+    paragraph_index: number;
+    placeholder_text: string;
+    gw_field: string;
+  }>;
+  placeholder_count: number;
+}
+
+/** Placeholder info returned to the frontend (camelCase). */
+export interface PlaceholderInfo {
+  paragraphIndex: number;
+  placeholderText: string;
+  gwField: string;
+}
+
+/** Result of generatePlaceholderPreview(). */
+export interface PlaceholderPreviewResult {
+  pdfJobId: string;
+  placeholders: PlaceholderInfo[];
+  placeholderCount: number;
+}
+
+/**
+ * Generate a placeholder-styled preview of the adapted DOCX.
+ *
+ * 1. Read the adapted DOCX (with Jinja2 placeholders) from disk
+ * 2. POST to Python /adapter/placeholder-preview with base64
+ * 3. Save annotated DOCX to disk
+ * 4. Queue PDF conversion
+ * 5. Update wizard state with placeholder preview data
+ * 6. Return pdfJobId + placeholder list + count
+ */
+export async function generatePlaceholderPreview(
+  wizardState: WizardState,
+): Promise<PlaceholderPreviewResult> {
+  const sanitizerUrl = config.SANITIZER_URL;
+  const { userId, sessionId } = wizardState;
+  const appliedDocxPath = wizardState.adaptation.appliedDocxPath;
+
+  if (!appliedDocxPath) {
+    throw new Error('No adapted DOCX in wizard state -- run auto-map first');
+  }
+
+  if (!fs.existsSync(appliedDocxPath)) {
+    throw new Error(`Adapted DOCX file not found: ${appliedDocxPath}`);
+  }
+
+  // Read adapted DOCX and convert to base64
+  const docxBuffer = fs.readFileSync(appliedDocxPath);
+  const adaptedBase64 = docxBuffer.toString('base64');
+
+  // POST to Python /adapter/placeholder-preview
+  const previewRes = await fetch(`${sanitizerUrl}/adapter/placeholder-preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      adapted_base64: adaptedBase64,
+      template_type: wizardState.config.templateType,
+      language: wizardState.config.language,
+    }),
+  });
+
+  if (!previewRes.ok) {
+    const detail = await previewRes.text();
+    throw new Error(`Sanitizer /adapter/placeholder-preview failed (${previewRes.status}): ${detail}`);
+  }
+
+  const previewData: PlaceholderPreviewServiceResponse =
+    await previewRes.json() as PlaceholderPreviewServiceResponse;
+
+  // Save annotated DOCX to disk
+  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+  const annotatedFilename = `${randomUUID()}_placeholder.docx`;
+  const annotatedPath = path.join(DOCUMENTS_DIR, annotatedFilename);
+  const annotatedBuffer = Buffer.from(previewData.annotated_base64, 'base64');
+  fs.writeFileSync(annotatedPath, annotatedBuffer);
+
+  // Queue PDF conversion
+  const jobId = await addPdfConversionJob(annotatedPath, annotatedFilename);
+
+  // Convert snake_case to camelCase
+  const placeholders: PlaceholderInfo[] = previewData.placeholders.map((p) => ({
+    paragraphIndex: p.paragraph_index,
+    placeholderText: p.placeholder_text,
+    gwField: p.gw_field,
+  }));
+
+  // Update wizard state with placeholder preview data
+  await updateWizardSession(userId, sessionId, {
+    annotatedPreview: {
+      pdfJobId: jobId,
+      pdfUrl: null,
+      tooltipData: [],
+      unmappedParagraphs: [],
+      gapSummary: null,
+    },
+  });
+
+  return {
+    pdfJobId: jobId,
+    placeholders,
+    placeholderCount: previewData.placeholder_count,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // KB Persistence
 // ---------------------------------------------------------------------------
 
