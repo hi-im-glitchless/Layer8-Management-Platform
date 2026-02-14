@@ -11,9 +11,8 @@ import type { WizardStep, MappingPlan } from '../types'
 const StepUpload = lazy(() =>
   import('./StepUpload').then((m) => ({ default: m.StepUpload })),
 )
-// TODO: Plan 05.3-03 will replace this with StepVerify component
-const StepAnalysis = lazy(() =>
-  import('./StepAnalysis').then((m) => ({ default: m.StepAnalysis })),
+const StepVerify = lazy(() =>
+  import('./StepVerify').then((m) => ({ default: m.StepVerify })),
 )
 const StepPreview = lazy(() =>
   import('./StepPreview').then((m) => ({ default: m.StepPreview })),
@@ -191,16 +190,14 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
           />
         )
       case 'verify':
-        // TODO: Plan 05.3-03 will replace StepAnalysis with StepVerify component
         return (
-          <StepAnalysis
+          <StepVerify
             sessionId={sessionId!}
-            file={localFile}
             templateType={sessionQuery.data?.config.templateType ?? 'web'}
             language={sessionQuery.data?.config.language ?? 'en'}
             initialMappingPlan={localMappingPlan ?? sessionQuery.data?.analysis.mappingPlan ?? null}
             onMappingUpdate={setLocalMappingPlan}
-            onProceed={() => advanceToStep('preview')}
+            onApprove={() => advanceToStep('preview')}
           />
         )
       case 'preview':
