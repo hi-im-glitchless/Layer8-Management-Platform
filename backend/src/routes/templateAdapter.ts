@@ -115,9 +115,21 @@ const correctionUpdateSchema = z.object({
   })),
 });
 
+const mappingEntrySchema = z.object({
+  sectionIndex: z.number().int().min(0),
+  sectionText: z.string(),
+  gwField: z.string(),
+  placeholderTemplate: z.string(),
+  confidence: z.number().min(0).max(1),
+  markerType: z.string(),
+  rationale: z.string(),
+});
+
 const updateMappingSchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
   updates: z.object({
+    /** When present, replaces the entire mapping plan entries (skips diff logic) */
+    fullPlan: z.array(mappingEntrySchema).optional(),
     editedEntries: z.array(z.object({
       sectionIndex: z.number().int().min(0),
       gwField: z.string().min(1),
@@ -129,6 +141,7 @@ const updateMappingSchema = z.object({
       markerType: z.string().min(1),
       sectionText: z.string().optional(),
     })).optional(),
+    deletedSectionIndices: z.array(z.number().int().min(0)).optional(),
   }),
 });
 
@@ -927,6 +940,25 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
       });
     }
 
+    // Full plan replacement mode -- skip all diff logic
+    if (updates.fullPlan) {
+      const prevCount = mappingPlan.entries.length;
+      mappingPlan.entries = updates.fullPlan as MappingEntry[];
+      console.log(
+        `[update-mapping] Full plan replacement: ${prevCount} → ${mappingPlan.entries.length} entries`,
+      );
+    } else {
+    // Apply deletions -- remove entries by sectionIndex
+    if (updates.deletedSectionIndices && updates.deletedSectionIndices.length > 0) {
+      const deleteSet = new Set(updates.deletedSectionIndices);
+      mappingPlan.entries = mappingPlan.entries.filter(
+        (e) => !deleteSet.has(e.sectionIndex),
+      );
+      console.log(
+        `[update-mapping] Deleted ${updates.deletedSectionIndices.length} entries: ${[...deleteSet].join(', ')}`,
+      );
+    }
+
     // Apply edited entries -- find by sectionIndex and update gwField + markerType
     if (updates.editedEntries) {
       for (const edit of updates.editedEntries) {
@@ -1082,6 +1114,7 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
         mappingPlan.entries.push(newEntry);
       }
     }
+    } // end else (diff-based updates)
 
     // Persist updated mapping plan to wizard state
     const updated = await updateWizardSession(userId, sessionId, {
@@ -1099,6 +1132,7 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
         sessionId,
         editedCount: updates.editedEntries?.length ?? 0,
         addedCount: updates.addedEntries?.length ?? 0,
+        deletedCount: updates.deletedSectionIndices?.length ?? 0,
         totalEntries: mappingPlan.entries.length,
       },
       ipAddress,

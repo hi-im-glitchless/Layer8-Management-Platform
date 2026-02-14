@@ -26,9 +26,9 @@ interface MappingTableProps {
   /** Called when mapping plan changes via inline edit, delete, or added entry */
   onMappingPlanChange?: (updatedPlan: MappingPlan) => void
   /** Called when a row is clicked (for bidirectional table-PDF sync) */
-  onRowClick?: (entry: MappingEntry) => void
-  /** Index of the currently highlighted row (for bidirectional sync) */
-  highlightedIndex?: number | null
+  onRowClick?: (entry: MappingEntry, entryIdx: number) => void
+  /** Array index of the currently highlighted row (for bidirectional sync) */
+  highlightedIdx?: number | null
   /** Index of a newly added row that should start in edit mode */
   newRowIndex?: number | null
   /** Called after the new row has been initialized in edit mode */
@@ -37,11 +37,16 @@ interface MappingTableProps {
 
 type SortDirection = 'asc' | 'desc' | null
 
-/** Inline edit state for a row */
+/** Inline edit state for a row — keyed by array index, not sectionIndex */
 interface EditState {
-  sectionIndex: number
+  entryIdx: number
   gwField: string
   markerType: string
+}
+
+/** Entry augmented with its original array position */
+interface TaggedEntry extends MappingEntry {
+  _idx: number
 }
 
 function confidenceColor(confidence: number): string {
@@ -66,7 +71,7 @@ export function MappingTable({
   isEditable = false,
   onMappingPlanChange,
   onRowClick,
-  highlightedIndex,
+  highlightedIdx,
   newRowIndex,
   onNewRowHandled,
 }: MappingTableProps) {
@@ -74,14 +79,15 @@ export function MappingTable({
   const [editState, setEditState] = useState<EditState | null>(null)
   const tableEndRef = useRef<HTMLDivElement>(null)
 
+  // Tag each entry with its original array index, then sort
   const sortedEntries = useMemo(() => {
-    const entries = [...mappingPlan.entries]
+    const tagged: TaggedEntry[] = mappingPlan.entries.map((e, i) => ({ ...e, _idx: i }))
     if (sortDirection === 'asc') {
-      entries.sort((a, b) => a.confidence - b.confidence)
+      tagged.sort((a, b) => a.confidence - b.confidence)
     } else if (sortDirection === 'desc') {
-      entries.sort((a, b) => b.confidence - a.confidence)
+      tagged.sort((a, b) => b.confidence - a.confidence)
     }
-    return entries
+    return tagged
   }, [mappingPlan.entries, sortDirection])
 
   const toggleSort = () => {
@@ -95,10 +101,11 @@ export function MappingTable({
   // Auto-enter edit mode for newly added rows from PDF selection
   useEffect(() => {
     if (newRowIndex == null) return
-    const entry = mappingPlan.entries.find((e) => e.sectionIndex === newRowIndex)
-    if (entry) {
+    const entryIdx = mappingPlan.entries.findIndex((e) => e.sectionIndex === newRowIndex)
+    if (entryIdx >= 0) {
+      const entry = mappingPlan.entries[entryIdx]
       setEditState({
-        sectionIndex: entry.sectionIndex,
+        entryIdx,
         gwField: entry.gwField,
         markerType: entry.markerType,
       })
@@ -108,10 +115,10 @@ export function MappingTable({
     onNewRowHandled?.()
   }, [newRowIndex, mappingPlan.entries, onNewRowHandled])
 
-  // Start inline edit for any row
-  const handleStartEdit = useCallback((entry: MappingEntry) => {
+  // Start inline edit for a specific row by its array index
+  const handleStartEdit = useCallback((entry: MappingEntry, entryIdx: number) => {
     setEditState({
-      sectionIndex: entry.sectionIndex,
+      entryIdx,
       gwField: entry.gwField,
       markerType: entry.markerType,
     })
@@ -122,13 +129,9 @@ export function MappingTable({
     (gwField: string, markerType: string, _jinja2: string) => {
       if (!editState || !onMappingPlanChange) return
 
-      const updatedEntries = mappingPlan.entries.map((entry) => {
-        if (entry.sectionIndex === editState.sectionIndex) {
-          return {
-            ...entry,
-            gwField,
-            markerType,
-          }
+      const updatedEntries = mappingPlan.entries.map((entry, i) => {
+        if (i === editState.entryIdx) {
+          return { ...entry, gwField, markerType }
         }
         return entry
       })
@@ -148,12 +151,9 @@ export function MappingTable({
     (raw: string) => {
       if (!editState || !onMappingPlanChange) return
 
-      const updatedEntries = mappingPlan.entries.map((entry) => {
-        if (entry.sectionIndex === editState.sectionIndex) {
-          return {
-            ...entry,
-            gwField: raw,
-          }
+      const updatedEntries = mappingPlan.entries.map((entry, i) => {
+        if (i === editState.entryIdx) {
+          return { ...entry, gwField: raw }
         }
         return entry
       })
@@ -173,13 +173,11 @@ export function MappingTable({
     setEditState(null)
   }, [])
 
-  // Delete a row
+  // Delete a row by its array index
   const handleDeleteRow = useCallback(
-    (sectionIndex: number) => {
+    (entryIdx: number) => {
       if (!onMappingPlanChange) return
-      const updatedEntries = mappingPlan.entries.filter(
-        (entry) => entry.sectionIndex !== sectionIndex,
-      )
+      const updatedEntries = mappingPlan.entries.filter((_, i) => i !== entryIdx)
       onMappingPlanChange({
         ...mappingPlan,
         entries: updatedEntries,
@@ -207,14 +205,15 @@ export function MappingTable({
       rationale: 'Manually added',
     }
 
+    const newEntries = [...mappingPlan.entries, newEntry]
     onMappingPlanChange({
       ...mappingPlan,
-      entries: [...mappingPlan.entries, newEntry],
+      entries: newEntries,
     })
 
-    // Auto-enter edit mode for the new row
+    // Auto-enter edit mode for the new (last) entry
     setEditState({
-      sectionIndex: newIndex,
+      entryIdx: newEntries.length - 1,
       gwField: '',
       markerType: 'text',
     })
@@ -282,12 +281,12 @@ export function MappingTable({
               </TableCell>
             </TableRow>
           ) : (
-            sortedEntries.map((entry: MappingEntry) => {
-              const isEditing = editState?.sectionIndex === entry.sectionIndex
-              const isHighlighted = highlightedIndex === entry.sectionIndex
+            sortedEntries.map((entry: TaggedEntry) => {
+              const isEditing = editState?.entryIdx === entry._idx
+              const isHighlighted = highlightedIdx === entry._idx
               return (
                 <TableRow
-                  key={`entry-${entry.sectionIndex}`}
+                  key={`entry-${entry._idx}`}
                   tabIndex={0}
                   className={cn(
                     'cursor-pointer transition-all duration-300',
@@ -295,15 +294,15 @@ export function MappingTable({
                     !isHighlighted && 'hover:bg-muted/50',
                   )}
                   onClick={() => {
-                    if (!isEditing) onRowClick?.(entry)
+                    if (!isEditing) onRowClick?.(entry, entry._idx)
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !isEditing) {
-                      onRowClick?.(entry)
+                      onRowClick?.(entry, entry._idx)
                     }
                   }}
                   onDoubleClick={() => {
-                    if (isEditable && !isEditing) handleStartEdit(entry)
+                    if (isEditable && !isEditing) handleStartEdit(entry, entry._idx)
                   }}
                 >
                   <TableCell className="font-mono text-[10px] text-muted-foreground">
@@ -340,7 +339,7 @@ export function MappingTable({
                         className="group/edit inline-flex items-center gap-1 text-xs border border-dashed border-muted-foreground/30 bg-muted/50 px-1.5 py-0.5 rounded hover:border-primary/50 hover:bg-primary/5 transition-colors cursor-pointer font-mono"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleStartEdit(entry)
+                          handleStartEdit(entry, entry._idx)
                         }}
                       >
                         <span className="truncate max-w-[140px]">{entry.gwField || 'Click to set...'}</span>
@@ -381,7 +380,7 @@ export function MappingTable({
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteRow(entry.sectionIndex)}
+                            onClick={() => handleDeleteRow(entry._idx)}
                             aria-label="Remove mapping"
                           >
                             <Trash2 className="h-3 w-3" aria-hidden="true" />

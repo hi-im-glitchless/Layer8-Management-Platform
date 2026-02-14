@@ -79,8 +79,8 @@ export function StepVerify({
   const [scrollTargetPage, setScrollTargetPage] = useState<number | null>(null)
   const [scrollTargetText, setScrollTargetText] = useState<string | null>(null)
 
-  // Bidirectional sync state
-  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null)
+  // Bidirectional sync state — use array index to avoid multi-highlight
+  const [highlightedIdx, setHighlightedIdx] = useState<number | null>(null)
   const [newRowIndex, setNewRowIndex] = useState<number | null>(null)
 
   // Persistent visual selections on PDF
@@ -194,6 +194,21 @@ export function StepVerify({
         }
       }
 
+      // Detect removed entries and sync PDF selections
+      const prevIndices = new Set(mappingPlan?.entries.map((e) => e.sectionIndex) ?? [])
+      const newIndices = new Set(updatedPlan.entries.map((e) => e.sectionIndex))
+      const removedIndices = [...prevIndices].filter((idx) => !newIndices.has(idx))
+
+      if (removedIndices.length > 0) {
+        const removedSet = new Set(removedIndices)
+        setSelections((prev) => {
+          const filtered = prev.filter((s) => !removedSet.has(s.paragraphIndex))
+          // Renumber sequentially
+          selectionCounterRef.current = filtered.length
+          return filtered.map((s, i) => ({ ...s, selectionNumber: i + 1 }))
+        })
+      }
+
       // Update local state
       setMappingPlan(updatedPlan)
       onMappingUpdate(updatedPlan)
@@ -206,7 +221,7 @@ export function StepVerify({
         })
       }
     },
-    [sessionId, onMappingUpdate],
+    [sessionId, onMappingUpdate, mappingPlan],
   )
 
   // Handle text selection from InteractivePdfViewer -- add new row to mapping table
@@ -225,12 +240,12 @@ export function StepVerify({
       }
 
       // Deduplicate: if this sectionIndex already exists, highlight instead
-      const exists = mappingPlan.entries.some(
+      const existingIdx = mappingPlan.entries.findIndex(
         (e) => e.sectionIndex === selection.paragraphIndex,
       )
-      if (exists) {
+      if (existingIdx >= 0) {
         toast.info(`Paragraph #${selection.paragraphIndex} is already in the mapping table`)
-        setHighlightedIndex(selection.paragraphIndex)
+        setHighlightedIdx(existingIdx)
         return
       }
 
@@ -295,43 +310,12 @@ export function StepVerify({
     // Clear visual selections since PDF content will change
     setSelections([])
     try {
-      // 1. Save current mapping plan to backend wizard state
-      const original = originalMappingPlanRef.current
-      const originalByIndex = new Map(
-        (original?.entries ?? []).map((e) => [e.sectionIndex, e]),
-      )
-
-      const editedEntries: Array<{ sectionIndex: number; gwField: string; markerType: string }> = []
-      const addedEntries: Array<{ paragraphIndex: number; gwField: string; markerType: string; sectionText?: string }> = []
-
-      for (const entry of mappingPlan.entries) {
-        const orig = originalByIndex.get(entry.sectionIndex)
-        if (!orig) {
-          // New entry added by user
-          if (entry.gwField) {
-            addedEntries.push({
-              paragraphIndex: entry.sectionIndex,
-              gwField: entry.gwField,
-              markerType: entry.markerType,
-              sectionText: entry.sectionText || undefined,
-            })
-          }
-        } else if (orig.gwField !== entry.gwField || orig.markerType !== entry.markerType) {
-          // Edited existing entry
-          editedEntries.push({
-            sectionIndex: entry.sectionIndex,
-            gwField: entry.gwField,
-            markerType: entry.markerType,
-          })
-        }
-      }
-
-      if (editedEntries.length > 0 || addedEntries.length > 0) {
-        await adapterApi.updateMapping({
-          sessionId,
-          updates: { editedEntries, addedEntries },
-        })
-      }
+      // 1. Send the full current mapping plan to the backend
+      //    (avoids broken diff logic when entries share sectionIndex)
+      await adapterApi.updateMapping({
+        sessionId,
+        updates: { fullPlan: mappingPlan.entries },
+      })
 
       // 2. Re-apply DOCX with the updated mapping plan
       await adapterApi.reapplyMappingPlan(sessionId)
@@ -386,14 +370,14 @@ export function StepVerify({
 
   // Table row click -> scroll PDF to corresponding placeholder
   const handleRowClick = useCallback(
-    (entry: MappingEntry) => {
-      setHighlightedIndex(entry.sectionIndex)
+    (entry: MappingEntry, entryIdx: number) => {
+      setHighlightedIdx(entryIdx)
       const match = placeholders.find((p) => p.paragraphIndex === entry.sectionIndex)
       if (match) {
         setScrollTargetText(match.placeholderText)
       }
       // Clear highlight after a brief moment
-      setTimeout(() => setHighlightedIndex(null), 2000)
+      setTimeout(() => setHighlightedIdx(null), 2000)
     },
     [placeholders],
   )
@@ -533,7 +517,7 @@ export function StepVerify({
                 isEditable={true}
                 onMappingPlanChange={handleMappingPlanChange}
                 onRowClick={handleRowClick}
-                highlightedIndex={highlightedIndex}
+                highlightedIdx={highlightedIdx}
                 newRowIndex={newRowIndex}
                 onNewRowHandled={handleNewRowHandled}
               />

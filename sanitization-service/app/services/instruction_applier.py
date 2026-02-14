@@ -156,21 +156,22 @@ class InstructionApplier:
         """Replace text using multi-strategy search across the document.
 
         For *repeating* fields (report_date, client.short_name, title, etc.)
-        all six strategies run and every occurrence is replaced.
+        all strategies run and every occurrence is replaced.
 
-        For *content* fields (finding.*, item.*, etc.) only the target
-        paragraph is tried, with a fallback body scan if the target misses.
-        This prevents partial-substring matches in unrelated paragraphs
-        (e.g. replacing "Classification" inside a "Vulnerability Classification" heading).
+        For *content* fields (finding.*, item.*, etc.) we try the target
+        paragraph first, then fall back to searching ALL locations (body,
+        tables, text boxes) but stop at the first match found.
+
+        Header/footer scanning (strategies 3 and 6) is restricted to
+        repeating fields since content fields never appear there.
 
         Strategy order:
         1. Body paragraph at the given index
-        2. Fallback: other body paragraphs (first match only, only if #1 missed)
-        --- strategies 3-6 only for _REPEATING_FIELDS ---
-        3. Header/footer top-level paragraphs
+        2. Other body paragraphs
+        3. Header/footer top-level paragraphs (repeating only)
         4. Body table cell paragraphs
         5. Body text box paragraphs (w:txbxContent)
-        6. Header/footer nested tables and text boxes
+        6. Header/footer nested tables and text boxes (repeating only)
         """
         idx = instruction.paragraph_index
         original = instruction.original_text
@@ -196,7 +197,7 @@ class InstructionApplier:
                     )
                     total_replaced += 1
         elif total_replaced == 0:
-            # Content fields: fallback to first match only
+            # Content fields: fallback to first body match only
             for i, para in enumerate(body_paragraphs):
                 if i == idx:
                     continue
@@ -208,9 +209,8 @@ class InstructionApplier:
                     total_replaced += 1
                     break
 
-        # Strategies 3-6: Only for repeating header/footer/text-box fields
+        # Strategy 3: Header/footer top-level paragraphs (repeating only)
         if is_repeating:
-            # Strategy 3: Header/footer top-level paragraphs
             for section in doc.sections:
                 for hf_label, hf in self._iter_header_footers(section):
                     for para in hf.paragraphs:
@@ -221,7 +221,9 @@ class InstructionApplier:
                             )
                             total_replaced += 1
 
-            # Strategy 4: Body table cell paragraphs
+        # Strategy 4: Body table cell paragraphs (always searched)
+        if is_repeating:
+            # Repeating: replace ALL table occurrences
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
@@ -232,8 +234,30 @@ class InstructionApplier:
                                     instruction.gw_field,
                                 )
                                 total_replaced += 1
+        elif total_replaced == 0:
+            # Content: fallback to first table match
+            found = False
+            for table in doc.tables:
+                if found:
+                    break
+                for row in table.rows:
+                    if found:
+                        break
+                    for cell in row.cells:
+                        if found:
+                            break
+                        for para in cell.paragraphs:
+                            if self._replace_in_paragraph(para, original, replacement):
+                                logger.info(
+                                    "Applied replacement in table cell (gw_field=%s)",
+                                    instruction.gw_field,
+                                )
+                                total_replaced += 1
+                                found = True
+                                break
 
-            # Strategy 5: Body text boxes
+        # Strategy 5: Body text boxes (always searched)
+        if is_repeating:
             for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
                 for p_elem in txbx.findall(qn("w:p")):
                     para = _ParagraphWrapper(p_elem, doc.element.body)
@@ -243,8 +267,24 @@ class InstructionApplier:
                             instruction.gw_field,
                         )
                         total_replaced += 1
+        elif total_replaced == 0:
+            found = False
+            for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
+                if found:
+                    break
+                for p_elem in txbx.findall(qn("w:p")):
+                    para = _ParagraphWrapper(p_elem, doc.element.body)
+                    if self._replace_in_paragraph(para, original, replacement):
+                        logger.info(
+                            "Applied replacement in text box (gw_field=%s)",
+                            instruction.gw_field,
+                        )
+                        total_replaced += 1
+                        found = True
+                        break
 
-            # Strategy 6: Header/footer nested tables and text boxes
+        # Strategy 6: Header/footer nested tables and text boxes (repeating only)
+        if is_repeating:
             for section in doc.sections:
                 for hf_label, hf in self._iter_header_footers(section):
                     hf_elem = hf._element

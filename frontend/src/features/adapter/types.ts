@@ -214,6 +214,8 @@ export interface AnnotatedPreviewStatus {
 export interface MappingUpdateRequest {
   sessionId: string
   updates: {
+    /** Replace the entire mapping plan (skips diff logic) */
+    fullPlan?: MappingEntry[]
     editedEntries?: Array<{
       sectionIndex: number
       gwField: string
@@ -225,6 +227,7 @@ export interface MappingUpdateRequest {
       markerType: string
       sectionText?: string
     }>
+    deletedSectionIndices?: number[]
   }
 }
 

@@ -71,7 +71,16 @@ export function mapReportToTemplateContext(report: GWReport): TemplateContext {
     email: a.user.email || '',
   }));
 
-  const findings = (report.findings || []).map((f) => ({
+  // Sort findings by severity weight descending (Critical → High → Medium → Low),
+  // then by CVSS score descending as tiebreaker within the same severity.
+  const sortedFindings = [...(report.findings || [])].sort((a, b) => {
+    const wA = a.severity?.weight ?? 0;
+    const wB = b.severity?.weight ?? 0;
+    if (wB !== wA) return wB - wA;
+    return (b.cvssScore ?? 0) - (a.cvssScore ?? 0);
+  });
+
+  const findings = sortedFindings.map((f) => ({
     title: f.title,
     severity: f.severity?.severity || '',
     severity_color: f.severity?.color || '',

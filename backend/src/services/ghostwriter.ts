@@ -186,6 +186,15 @@ async function graphqlRequest<T>(
  * into our camelCase GWFinding interface.
  */
 function mapRawFinding(raw: Record<string, unknown>): GWFinding {
+  // Debug: log raw finding fields to diagnose empty content
+  const contentFields = ['description', 'impact', 'mitigation', 'replication_steps', 'replicationSteps'];
+  const fieldSummary = contentFields.reduce((acc, f) => {
+    const val = raw[f];
+    acc[f] = val ? `${String(val).length} chars` : (val === null ? 'null' : val === undefined ? 'undefined' : 'empty');
+    return acc;
+  }, {} as Record<string, string>);
+  console.log(`[ghostwriter] Finding "${raw.title}" raw content:`, fieldSummary);
+
   return {
     id: raw.id as number,
     title: raw.title as string,

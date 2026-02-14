@@ -215,6 +215,14 @@ export function InteractivePdfViewer({
 
       if (bestMatch) {
         bestMatch.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        // Brief flash highlight so the user can see which element was found
+        bestMatch.style.backgroundColor = 'rgba(59, 130, 246, 0.3)'
+        bestMatch.style.borderRadius = '2px'
+        bestMatch.style.transition = 'background-color 1.5s ease-out'
+        setTimeout(() => {
+          bestMatch!.style.backgroundColor = ''
+          bestMatch!.style.borderRadius = ''
+        }, 1500)
       }
       onScrollComplete?.()
     }, 100)
