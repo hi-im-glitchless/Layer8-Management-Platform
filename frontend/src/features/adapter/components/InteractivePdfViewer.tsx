@@ -179,6 +179,53 @@ export function InteractivePdfViewer({
     onScrollComplete?.()
   }, [scrollTargetPage, pdfScrollEl, onScrollComplete])
 
+  // Scroll to matching text span when scrollTargetText changes
+  useEffect(() => {
+    if (!scrollTargetText || !pdfScrollEl) return
+    const raw = scrollTargetText.toLowerCase().trim()
+    if (raw.length < 3) {
+      onScrollComplete?.()
+      return
+    }
+    // Strip Jinja2 delimiters to get the core field name (e.g. "finding.recommendations")
+    const needle = raw.replace(/\{\{|\}\}/g, '').trim()
+    // Small delay to ensure text layer is rendered
+    const timer = setTimeout(() => {
+      const spans = pdfScrollEl.querySelectorAll('.react-pdf__Page__textContent span')
+      let bestMatch: HTMLElement | null = null
+      let bestScore = 0
+
+      for (const span of spans) {
+        const text = (span.textContent || '').toLowerCase().trim()
+        if (!text || text.length < 3) continue
+
+        // Exact: span contains the full needle (or full raw with braces)
+        if (text.includes(needle) || text.includes(raw)) {
+          bestMatch = span as HTMLElement
+          break
+        }
+
+        // Partial: needle contains the span text, but only if span text is long
+        // enough to be distinctive (>60% of needle length avoids matching common words)
+        if (needle.includes(text) && text.length > needle.length * 0.6) {
+          const score = text.length / needle.length
+          if (score > bestScore) {
+            bestScore = score
+            bestMatch = span as HTMLElement
+          }
+        }
+      }
+
+      if (bestMatch) {
+        bestMatch.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        bestMatch.classList.add('mapped-highlight-flash')
+        setTimeout(() => bestMatch!.classList.remove('mapped-highlight-flash'), 1500)
+      }
+      onScrollComplete?.()
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [scrollTargetText, pdfScrollEl, onScrollComplete])
+
   const handleMouseUp = useCallback(() => {
     // Debounce: 100ms cooldown between captures
     const now = Date.now()
