@@ -7,6 +7,7 @@ POST /apply -- Apply instructions to a DOCX template (validate + enrich + apply)
 POST /enrich -- Enrich an instruction set via rules engine (no DOCX modification)
 POST /build-insertion-prompt -- Build LLM Pass 2 prompt from doc structure + mapping plan
 POST /annotate -- Generate annotated DOCX preview with paragraph shading + metadata
+POST /placeholder-preview -- Generate placeholder-styled DOCX preview with Jinja shading
 """
 import base64
 import json
@@ -32,12 +33,15 @@ from app.models.adapter import (
     MappingEntry,
     MappingPlan,
     ParagraphInfo,
+    PlaceholderPreviewRequest,
+    PlaceholderPreviewResponse,
     ValidateMappingRequest,
     ValidateMappingResponse,
 )
 from app.services.annotated_preview import (
     apply_paragraph_shading,
     generate_annotation_metadata,
+    generate_placeholder_preview,
 )
 from app.services.gap_detector import detect_gaps
 from app.models.docx import DocxStructure
@@ -802,4 +806,58 @@ async def annotate_template(body: AnnotateRequest) -> AnnotateResponse:
         tooltip_data=[t.model_dump() for t in metadata.tooltip_data],
         unmapped_paragraphs=[u.model_dump() for u in metadata.unmapped_paragraphs],
         gap_summary=gap_result.model_dump(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Plan 05.3-01 endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/placeholder-preview", response_model=PlaceholderPreviewResponse)
+async def placeholder_preview(body: PlaceholderPreviewRequest) -> PlaceholderPreviewResponse:
+    """Generate a placeholder-styled preview of an adapted DOCX.
+
+    Decodes the base64 adapted DOCX (which contains Jinja2 placeholders
+    from the auto-map insertion pass), scans for ``{{ ... }}`` expressions,
+    applies light blue background shading to paragraphs containing them,
+    and returns the annotated DOCX plus placeholder metadata.
+    """
+    # Decode base64 adapted DOCX
+    try:
+        doc_bytes = base64.b64decode(body.adapted_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="adapted_base64 is not valid base64.")
+
+    if len(doc_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Decoded document is empty.")
+
+    # Validate DOCX magic bytes
+    if doc_bytes[:4] != _DOCX_MAGIC:
+        raise HTTPException(
+            status_code=400,
+            detail="Decoded content is not a valid DOCX file (bad magic bytes).",
+        )
+
+    # Generate placeholder preview
+    try:
+        annotated_bytes, placeholders = generate_placeholder_preview(doc_bytes)
+    except Exception as exc:
+        logger.error("Placeholder preview generation failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate placeholder preview: {exc}",
+        )
+
+    annotated_base64 = base64.b64encode(annotated_bytes).decode("ascii")
+
+    logger.info(
+        "Placeholder preview: %d placeholders found",
+        len(placeholders),
+    )
+
+    return PlaceholderPreviewResponse(
+        annotated_base64=annotated_base64,
+        placeholders=placeholders,
+        placeholder_count=len(placeholders),
     )
