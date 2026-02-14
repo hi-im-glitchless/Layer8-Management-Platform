@@ -119,6 +119,7 @@ interface PlacementPromptResponse {
   prompt: string;
   system_prompt: string;
   paragraph_count: number;
+  zone_map: Record<number, string>;  // paragraph_index -> zone
 }
 
 /** Response from Python /adapter/validate-placement */
@@ -577,6 +578,7 @@ export async function applyInstructions(
       appliedCount: applyData.applied_count,
       skippedCount: applyData.skipped_count,
       placementWarnings: applyData.warnings ?? [],
+      zoneMap: {},
     },
   });
 
@@ -639,6 +641,7 @@ export async function reapplyFromMappingPlan(
       appliedCount: data.applied_count,
       skippedCount: data.skipped_count,
       placementWarnings: data.warnings ?? [],
+      zoneMap: {},
     },
   });
 
@@ -777,12 +780,15 @@ export async function regenerateWithLLM(
   const adaptedBuffer = Buffer.from(applyData.output_base64, 'base64');
   fs.writeFileSync(adaptedPath, adaptedBuffer);
 
-  // Step 6: Update wizard state with results + placement warnings
+  // Step 6: Update wizard state with results + placement warnings + zone map
   // Combine validation warnings + apply warnings for full visibility
   const placementWarnings = [
     ...validateData.warnings,
     ...applyData.warnings,
   ];
+
+  // Store zone_map from placement prompt response for KB enrichment
+  const zoneMap: Record<number, string> = promptData.zone_map ?? {};
 
   const updated = await updateWizardSession(userId, sessionId, {
     currentStep: 'verify',
@@ -792,6 +798,7 @@ export async function regenerateWithLLM(
       appliedCount: applyData.applied_count,
       skippedCount: applyData.skipped_count,
       placementWarnings,
+      zoneMap,
     },
   });
 

@@ -39,6 +39,7 @@ export interface WizardAdaptation {
   appliedCount: number;
   skippedCount: number;
   placementWarnings: string[];  // skip/mismatch warnings from LLM placement validation
+  zoneMap: Record<number, string>;  // paragraph_index -> zone (from placement prompt response)
 }
 
 export interface WizardPreview {
@@ -160,6 +161,7 @@ export async function createWizardSession(userId: string): Promise<WizardState> 
       appliedCount: 0,
       skippedCount: 0,
       placementWarnings: [],
+      zoneMap: {},
     },
     preview: {
       pdfJobId: null,
