@@ -3,15 +3,19 @@
 Applies green (mapped) and yellow (gap) background shading to DOCX paragraphs
 via OOXML XML manipulation, and generates tooltip/unmapped-paragraph metadata
 for the frontend overlay.
+
+Also provides placeholder preview shading (light blue) for adapted DOCX files
+containing Jinja2 expressions after auto-map insertion.
 """
 import logging
+import re
 from io import BytesIO
 
 from docx import Document
 from docx.oxml.ns import qn
 from lxml import etree
 
-from app.models.adapter import MappingPlan
+from app.models.adapter import MappingPlan, PlaceholderInfo
 from app.models.gap_detection import (
     AnnotationMetadata,
     GapEntry,
@@ -23,8 +27,9 @@ from app.services.docx_parser import DocxParserService
 logger = logging.getLogger(__name__)
 
 # Shading colors (hex, no leading #)
-GREEN_SHADING = "C6EFCE"   # RGB(198, 239, 206) -- mapped paragraphs
-YELLOW_SHADING = "FFF2CC"  # RGB(255, 242, 204) -- gap paragraphs
+GREEN_SHADING = "C6EFCE"       # RGB(198, 239, 206) -- mapped paragraphs
+YELLOW_SHADING = "FFF2CC"      # RGB(255, 242, 204) -- gap paragraphs
+PLACEHOLDER_SHADING = "DAEAF6" # RGB(218, 234, 246) -- placeholder paragraphs (light blue)
 
 # OOXML namespace
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -191,3 +196,97 @@ def generate_annotation_metadata(
         tooltip_data=tooltip_data,
         unmapped_paragraphs=unmapped,
     )
+
+
+# ---------------------------------------------------------------------------
+# Placeholder Preview (Phase 5.3)
+# ---------------------------------------------------------------------------
+
+# Regex to match Jinja2 expressions: {{ ... }}
+_JINJA2_PATTERN = re.compile(r"\{\{.*?\}\}")
+
+
+def generate_placeholder_preview(
+    doc_bytes: bytes,
+) -> tuple[bytes, list[PlaceholderInfo]]:
+    """Generate a placeholder-styled preview of an adapted DOCX.
+
+    Scans all paragraphs (including those inside tables) for Jinja2
+    expressions (``{{ ... }}``), applies light blue background shading
+    to paragraphs that contain at least one placeholder, and returns
+    the annotated DOCX bytes plus a list of placeholder metadata.
+
+    Args:
+        doc_bytes: Raw bytes of the adapted DOCX with Jinja2 placeholders.
+
+    Returns:
+        Tuple of (annotated_docx_bytes, placeholder_info_list).
+    """
+    doc = Document(BytesIO(doc_bytes))
+    placeholders: list[PlaceholderInfo] = []
+
+    # Scan body paragraphs
+    for idx, paragraph in enumerate(doc.paragraphs):
+        _scan_paragraph_for_placeholders(paragraph, idx, placeholders)
+
+    # Scan table cell paragraphs
+    # Use a running index that continues after body paragraphs
+    table_para_offset = len(doc.paragraphs)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    _scan_paragraph_for_placeholders(
+                        paragraph, table_para_offset, placeholders
+                    )
+                    table_para_offset += 1
+
+    # Save modified document to bytes
+    output = BytesIO()
+    doc.save(output)
+    annotated_bytes = output.getvalue()
+
+    logger.info(
+        "Placeholder preview: %d placeholders found across %d paragraphs",
+        len(placeholders),
+        len({p.paragraph_index for p in placeholders}),
+    )
+
+    return annotated_bytes, placeholders
+
+
+def _scan_paragraph_for_placeholders(
+    paragraph,
+    paragraph_index: int,
+    placeholders: list[PlaceholderInfo],
+) -> None:
+    """Scan a single paragraph for Jinja2 expressions and apply shading.
+
+    If the paragraph text contains one or more ``{{ ... }}`` patterns,
+    light blue shading is applied and a PlaceholderInfo entry is added
+    for each match.
+
+    Args:
+        paragraph: A python-docx Paragraph object.
+        paragraph_index: The index to record in PlaceholderInfo.
+        placeholders: Accumulator list -- matched entries are appended.
+    """
+    text = paragraph.text
+    matches = _JINJA2_PATTERN.findall(text)
+    if not matches:
+        return
+
+    # Apply light blue shading to the paragraph
+    _set_paragraph_shading(paragraph, PLACEHOLDER_SHADING)
+
+    # Extract placeholder info for each match
+    for match in matches:
+        # Strip {{ }} and whitespace to get the field path
+        gw_field = match.strip().removeprefix("{{").removesuffix("}}").strip()
+        placeholders.append(
+            PlaceholderInfo(
+                paragraph_index=paragraph_index,
+                placeholder_text=match,
+                gw_field=gw_field,
+            )
+        )

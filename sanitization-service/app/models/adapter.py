@@ -319,3 +319,32 @@ class BatchMappingResponse(BaseModel):
     mappings: list[BatchMappingEntry] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Placeholder preview models (consumed by Plan 05.3-01)
+# ---------------------------------------------------------------------------
+
+
+class PlaceholderPreviewRequest(BaseModel):
+    """Request body for POST /adapter/placeholder-preview."""
+
+    adapted_base64: str = Field(..., description="Base64-encoded DOCX with Jinja placeholders inserted")
+    template_type: TemplateType
+    language: TemplateLanguage
+
+
+class PlaceholderInfo(BaseModel):
+    """Metadata for a single detected Jinja2 placeholder."""
+
+    paragraph_index: int = Field(..., description="Zero-based paragraph index in the document")
+    placeholder_text: str = Field(..., description="The full Jinja2 expression, e.g. '{{ client.short_name }}'")
+    gw_field: str = Field(..., description="Extracted field path, e.g. 'client.short_name'")
+
+
+class PlaceholderPreviewResponse(BaseModel):
+    """Response from POST /adapter/placeholder-preview."""
+
+    annotated_base64: str = Field(..., description="Base64-encoded DOCX with light blue placeholder shading")
+    placeholders: list[PlaceholderInfo] = Field(default_factory=list)
+    placeholder_count: int = Field(0, description="Total number of placeholders found")
