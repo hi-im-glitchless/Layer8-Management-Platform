@@ -422,6 +422,61 @@ export async function applyInstructions(
 }
 
 // ---------------------------------------------------------------------------
+// Auto-Map (Combined Pass 1 + Pass 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Auto-map a template by chaining Pass 1 (analysis) + Pass 2 (insertion).
+ *
+ * Called after upload to automatically analyze the template structure,
+ * generate a mapping plan, and apply Jinja2 placeholders in one request.
+ * On success, the wizard advances to the 'verify' step.
+ *
+ * If Pass 1 fails, the error is thrown with context.
+ * If Pass 2 fails, the analysis results are preserved in wizard state
+ * so the mapping plan is still available for manual retry.
+ *
+ * @param wizardState - Wizard state with uploaded template and config
+ * @returns Updated wizard state at 'verify' step with adapted DOCX
+ */
+export async function autoMapTemplate(
+  wizardState: WizardState,
+): Promise<WizardState> {
+  const { userId, sessionId } = wizardState;
+  const { templateType, language } = wizardState.config;
+  const templateBase64 = wizardState.templateFile.base64;
+
+  if (!templateBase64) {
+    throw new Error('No template file in wizard state -- upload first');
+  }
+
+  // Pass 1: Analyze template to produce mapping plan
+  let analysisResult: AnalysisResult;
+  try {
+    analysisResult = await analyzeTemplate(templateBase64, templateType, language);
+  } catch (error) {
+    throw new Error(
+      `Auto-map Pass 1 (analysis) failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
+  }
+
+  // Update wizard state with analysis results (preserved even if Pass 2 fails)
+  const stateAfterAnalysis = await updateWizardSession(userId, sessionId, {
+    analysis: {
+      mappingPlan: analysisResult.mappingPlan as unknown as Record<string, unknown>,
+      referenceTemplateHash: analysisResult.referenceTemplateHash,
+      llmPrompt: null,
+    },
+  });
+
+  // Pass 2: Apply instructions (builds insertion prompt, LLM generates instructions, applies to DOCX)
+  // applyInstructions() saves the adapted DOCX and sets currentStep to 'verify'
+  const finalState = await applyInstructions(stateAfterAnalysis);
+
+  return finalState;
+}
+
+// ---------------------------------------------------------------------------
 // Preview
 // ---------------------------------------------------------------------------
 
