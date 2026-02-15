@@ -138,11 +138,12 @@ describe('templateMapping service', () => {
       // Verify upsert was called with correct composite key and normalized text
       expect(mockUpsert).toHaveBeenCalledOnce();
       const call = mockUpsert.mock.calls[0][0];
-      expect(call.where.templateType_language_normalizedSectionText_gwField).toEqual({
+      expect(call.where.templateType_language_normalizedSectionText_gwField_zone).toEqual({
         templateType: 'web',
         language: 'en',
         normalizedSectionText: 'client name:',
         gwField: 'client.short_name',
+        zone: 'body',
       });
       expect(call.create.usageCount).toBe(1);
       expect(call.update.usageCount).toEqual({ increment: 1 });
@@ -179,7 +180,7 @@ describe('templateMapping service', () => {
 
       expect(result.gwField).toBe('client.full_name');
       const call = mockUpsert.mock.calls[0][0];
-      expect(call.where.templateType_language_normalizedSectionText_gwField.gwField).toBe(
+      expect(call.where.templateType_language_normalizedSectionText_gwField_zone.gwField).toBe(
         'client.full_name',
       );
     });

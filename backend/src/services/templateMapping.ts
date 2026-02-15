@@ -71,7 +71,7 @@ export const templateMappingSchema = z.object({
   zoneRepetitionCount: z.number().int().min(1).optional(),
 });
 
-export type TemplateMappingInput = z.infer<typeof templateMappingSchema>;
+export type TemplateMappingInput = z.input<typeof templateMappingSchema>;
 
 export const fewShotQuerySchema = z.object({
   templateType: z.string().min(1),

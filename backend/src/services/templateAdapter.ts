@@ -35,8 +35,11 @@ import {
   queryZoneRepetitionSummary,
   upsertBlueprint,
   bulkUpsertStyleHints,
+  prescriptiveLookup,
   type TemplateMappingInput,
   type BlueprintPatternInput,
+  type SectionForLookup,
+  type LockedSection,
 } from './templateMapping.js';
 
 // ---------------------------------------------------------------------------
@@ -72,6 +75,28 @@ export interface AnalysisResult {
   referenceTemplateHash: string;
   kbLockedCount: number;
   llmAnalyzedCount: number;
+}
+
+/** Response from Python POST /adapter/document-structure */
+interface DocumentStructureServiceResponse {
+  paragraphs: Array<{
+    paragraph_index: number;
+    text: string;
+    heading_level: number | null;
+    is_empty: boolean;
+    style_name: string | null;
+    zone?: string;
+  }>;
+  header_footer_paragraphs: Array<{
+    text: string;
+    location: string;
+    section_index: number;
+    paragraph_index: number;
+    style_name: string | null;
+  }>;
+  total_count: number;
+  empty_count: number;
+  zone_map?: Record<string, string>;
 }
 
 /** Response from Python /adapter/analyze */
@@ -171,10 +196,17 @@ export async function uploadTemplate(
 /**
  * Analyze a client template using LLM Pass 1.
  *
+ * Flow:
+ * 1. Get document structure from Python to extract paragraphs + zones
+ * 2. Run prescriptive lookup to split sections into locked (KB match) / unknown
+ * 3. If all sections locked: skip LLM, build plan directly from KB
+ * 4. If some unknown: send to Python /adapter/analyze -> LLM -> validate
+ * 5. Merge locked (source='kb') + LLM (source='llm') entries, sorted by sectionIndex
+ *
  * @param templateBase64 - Base64-encoded DOCX file content
  * @param templateType - "web" | "internal" | "mobile"
  * @param language - "en" | "pt-pt"
- * @returns Validated mapping plan and reference template hash
+ * @returns Validated mapping plan with source annotations and KB counts
  */
 export async function analyzeTemplate(
   templateBase64: string,
@@ -183,157 +215,113 @@ export async function analyzeTemplate(
 ): Promise<AnalysisResult> {
   const sanitizerUrl = config.SANITIZER_URL;
 
-  // Step 0: Query KB for enriched context (graceful degradation per query)
-  let fewShotExamples: Array<{
-    normalized_section_text: string;
-    gw_field: string;
-    marker_type: string;
-    usage_count: number;
-  }> = [];
+  // Step 0: Get document structure from Python to extract paragraphs with zone data
+  const structRes = await fetch(`${sanitizerUrl}/adapter/document-structure`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ template_base64: templateBase64 }),
+  });
 
-  // Enriched KB context payload (null until populated)
-  let kbContext: {
-    zone_mappings: Record<string, Array<{
-      normalized_section_text: string;
-      gw_field: string;
-      marker_type: string;
-      confidence: number;
-      zone: string;
-      zone_repetition_count: number;
-    }>>;
-    blueprints: Array<{
-      zone: string;
-      pattern_type: string;
-      markers: Array<{ gwField: string; markerType: string }>;
-      anchor_style: string | null;
-    }>;
-    boilerplate_styles: string[];
-    repetition_summary: Array<{ gw_field: string; zone: string; total_count: number }>;
-    is_cross_type_fallback: boolean;
-  } | null = null;
-
-  try {
-    // Primary zone-grouped query
-    const zoneMap = await queryByZone(templateType, language);
-
-    if (zoneMap.size > 0) {
-      // Build zone_mappings from primary results
-      const zoneMappings: Record<string, Array<{
-        normalized_section_text: string;
-        gw_field: string;
-        marker_type: string;
-        confidence: number;
-        zone: string;
-        zone_repetition_count: number;
-      }>> = {};
-
-      for (const [zone, mappings] of zoneMap) {
-        zoneMappings[zone] = mappings.map((m) => ({
-          normalized_section_text: m.normalizedSectionText,
-          gw_field: m.gwField,
-          marker_type: m.markerType,
-          confidence: m.confidence,
-          zone: m.zone,
-          zone_repetition_count: m.zoneRepetitionCount,
-        }));
-      }
-
-      // Fetch blueprints, boilerplate styles, and repetition summary in parallel
-      const [blueprintResults, boilerplateResults, repetitionResults] = await Promise.all([
-        queryBlueprints(templateType).catch((err) => {
-          console.warn('[templateAdapter] Blueprint query failed:', err);
-          return [];
-        }),
-        getBoilerplateStyles(templateType).catch((err) => {
-          console.warn('[templateAdapter] Boilerplate styles query failed:', err);
-          return [] as string[];
-        }),
-        queryZoneRepetitionSummary(templateType, language).catch((err) => {
-          console.warn('[templateAdapter] Repetition summary query failed:', err);
-          return [];
-        }),
-      ]);
-
-      kbContext = {
-        zone_mappings: zoneMappings,
-        blueprints: blueprintResults.map((bp) => ({
-          zone: bp.zone,
-          pattern_type: bp.patternType,
-          markers: bp.parsedMarkers,
-          anchor_style: bp.anchorStyle,
-        })),
-        boilerplate_styles: boilerplateResults,
-        repetition_summary: repetitionResults.map((r) => ({
-          gw_field: r.gwField,
-          zone: r.zone,
-          total_count: r.totalCount,
-        })),
-        is_cross_type_fallback: false,
-      };
-    } else {
-      // Cross-type fallback: query other template types with 0.7x confidence penalty
-      const otherTypes = ['web', 'internal', 'mobile'].filter((t) => t !== templateType);
-      const fallbackZoneMappings: Record<string, Array<{
-        normalized_section_text: string;
-        gw_field: string;
-        marker_type: string;
-        confidence: number;
-        zone: string;
-        zone_repetition_count: number;
-      }>> = {};
-      const seenTexts = new Set<string>();
-
-      for (const otherType of otherTypes) {
-        try {
-          const otherZoneMap = await queryByZone(otherType, language);
-          for (const [zone, mappings] of otherZoneMap) {
-            if (!fallbackZoneMappings[zone]) {
-              fallbackZoneMappings[zone] = [];
-            }
-            for (const m of mappings) {
-              // Deduplicate by normalizedSectionText
-              if (!seenTexts.has(m.normalizedSectionText)) {
-                seenTexts.add(m.normalizedSectionText);
-                fallbackZoneMappings[zone].push({
-                  normalized_section_text: m.normalizedSectionText,
-                  gw_field: m.gwField,
-                  marker_type: m.markerType,
-                  confidence: m.confidence * 0.7, // 0.7x penalty
-                  zone: m.zone,
-                  zone_repetition_count: m.zoneRepetitionCount,
-                });
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`[templateAdapter] Cross-type fallback query for ${otherType} failed:`, err);
-        }
-      }
-
-      if (Object.keys(fallbackZoneMappings).length > 0) {
-        kbContext = {
-          zone_mappings: fallbackZoneMappings,
-          blueprints: [],
-          boilerplate_styles: [],
-          repetition_summary: [],
-          is_cross_type_fallback: true,
-        };
-      }
-    }
-
-    // Also populate flat few-shot examples for backward compatibility
-    const flatResults = await queryFewShotExamples(templateType, language);
-    fewShotExamples = flatResults.map((r) => ({
-      normalized_section_text: r.normalizedSectionText,
-      gw_field: r.gwField,
-      marker_type: r.markerType,
-      usage_count: r.usageCount,
-    }));
-  } catch (err) {
-    console.warn('[templateAdapter] KB query failed, continuing with empty examples:', err);
+  if (!structRes.ok) {
+    const detail = await structRes.text();
+    throw new Error(`Sanitizer /adapter/document-structure failed (${structRes.status}): ${detail}`);
   }
 
-  // Step 1: Get analysis prompt from Python service
+  const structData = await structRes.json() as DocumentStructureServiceResponse;
+
+  // Build sections for prescriptive lookup: filter out empty paragraphs
+  const zoneMapFromStruct = structData.zone_map ?? {};
+  const sections: SectionForLookup[] = structData.paragraphs
+    .filter((p) => !p.is_empty)
+    .map((p) => ({
+      sectionIndex: p.paragraph_index,
+      sectionText: p.text,
+      zone: p.zone ?? zoneMapFromStruct[String(p.paragraph_index)] ?? 'unknown',
+    }));
+
+  // Step 1: Prescriptive lookup -- split into locked (KB match) and unknown
+  let locked: LockedSection[] = [];
+  let unknownSections: SectionForLookup[] = [];
+
+  try {
+    const lookupResult = await prescriptiveLookup(sections, templateType, language);
+    locked = lookupResult.locked;
+    unknownSections = lookupResult.unknown.map((u) => ({
+      sectionIndex: u.sectionIndex,
+      sectionText: u.sectionText,
+      zone: u.zone,
+    }));
+
+    console.log(
+      `[templateAdapter] Prescriptive lookup: ${locked.length} locked, ${unknownSections.length} unknown ` +
+      `(${sections.length} total sections)`,
+    );
+  } catch (err) {
+    console.warn('[templateAdapter] Prescriptive lookup failed, treating all sections as unknown:', err);
+    unknownSections = sections;
+  }
+
+  // Step 2: If ALL sections locked, skip LLM entirely
+  if (locked.length > 0 && unknownSections.length === 0) {
+    console.log('[templateAdapter] All sections locked by KB -- skipping LLM call');
+
+    const mappingPlan: MappingPlan = {
+      entries: locked.map((l) => ({
+        sectionIndex: l.sectionIndex,
+        sectionText: l.sectionText,
+        gwField: l.gwField,
+        placeholderTemplate: l.placeholderTemplate,
+        confidence: l.confidence,
+        markerType: l.markerType,
+        rationale: 'Prescriptive KB match (exact text + zone)',
+        source: 'kb' as const,
+      })),
+      templateType,
+      language,
+      warnings: [],
+    };
+
+    return {
+      mappingPlan,
+      referenceTemplateHash: '', // No Python analyze call, no hash
+      kbLockedCount: locked.length,
+      llmAnalyzedCount: 0,
+    };
+  }
+
+  // Step 3: Fetch blueprints and boilerplate styles for the prompt (used by Plan 03)
+  let blueprintsPayload: Array<{
+    zone: string;
+    pattern_type: string;
+    markers: Array<{ gwField: string; markerType: string }>;
+    anchor_style: string | null;
+  }> = [];
+  let boilerplateStylesPayload: string[] = [];
+
+  try {
+    const [blueprintResults, boilerplateResults] = await Promise.all([
+      queryBlueprints(templateType).catch((err) => {
+        console.warn('[templateAdapter] Blueprint query failed:', err);
+        return [];
+      }),
+      getBoilerplateStyles(templateType).catch((err) => {
+        console.warn('[templateAdapter] Boilerplate styles query failed:', err);
+        return [] as string[];
+      }),
+    ]);
+
+    blueprintsPayload = blueprintResults.map((bp) => ({
+      zone: bp.zone,
+      pattern_type: bp.patternType,
+      markers: bp.parsedMarkers,
+      anchor_style: bp.anchorStyle,
+    }));
+    boilerplateStylesPayload = boilerplateResults;
+  } catch (err) {
+    console.warn('[templateAdapter] Blueprint/boilerplate query failed:', err);
+  }
+
+  // Step 4: Send to Python /adapter/analyze with locked/unknown sections
   const analyzeRes = await fetch(`${sanitizerUrl}/adapter/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -341,8 +329,31 @@ export async function analyzeTemplate(
       template_base64: templateBase64,
       template_type: templateType,
       language: language,
-      few_shot_examples: fewShotExamples,
-      ...(kbContext ? { kb_context: kbContext } : {}),
+      few_shot_examples: [], // Replaced by prescriptive lookup
+      locked_sections: locked.map((l) => ({
+        section_index: l.sectionIndex,
+        section_text: l.sectionText,
+        zone: l.zone,
+        gw_field: l.gwField,
+        marker_type: l.markerType,
+        confidence: l.confidence,
+      })),
+      unknown_sections: unknownSections.map((u) => ({
+        section_index: u.sectionIndex,
+        section_text: u.sectionText,
+        zone: u.zone,
+      })),
+      ...(blueprintsPayload.length > 0 || boilerplateStylesPayload.length > 0
+        ? {
+            kb_context: {
+              zone_mappings: {},
+              blueprints: blueprintsPayload,
+              boilerplate_styles: boilerplateStylesPayload,
+              repetition_summary: [],
+              is_cross_type_fallback: false,
+            },
+          }
+        : {}),
     }),
   });
 
@@ -353,7 +364,7 @@ export async function analyzeTemplate(
 
   const analyzeData: AnalyzeServiceResponse = await analyzeRes.json() as AnalyzeServiceResponse;
 
-  // Step 2: Call LLM with the analysis prompt (non-streaming for JSON output)
+  // Step 5: Call LLM with the analysis prompt (non-streaming for JSON output)
   const client = await createLLMClient();
   const messages: LLMMessage[] = [
     { role: 'system', content: analyzeData.system_prompt },
@@ -376,7 +387,7 @@ export async function analyzeTemplate(
     throw new Error('LLM returned empty response for template analysis');
   }
 
-  // Step 3: Validate LLM response via Python service
+  // Step 6: Validate LLM response via Python service
   const validateRes = await fetch(`${sanitizerUrl}/adapter/validate-mapping`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -401,26 +412,46 @@ export async function analyzeTemplate(
     );
   }
 
-  // Convert snake_case response to camelCase TypeScript interfaces
-  const plan = validateData.mapping_plan;
+  // Step 7: Merge locked (source='kb') + LLM (source='llm') entries
+  const llmEntries: MappingEntry[] = validateData.mapping_plan.entries.map((e) => ({
+    sectionIndex: e.section_index,
+    sectionText: e.section_text,
+    gwField: e.gw_field,
+    placeholderTemplate: e.placeholder_template,
+    confidence: e.confidence,
+    markerType: e.marker_type,
+    rationale: e.rationale,
+    source: 'llm' as const,
+  }));
+
+  const lockedEntries: MappingEntry[] = locked.map((l) => ({
+    sectionIndex: l.sectionIndex,
+    sectionText: l.sectionText,
+    gwField: l.gwField,
+    placeholderTemplate: l.placeholderTemplate,
+    confidence: l.confidence,
+    markerType: l.markerType,
+    rationale: 'Prescriptive KB match (exact text + zone)',
+    source: 'kb' as const,
+  }));
+
+  // Merge and sort by sectionIndex
+  const mergedEntries = [...lockedEntries, ...llmEntries].sort(
+    (a, b) => a.sectionIndex - b.sectionIndex,
+  );
+
   const mappingPlan: MappingPlan = {
-    entries: plan.entries.map((e) => ({
-      sectionIndex: e.section_index,
-      sectionText: e.section_text,
-      gwField: e.gw_field,
-      placeholderTemplate: e.placeholder_template,
-      confidence: e.confidence,
-      markerType: e.marker_type,
-      rationale: e.rationale,
-    })),
-    templateType: plan.template_type,
-    language: plan.language,
-    warnings: plan.warnings,
+    entries: mergedEntries,
+    templateType: validateData.mapping_plan.template_type,
+    language: validateData.mapping_plan.language,
+    warnings: validateData.mapping_plan.warnings,
   };
 
   return {
     mappingPlan,
     referenceTemplateHash: analyzeData.reference_template_hash,
+    kbLockedCount: locked.length,
+    llmAnalyzedCount: unknownSections.length,
   };
 }
 
@@ -1041,6 +1072,7 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
             gwField: existing.gwField,
             markerType: existing.markerType,
             confidence: 1.0,
+            zone,
           },
           'correct',
         );
@@ -1176,6 +1208,7 @@ export interface CorrectionEntry {
   newGwField: string;
   newMarkerType: string;
   sectionText: string;
+  zone?: string;
 }
 
 /**
@@ -1210,6 +1243,7 @@ export async function processCorrectionUpdate(
             gwField: correction.oldGwField,
             markerType: correction.newMarkerType,
             confidence: 1.0,
+            zone: correction.zone ?? 'body',
           },
           'correct',
         );
@@ -1224,6 +1258,7 @@ export async function processCorrectionUpdate(
             gwField: correction.newGwField,
             markerType: correction.newMarkerType,
             confidence: 1.0,
+            zone: correction.zone ?? 'body',
           },
           'create',
         );
@@ -1238,6 +1273,7 @@ export async function processCorrectionUpdate(
             gwField: correction.newGwField,
             markerType: correction.newMarkerType,
             confidence: 1.0,
+            zone: correction.zone ?? 'body',
           },
           'confirm',
         );
