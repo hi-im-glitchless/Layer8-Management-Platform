@@ -4,9 +4,9 @@
 
 ## Active Context
 
-**Work:** Phase 3 — LLM Integration (planned, ready to execute)
-**Last shipped:** Phase 2 — Sanitization Infrastructure (2026-02-12)
-**Next action:** Run /vbw:vibe to execute Phase 3, or /vbw:status to review progress
+**Work:** Phase 5.5 — LLM-Powered Placeholder Regeneration (not started)
+**Last shipped:** Phase 5.4 — Intelligent Knowledge Base (2026-02-14)
+**Next action:** Discuss and plan Phase 5.5, or /vbw:status to review progress
 
 ## VBW Rules
 

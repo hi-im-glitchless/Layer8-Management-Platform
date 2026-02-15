@@ -11,7 +11,12 @@ Layer8 automates template adaptation and executive report generation for offensi
 - [x] Phase 3: LLM Integration
 - [x] Phase 4: Document Processing
 - [x] Phase 5: Template Adapter - Core
-- [ ] Phase 5.1: Analysis Preview & Mapping Memory (INSERTED)
+- [x] Phase 5.1: Analysis Preview & Mapping Memory (INSERTED)
+- [x] Phase 5.2: Interactive PDF Mapping (INSERTED)
+- [x] Phase 5.3: Placeholder Verification & Correction (INSERTED)
+- [x] Phase 5.4: Intelligent Knowledge Base (INSERTED)
+- [ ] Phase 5.5: LLM-Powered Placeholder Regeneration (INSERTED)
+- [ ] Phase 5.6: Prescriptive Knowledge Base (INSERTED)
 - [ ] Phase 6: Template Adapter - Translation
 - [ ] Phase 7: Template Adapter - Modification & Bulk
 - [ ] Phase 8: Executive Report Generator
@@ -71,12 +76,47 @@ Layer8 automates template adaptation and executive report generation for offensi
 **Deps:** Phase 5
 **Reqs:** TMPL-01, TMPL-06, UIUX-09
 **Success:** Annotated PDF preview shows green (mapped) / yellow (gap) highlights in Step 2; completed mappings persist in DB and inject as few-shot examples in future analyses, reducing repeated misses
+**Plans:** 5/5 complete
+
+### Phase 5.2: Interactive PDF Mapping (INSERTED)
+**Goal:** Replace table-based mapping UI with a PDF-first, select-and-describe workflow. Users scroll through a continuously rendered PDF, select unmapped text sections (numbered #1, #2, #3...) or pick blank/invisible paragraphs from a document structure browser, then describe all selections in a single chat message. The LLM resolves each selection to a Ghostwriter field and marker type. Only confirmed mappings are highlighted (green); no yellow gap shading. Coverage counter shows progress without prescribing specific gaps. Each completed session feeds the KB per template type (internal/web/mobile), improving auto-mapping accuracy over time.
+**Deps:** Phase 5.1
+**Reqs:** TMPL-01, TMPL-06, UIUX-09, UIUX-10
+**Success:** Users can select text on PDF + pick blank paragraphs from structure panel, batch-describe selections via chat, LLM maps all at once, PDF regenerates with green shading, KB stores mappings per template type for few-shot reuse
+**Plans:** 5/5 complete
+
+### Phase 5.3: Placeholder Verification & Correction (INSERTED)
+**Goal:** Analysis step renders the PDF with visible Jinja placeholders (not rendered content), replacing green markings. Users verify placeholder correctness by selecting text in three correction modes: (1) select unmapped text/empty space that should be a placeholder, (2) select a wrong placeholder that needs correction, (3) select a placeholder that should be removed. User describes all corrections in a single LLM chatbox message, LLM updates the mapping, and user clicks regenerate to produce the PDF with fixed placeholders.
+**Deps:** Phase 5.2
+**Reqs:** TMPL-01, TMPL-06, UIUX-09, UIUX-10
+**Success:** Analysis step shows PDF with raw Jinja placeholders (no green shading), three selection-based correction modes work end-to-end, LLM processes natural-language correction prompts and updates mapping, regenerate produces corrected PDF
+**Plans:** 5/5 complete
+
+### Phase 5.4: Intelligent Knowledge Base (INSERTED)
+**Goal:** Evolve the flat mapping KB into a structural intelligence layer that understands document zones (header/footer/body/table), repetition patterns, structural blueprints (loop templates, co-occurring markers), style-based heuristics, and confidence calibration from correction feedback — so the LLM auto-maps with near-complete accuracy on familiar template types
+**Deps:** Phase 5.3
+**Reqs:** TMPL-01, TMPL-06
+**Success:** KB stores zone patterns, repetition rules, structural blueprints, and marker co-occurrences; LLM prompt receives structural context instead of flat examples; auto-map accuracy on web/en templates jumps from ~15/90 to 80%+ without manual corrections
+**Plans:** 5/5 complete
+
+### Phase 5.5: LLM-Powered Placeholder Regeneration (INSERTED)
+**Goal:** Replace the mechanical find-and-replace regeneration engine with an LLM-based approach. When the user edits mappings in the table and clicks "Regenerate Placeholders", instead of the sanitization service doing brittle text matching and paragraph-index lookups, the LLM reads the actual DOCX content, understands document structure (headers, footers, sections, paragraphs, tables), and intelligently places each placeholder at the correct location. The mapping table UI stays exactly as-is — only the backend regeneration path changes. This also enables richer KB population since the LLM can infer structural context for each placement.
+**Deps:** Phase 5.4
+**Reqs:** TMPL-01, TMPL-06
+**Success:** User edits mappings in table, clicks regenerate, LLM produces correctly-placed placeholders without document corruption; mapping table UI unchanged; KB receives structural context from LLM placement decisions
+
+### Phase 5.6: Prescriptive Knowledge Base (INSERTED)
+**Goal:** Transform the KB from an advisory few-shot prompt enhancer into a deterministic mapping cache with LLM fallback. For each document section, normalize text and look up the KB — if a high-confidence match exists (≥ 0.8), lock that mapping directly without LLM involvement. Only send unmatched or low-confidence sections to the LLM for analysis. Prune dead KB entries (confidence < 0.3) to reduce noise. Factor zone into lookup matching to avoid cross-zone collisions. Show locked mappings as pre-filled but editable in StepVerify so the user retains final say.
+**Deps:** Phase 5.5
+**Reqs:** TMPL-01, TMPL-06
+**Success:** Re-uploading a previously mapped document produces near-identical correct mappings with zero LLM calls for known sections; only genuinely new/unknown sections go to the LLM; users can still override any locked mapping; dead entries pruned from KB
 
 ### Phase 6: Template Adapter - Translation
 **Goal:** Bidirectional EN/PT-PT translation preserving Jinja2 logic
 **Deps:** Phase 5
 **Reqs:** TRNS-01-04, UIUX-11
 **Success:** Translation preserves all Jinja2 variables, uses PT-PT exclusively
+**Plans:** 4 (3 waves)
 
 ### Phase 7: Template Adapter - Modification & Bulk
 **Goal:** Reference template modification and bulk upload queue
@@ -106,9 +146,14 @@ Layer8 automates template adaptation and executive report generation for offensi
 | 2.1 - Profile | 2/2 | Complete | 2026-02-11 |
 | 3 - LLM Integration | 3/3 | Complete | 2026-02-12 |
 | 4 - Document Processing | 5/5 | Complete | 2026-02-13 |
-| 5 - Template Adapter Core | 5/5 | Complete | 2026-02-13 |
-| 5.1 - Analysis Preview & Memory | 0/TBD | Not started | - |
-| 6 - Translation | 0/TBD | Not started | - |
+| 5 - Template Adapter Core | 4/4 | complete | 2026-02-14 |
+| 5.1 - Analysis Preview & Memory | 5/5 | Complete | 2026-02-13 |
+| 5.2 - Interactive PDF Mapping | 5/5 | Complete | 2026-02-14 |
+| 5.3 - Placeholder Verification | 5/5 | Complete | 2026-02-14 |
+| 5.4 - Intelligent KB | 0/TBD | Not started | - |
+| 5.5 - LLM Placeholder Regen | 0/4 | Planned | - |
+| 5.6 - Prescriptive KB | 0/TBD | Not started | - |
+| 6 - Translation | 0/4 | planned | - |
 | 7 - Modification & Bulk | 0/TBD | Not started | - |
 | 8 - Executive Report | 0/TBD | Not started | - |
 | 9 - Deployment | 0/TBD | Not started | - |

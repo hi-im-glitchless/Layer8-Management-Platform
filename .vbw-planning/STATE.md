@@ -3,10 +3,10 @@
 **Project:** Template AI Engine (Layer8)
 
 ## Current Phase
-Phase: 5.1 of 9 (Analysis Preview & Mapping Memory)
-Plans: 0/TBD
-Progress: 0%
-Status: Pending planning
+Phase: 5.5 of 11 (LLM-Powered Placeholder Regeneration)
+Plans: 4/4
+Progress: 100%
+Status: complete
 
 ## Decisions
 - CLIProxyAPI as primary LLM provider (OpenAI SDK format)
@@ -21,7 +21,7 @@ Status: Pending planning
 - docxtpl for Jinja2 template rendering (native GW template syntax support)
 
 ## Todos
-- Plan Phase 5.1 (Analysis Preview & Mapping Memory)
+- Execute Phase 5.5 (LLM-Powered Placeholder Regeneration)
 
 ## Blockers
 None
@@ -33,6 +33,24 @@ None
 **Registry available:** yes
 
 ## Activity Log
+- 2026-02-14: Phase 5.5 planned (4 plans, 3 waves) — placement prompt builder + validation, LLM pipeline backend, unified pipeline + KB enrichment, dead code removal + CSS cleanup
+- 2026-02-14: Phase 5.5 discussed (7 questions, 7 decisions) — full regen, zone map input, placement instructions output, skip-and-warn, replace mechanical entirely, unified pipeline, KB enrichment
+- 2026-02-14: Phase 5.5 added (LLM-powered placeholder regeneration) — replace mechanical find-and-replace with LLM-based intelligent placement, mapping table UI unchanged
+- 2026-02-14: Phase 5.4 completed (intelligent knowledge base) - QA: 21/23 PASS (2 pre-existing/manual)
+- 2026-02-14: Phase 5.4 planned (5 plans, 3 waves) — schema evolution, zone-aware parser, structured prompt, frontend mapping table UX, integration & E2E
+- 2026-02-14: Phase 5.4 discussed (18 questions, 18 decisions) — zone storage, blueprints, confidence calibration, style hints, direct mapping table replaces correction chat
+- 2026-02-14: Phase 5.3 completed (placeholder verification & correction) - QA: 46/46 PASS
+- 2026-02-14: Phase 5.3 planned (5 plans, 3 waves) — backend auto-map + placeholder styling, wizard restructuring, StepVerify component, correction pipeline, navigation map + polish
+- 2026-02-14: Phase 5.3 discussed (16 questions, 16 decisions) — auto-map on upload, 4-step wizard, placeholder styling, correction flow, regeneration pipeline, structure browser repurpose
+- 2026-02-14: Phase 5.3 added (placeholder verification & correction) — analysis shows raw Jinja placeholders, three correction modes via LLM chat, regenerate with fixes
+- 2026-02-14: Phase 5.2 completed (interactive PDF mapping) - QA: 23/23 PASS
+- 2026-02-13: Phase 5.2 planned (5 plans, 3 waves) — selection state, structure browser, LLM batch prompt, inline overlays, chat integration
+- 2026-02-13: Phase 5.2 discussed (8 questions, 8 decisions) — selection UX, structure panel, batch chat, inline confirmation, coverage visibility, rejection recovery, batch correction, visual states
+- 2026-02-13: Phase 5.2 added (interactive PDF mapping) — PDF text selection, structure browser, batch chat mapping, green-only shading, KB feedback loop
+- 2026-02-13: Phase 5.1 completed (analysis preview & mapping memory) - QA: 37/37 PASS
+- 2026-02-13: Phase 6 planned (4 plans, 3 waves) — translation engine, backend orchestration, frontend wizard step, integration tests
+- 2026-02-13: Phase 6 discussed (11 questions, 11 decisions) — full context captured
+- 2026-02-13: Phase 5.1 planned (5 plans, 3 waves) — KB data layer, annotated DOCX, backend integration, few-shot prompt, frontend redesign
 - 2026-02-13: Phase 5 completed (template adapter core) - QA: 35/35 PASS
 - 2026-02-13: Phase 5 planned (5 plans, 3 waves) — two-pass LLM strategy, 5-step wizard, rules engine
 - 2026-02-13: Phase 5 discussed (30 questions, 27 decisions) — full context captured
