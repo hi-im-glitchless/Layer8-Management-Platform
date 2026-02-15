@@ -34,6 +34,8 @@ interface StepVerifyProps {
   templateType: TemplateType
   language: TemplateLanguage
   initialMappingPlan: MappingPlan | null
+  kbLockedCount?: number
+  llmAnalyzedCount?: number
   onMappingUpdate: (plan: MappingPlan) => void
   onApprove: () => void
 }
@@ -45,6 +47,8 @@ export function StepVerify({
   templateType,
   language,
   initialMappingPlan,
+  kbLockedCount,
+  llmAnalyzedCount,
   onMappingUpdate,
   onApprove,
 }: StepVerifyProps) {

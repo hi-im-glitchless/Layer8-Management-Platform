@@ -54,6 +54,8 @@ export interface WizardState {
   analysis: {
     mappingPlan: MappingPlan | null
     referenceTemplateHash: string
+    kbLockedCount?: number
+    llmAnalyzedCount?: number
   }
   adaptation: {
     appliedCount: number

@@ -209,6 +209,8 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
             templateType={sessionQuery.data?.config.templateType ?? 'web'}
             language={sessionQuery.data?.config.language ?? 'en'}
             initialMappingPlan={localMappingPlan ?? sessionQuery.data?.analysis.mappingPlan ?? null}
+            kbLockedCount={sessionQuery.data?.analysis?.kbLockedCount ?? 0}
+            llmAnalyzedCount={sessionQuery.data?.analysis?.llmAnalyzedCount ?? 0}
             onMappingUpdate={setLocalMappingPlan}
             onApprove={() => advanceToStep('preview')}
           />
