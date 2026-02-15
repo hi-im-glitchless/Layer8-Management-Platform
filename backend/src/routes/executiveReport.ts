@@ -411,7 +411,7 @@ router.post('/generate', requireAuth, async (req: Request, res: Response) => {
   });
 
   // SSE event emitters
-  const sendStageEvent = (stage: GenerationStage, progress?: number) => {
+  const sendStageEvent = (stage: string, progress?: number) => {
     if (clientDisconnected) return;
     res.write(`event: stage\ndata: ${JSON.stringify({ stage, progress: progress ?? 0 })}\n\n`);
   };
@@ -432,40 +432,10 @@ router.post('/generate', requireAuth, async (req: Request, res: Response) => {
   };
 
   try {
-    // Stage 1: Extracting (Pass 1 -- LLM extraction)
-    sendStageEvent('extracting', 0);
-
-    // TODO: In 06-C, this will call extractFindings() with streaming
-    // For now, send progress events to verify SSE infrastructure
-    sendStageEvent('extracting', 50);
-    sendStageEvent('extracting', 100);
-
-    // Stage 2: Computing (metrics, risk score, compliance)
-    sendStageEvent('computing', 0);
-    sendStageEvent('computing', 100);
-
-    // Stage 3: Generating charts (matplotlib -> PNG)
-    sendStageEvent('generating_charts', 0);
-    sendStageEvent('generating_charts', 100);
-
-    // Stage 4: Narrative (Pass 2 -- LLM generation with streaming deltas)
-    sendStageEvent('narrative', 0);
-
-    // TODO: In 06-C, stream LLM tokens via sendDelta()
-    sendDelta('[Narrative generation will stream tokens here in 06-C]');
-    sendStageEvent('narrative', 100);
-
-    // Stage 5: Building report (python-docx DOCX construction)
-    sendStageEvent('building_report', 0);
-    sendStageEvent('building_report', 100);
-
-    // Stage 6: Converting to PDF (Gotenberg)
-    sendStageEvent('converting_pdf', 0);
-
-    // Call the service stub (will be real in 06-C)
-    const result = await generateReport(userId, sessionId);
-
-    sendStageEvent('converting_pdf', 100);
+    // Delegate full pipeline to generateReport() -- it emits stage events
+    // and LLM deltas via the SSE callbacks. Stages in order:
+    // computing -> generating_charts -> narrative -> building_report -> converting_pdf
+    const result = await generateReport(userId, sessionId, sendStageEvent, sendDelta);
 
     // Send completion event
     sendDone({

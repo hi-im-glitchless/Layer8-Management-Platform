@@ -467,7 +467,44 @@ export async function extractFindings(
 }
 
 // ---------------------------------------------------------------------------
-// Pass 2: Generation pipeline (stubs for Task 4)
+// Python response types for generation pipeline
+// ---------------------------------------------------------------------------
+
+/** Python /report/compute-metrics response. */
+interface ComputeMetricsResponse {
+  risk_score: number;
+  risk_level: string;
+  severity_counts: Record<string, number>;
+  compliance_scores: Record<string, number>;
+  category_counts: Record<string, number>;
+}
+
+/** Python /report/render-charts response. */
+interface RenderChartsResponse {
+  charts: Record<string, string>; // chart name -> base64 PNG
+}
+
+/** Python /report/build-narrative-prompt response. */
+interface NarrativePromptResponse {
+  system_prompt: string;
+  user_prompt: string;
+}
+
+/** Python /report/validate-narrative response. */
+interface ValidateNarrativeResponse {
+  sections: Record<string, string>;
+  valid: boolean;
+  error: string | null;
+}
+
+/** Python /report/build-report response. */
+interface BuildReportResponse {
+  docx_base64: string;
+  filename: string;
+}
+
+// ---------------------------------------------------------------------------
+// Pass 2: Generation pipeline
 // ---------------------------------------------------------------------------
 
 /**
@@ -486,12 +523,293 @@ export async function generateReport(
   sendStageEvent?: (stage: string, progress?: number) => void,
   sendDelta?: (text: string) => void,
 ): Promise<GenerationResult> {
-  // Stub -- implementation in Task 4
-  console.log('[reportService] generateReport: stub, will be implemented in Task 4');
+  const state = await getReportSession(userId, sessionId);
+  if (!state) {
+    throw new Error(`Report session not found: ${sessionId}`);
+  }
+
+  if (!state.findingsJson) {
+    throw new Error('No findings available. Run extraction (Pass 1) first.');
+  }
+
+  const sanitizerUrl = config.SANITIZER_URL;
+  const findings = Array.isArray(state.findingsJson)
+    ? state.findingsJson
+    : [state.findingsJson];
+
+  // -----------------------------------------------------------------------
+  // Stage 1: Compute metrics
+  // -----------------------------------------------------------------------
+  sendStageEvent?.('computing', 0);
+
+  const metricsRes = await fetch(`${sanitizerUrl}/report/compute-metrics`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ findings }),
+  });
+
+  if (!metricsRes.ok) {
+    const detail = await metricsRes.text();
+    throw new Error(`Compute metrics failed: ${detail}`);
+  }
+
+  const metrics = await metricsRes.json() as ComputeMetricsResponse;
+  sendStageEvent?.('computing', 100);
+
+  console.log(
+    `[reportService] Computed metrics: risk_score=${metrics.risk_score}, ` +
+    `risk_level=${metrics.risk_level}, categories=${Object.keys(metrics.category_counts).length}`,
+  );
+
+  // -----------------------------------------------------------------------
+  // Stage 2: Render charts
+  // -----------------------------------------------------------------------
+  sendStageEvent?.('generating_charts', 0);
+
+  // Build stacked data: category -> { severity: count }
+  const stackedData: Record<string, Record<string, number>> = {};
+  for (const finding of findings) {
+    const category = (finding as Record<string, unknown>).category as string || 'Other';
+    const severity = ((finding as Record<string, unknown>).severity as string || 'medium').toLowerCase();
+    if (!stackedData[category]) {
+      stackedData[category] = {};
+    }
+    stackedData[category][severity] = (stackedData[category][severity] || 0) + 1;
+  }
+
+  const chartsRes = await fetch(`${sanitizerUrl}/report/render-charts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      severity_counts: metrics.severity_counts,
+      category_counts: metrics.category_counts,
+      stacked_data: stackedData,
+      compliance_scores: metrics.compliance_scores,
+      risk_score: metrics.risk_score,
+    }),
+  });
+
+  if (!chartsRes.ok) {
+    const detail = await chartsRes.text();
+    throw new Error(`Render charts failed: ${detail}`);
+  }
+
+  const chartsData = await chartsRes.json() as RenderChartsResponse;
+  sendStageEvent?.('generating_charts', 100);
+
+  console.log(`[reportService] Rendered ${Object.keys(chartsData.charts).length} charts`);
+
+  // -----------------------------------------------------------------------
+  // Stage 3: Build narrative prompt + LLM Pass 2
+  // -----------------------------------------------------------------------
+  sendStageEvent?.('narrative', 0);
+
+  // Build chart descriptions for the narrative prompt
+  const chartDescriptions: Record<string, string> = {};
+  for (const [chartName] of Object.entries(chartsData.charts)) {
+    // Provide textual descriptions of chart data for the LLM
+    if (chartName === 'Severity Distribution') {
+      chartDescriptions[chartName] = `Severity breakdown: ${JSON.stringify(metrics.severity_counts)}`;
+    } else if (chartName === 'Category Bar') {
+      chartDescriptions[chartName] = `Categories: ${JSON.stringify(metrics.category_counts)}`;
+    } else if (chartName === 'Compliance Radar') {
+      chartDescriptions[chartName] = `Compliance scores: ${JSON.stringify(metrics.compliance_scores)}`;
+    } else if (chartName === 'Risk Score Card') {
+      chartDescriptions[chartName] = `Risk score: ${metrics.risk_score}/100 (${metrics.risk_level})`;
+    } else {
+      chartDescriptions[chartName] = `Chart data available`;
+    }
+  }
+
+  const narrativePromptRes = await fetch(`${sanitizerUrl}/report/build-narrative-prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      findings,
+      metrics: {
+        severity_counts: metrics.severity_counts,
+        category_counts: metrics.category_counts,
+        total: findings.length,
+      },
+      compliance_scores: metrics.compliance_scores,
+      risk_score: metrics.risk_score,
+      chart_descriptions: chartDescriptions,
+      language: state.detectedLanguage || 'en',
+    }),
+  });
+
+  if (!narrativePromptRes.ok) {
+    const detail = await narrativePromptRes.text();
+    throw new Error(`Build narrative prompt failed: ${detail}`);
+  }
+
+  const narrativePromptData = await narrativePromptRes.json() as NarrativePromptResponse;
+
+  sendStageEvent?.('narrative', 20);
+
+  // LLM Pass 2: Generate narrative text
+  const client = await createLLMClient();
+  const narrativeMessages: LLMMessage[] = [
+    { role: 'system', content: narrativePromptData.system_prompt },
+    { role: 'user', content: narrativePromptData.user_prompt },
+  ];
+
+  let narrativeResponse = '';
+  const narrativeStream = client.generateStream(narrativeMessages, {
+    maxTokens: 16384,
+    feature: 'executive-report',
+  });
+
+  for await (const chunk of narrativeStream) {
+    if (chunk.text) {
+      narrativeResponse += chunk.text;
+      sendDelta?.(chunk.text);
+    }
+  }
+
+  if (!narrativeResponse.trim()) {
+    throw new Error('LLM returned empty response for narrative generation');
+  }
+
+  sendStageEvent?.('narrative', 80);
+
+  // Validate narrative response
+  const validateNarrativeRes = await fetch(`${sanitizerUrl}/report/validate-narrative`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw_json: narrativeResponse }),
+  });
+
+  if (!validateNarrativeRes.ok) {
+    const detail = await validateNarrativeRes.text();
+    throw new Error(`Narrative validation failed: ${detail}`);
+  }
+
+  const narrativeData = await validateNarrativeRes.json() as ValidateNarrativeResponse;
+
+  if (!narrativeData.valid) {
+    throw new Error(`Narrative validation failed: ${narrativeData.error || 'Unknown error'}`);
+  }
+
+  sendStageEvent?.('narrative', 100);
+
+  console.log(
+    `[reportService] Validated narrative: ${Object.keys(narrativeData.sections).length} sections`,
+  );
+
+  // -----------------------------------------------------------------------
+  // Stage 4: De-sanitize narratives + metadata
+  // -----------------------------------------------------------------------
+  sendStageEvent?.('building_report', 0);
+
+  const desanitizedSections: Record<string, string> = {};
+
+  for (const [sectionKey, sectionText] of Object.entries(narrativeData.sections)) {
+    try {
+      const result = await desanitizeText(sectionText, sessionId);
+      desanitizedSections[sectionKey] = result.text;
+
+      if (result.unresolvedPlaceholders.length > 0) {
+        console.warn(
+          `[reportService] Unresolved placeholders in section ${sectionKey}:`,
+          result.unresolvedPlaceholders,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[reportService] De-sanitization failed for section ${sectionKey}, using sanitized text:`,
+        err,
+      );
+      desanitizedSections[sectionKey] = sectionText;
+    }
+  }
+
+  // De-sanitize metadata fields
+  const desanitizedMetadata: Record<string, string> = {};
+  for (const [key, value] of Object.entries(state.metadata)) {
+    if (value) {
+      try {
+        const result = await desanitizeText(value, sessionId);
+        desanitizedMetadata[key] = result.text;
+      } catch {
+        desanitizedMetadata[key] = value;
+      }
+    } else {
+      desanitizedMetadata[key] = value || '';
+    }
+  }
+
+  sendStageEvent?.('building_report', 30);
+
+  // -----------------------------------------------------------------------
+  // Stage 5: Build DOCX report via Python
+  // -----------------------------------------------------------------------
+  const buildRes = await fetch(`${sanitizerUrl}/report/build-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      language: state.detectedLanguage || 'en',
+      narrative_sections: desanitizedSections,
+      metadata: {
+        client_name: desanitizedMetadata.clientName || '',
+        project_code: desanitizedMetadata.projectCode || '',
+        report_date: new Date().toISOString().split('T')[0],
+        start_date: desanitizedMetadata.startDate || '',
+        end_date: desanitizedMetadata.endDate || '',
+      },
+      chart_images: chartsData.charts,
+      risk_score: metrics.risk_score,
+      risk_level: metrics.risk_level,
+    }),
+  });
+
+  if (!buildRes.ok) {
+    const detail = await buildRes.text();
+    throw new Error(`Report build failed: ${detail}`);
+  }
+
+  const buildData = await buildRes.json() as BuildReportResponse;
+
+  sendStageEvent?.('building_report', 80);
+
+  // Save DOCX to disk
+  const docxBuffer = Buffer.from(buildData.docx_base64, 'base64');
+  const docxFilename = buildData.filename || `executive_report_${sessionId}.docx`;
+  const docxPath = path.join(DOCUMENTS_DIR, docxFilename);
+  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+  fs.writeFileSync(docxPath, docxBuffer);
+
+  sendStageEvent?.('building_report', 100);
+
+  console.log(`[reportService] Saved report DOCX: ${docxPath} (${docxBuffer.length} bytes)`);
+
+  // -----------------------------------------------------------------------
+  // Stage 6: Queue PDF conversion via Gotenberg
+  // -----------------------------------------------------------------------
+  sendStageEvent?.('converting_pdf', 0);
+
+  const pdfJobId = await addPdfConversionJob(docxPath, docxFilename);
+
+  sendStageEvent?.('converting_pdf', 100);
+
+  console.log(`[reportService] Queued PDF conversion job: ${pdfJobId}`);
+
+  // -----------------------------------------------------------------------
+  // Update session state with all generation results
+  // -----------------------------------------------------------------------
+  await updateReportSession(userId, sessionId, {
+    currentStep: 'review',
+    riskScore: metrics.risk_score,
+    complianceScores: metrics.compliance_scores,
+    chartData: chartsData.charts as unknown as Record<string, unknown>,
+    narrativeSections: desanitizedSections,
+    reportDocxPath: docxPath,
+    reportPdfJobId: pdfJobId,
+  });
 
   return {
-    reportDocxPath: '',
-    pdfJobId: '',
+    reportDocxPath: docxPath,
+    pdfJobId,
   };
 }
 
