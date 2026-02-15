@@ -26,10 +26,14 @@ from app.models.report import (
     ComputeMetricsResponse,
     RenderChartsRequest,
     RenderChartsResponse,
+    SectionCorrectionPromptRequest,
+    SectionCorrectionPromptResponse,
     ValidateExtractionRequest,
     ValidateExtractionResponse,
     ValidateNarrativeRequest,
     ValidateNarrativeResponse,
+    ValidateSectionCorrectionRequest,
+    ValidateSectionCorrectionResponse,
 )
 from app.services.chart_renderer import ChartRenderer
 from app.services.compliance_matrix import (
@@ -46,7 +50,10 @@ from app.services.report_extraction_prompt import (
 from app.services.report_narrative_prompt import (
     build_narrative_system_prompt,
     build_narrative_user_prompt,
+    build_section_correction_system_prompt,
+    build_section_correction_user_prompt,
     validate_narrative_response,
+    validate_section_correction,
 )
 
 logger = logging.getLogger(__name__)
@@ -362,6 +369,99 @@ async def validate_narrative(
         logger.warning("Narrative validation failed: %s", exc)
         return ValidateNarrativeResponse(
             sections={},
+            valid=False,
+            error=str(exc),
+        )
+
+
+# ---------------------------------------------------------------------------
+# POST /report/build-section-correction-prompt
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/build-section-correction-prompt",
+    response_model=SectionCorrectionPromptResponse,
+)
+async def build_section_correction_prompt(
+    body: SectionCorrectionPromptRequest,
+) -> SectionCorrectionPromptResponse:
+    """Build the LLM prompt for correcting a single report section.
+
+    Takes the current section text, user feedback, and report context,
+    and returns system + user prompts for targeted section revision.
+    """
+    try:
+        system_prompt = build_section_correction_system_prompt(body.language)
+        user_prompt = build_section_correction_user_prompt(
+            section_key=body.section_key,
+            current_text=body.current_text,
+            user_feedback=body.user_feedback,
+            report_context=body.report_context,
+        )
+    except Exception as exc:
+        logger.error("Section correction prompt build failed: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build section correction prompt: {exc}",
+        )
+
+    logger.info(
+        "Built section correction prompt: section=%s, feedback_len=%d, prompt_len=%d",
+        body.section_key,
+        len(body.user_feedback),
+        len(user_prompt),
+    )
+
+    return SectionCorrectionPromptResponse(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /report/validate-section-correction
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/validate-section-correction",
+    response_model=ValidateSectionCorrectionResponse,
+)
+async def validate_section_correction_route(
+    body: ValidateSectionCorrectionRequest,
+) -> ValidateSectionCorrectionResponse:
+    """Validate the raw LLM section correction response JSON.
+
+    Parses the response and checks that the section_key matches
+    the expected key and that revised_text is non-empty.
+    """
+    # Strip markdown code fences if present
+    raw = body.raw_json.strip()
+    if raw.startswith("```"):
+        first_nl = raw.index("\n") if "\n" in raw else len(raw)
+        raw = raw[first_nl + 1:]
+        if raw.rstrip().endswith("```"):
+            raw = raw.rstrip()[:-3].rstrip()
+
+    try:
+        result = validate_section_correction(raw, body.expected_section_key)
+        logger.info(
+            "Validated section correction: key=%s, text_len=%d",
+            result["section_key"],
+            len(result["revised_text"]),
+        )
+        return ValidateSectionCorrectionResponse(
+            section_key=result["section_key"],
+            revised_text=result["revised_text"],
+            valid=True,
+            error=None,
+        )
+    except ValueError as exc:
+        logger.warning("Section correction validation failed: %s", exc)
+        return ValidateSectionCorrectionResponse(
+            section_key="",
+            revised_text="",
             valid=False,
             error=str(exc),
         )

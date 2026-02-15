@@ -187,6 +187,159 @@ def build_narrative_user_prompt(
     return "\n".join(sections)
 
 
+def build_section_correction_system_prompt(language: str) -> str:
+    """Build the system prompt for single-section correction.
+
+    Instructs the LLM to revise one specific section of the executive
+    report based on user feedback while maintaining consistency with
+    the rest of the report.
+
+    Args:
+        language: Output language code ("en" or "pt-pt").
+
+    Returns:
+        System prompt string for the correction LLM call.
+    """
+    lang_instruction = (
+        "Write the revised text in English."
+        if language == "en"
+        else f"Write the revised text in the language matching code '{language}'."
+    )
+
+    return (
+        "You are a senior cybersecurity consultant revising a single section of "
+        "an executive report based on user feedback. Your task is to:\n"
+        "1. Read the current section text carefully.\n"
+        "2. Apply the user's requested changes precisely.\n"
+        "3. Maintain consistency with the rest of the report (summaries of other "
+        "sections are provided for context).\n"
+        "4. Keep the same professional, business-focused tone.\n"
+        "5. Preserve any sanitized placeholders (e.g., [PERSON_1], [ORG_1]) exactly.\n\n"
+        f"{lang_instruction}\n\n"
+        "You must return ONLY valid JSON with this structure:\n"
+        '{ "section_key": "<the section key>", "revised_text": "<the full revised section text>" }\n\n'
+        "## Style Guidelines\n\n"
+        "- Use **bold** for emphasis on key terms.\n"
+        "- Use numbered lists for recommendations and action items.\n"
+        "- Frame vulnerabilities in terms of business risk.\n"
+        "- Be concise yet comprehensive.\n"
+        "- Do NOT add commentary outside the JSON structure."
+    )
+
+
+def build_section_correction_user_prompt(
+    section_key: str,
+    current_text: str,
+    user_feedback: str,
+    report_context: dict,
+) -> str:
+    """Build the user prompt for correcting a single report section.
+
+    Args:
+        section_key: The key of the section being revised (e.g.,
+                     "executive_summary", "strategic_recommendations").
+        current_text: The current text content of the section.
+        user_feedback: The user's correction request / feedback.
+        report_context: Dict with keys: findings_summary (str),
+                        risk_score (float), other_sections (dict of
+                        section_key -> first 200 chars for context).
+
+    Returns:
+        User prompt string with all context needed for targeted revision.
+    """
+    sections: list[str] = []
+
+    # Section being revised
+    sections.append(f"## Section to Revise: {section_key}\n")
+    sections.append("Current text:\n")
+    sections.append(f"```\n{current_text}\n```\n")
+
+    # User feedback
+    sections.append("## User Feedback\n")
+    sections.append(f"{user_feedback}\n")
+
+    # Report context for coherence
+    sections.append("## Report Context\n")
+
+    risk_score = report_context.get("risk_score")
+    if risk_score is not None:
+        sections.append(f"Global Risk Score: {risk_score}/100\n")
+
+    findings_summary = report_context.get("findings_summary", "")
+    if findings_summary:
+        sections.append(f"Findings Summary: {findings_summary}\n")
+
+    other_sections = report_context.get("other_sections", {})
+    if other_sections:
+        sections.append("Other section summaries (for coherence):\n")
+        for key, preview in other_sections.items():
+            if key != section_key:
+                # Truncate to 200 chars for context without bloating the prompt
+                truncated = preview[:200] + "..." if len(preview) > 200 else preview
+                sections.append(f"  - {key}: {truncated}")
+
+    # Instructions
+    sections.append("\n## Instructions\n")
+    sections.append(
+        f'1. Revise the "{section_key}" section based on the user feedback above.\n'
+        "2. Return the FULL revised section text (not just the changed parts).\n"
+        "3. Maintain consistency with the report context.\n"
+        "4. Preserve any sanitized placeholders exactly as they appear.\n"
+        f'5. Return JSON: {{ "section_key": "{section_key}", "revised_text": "..." }}'
+    )
+
+    return "\n".join(sections)
+
+
+def validate_section_correction(raw_json: str, expected_key: str) -> dict:
+    """Parse and validate the LLM section correction response.
+
+    Checks that the response contains the expected section_key and
+    a non-empty revised_text.
+
+    Args:
+        raw_json: Raw JSON string from the LLM response.
+        expected_key: The section key that was requested.
+
+    Returns:
+        Dict with 'section_key' and 'revised_text'.
+
+    Raises:
+        ValueError: If the JSON is invalid or the response is malformed.
+    """
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in correction response: {e}") from e
+
+    if not isinstance(data, dict):
+        raise ValueError("Correction response must be a JSON object")
+
+    section_key = data.get("section_key", "")
+    revised_text = data.get("revised_text", "")
+
+    if not section_key:
+        raise ValueError("Missing 'section_key' in correction response")
+
+    if not revised_text:
+        raise ValueError("Missing or empty 'revised_text' in correction response")
+
+    # Accept the response even if section_key differs slightly
+    # (the LLM might use a variant), but log a warning
+    if section_key != expected_key:
+        logger.warning(
+            "Section key mismatch: expected '%s', got '%s'. Using expected key.",
+            expected_key,
+            section_key,
+        )
+        section_key = expected_key
+
+    return {
+        "section_key": section_key,
+        "revised_text": revised_text,
+    }
+
+
 def validate_narrative_response(raw_json: str) -> dict:
     """Parse and validate the LLM narrative response.
 

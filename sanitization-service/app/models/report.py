@@ -184,6 +184,69 @@ class ValidateNarrativeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# POST /report/build-section-correction-prompt
+# ---------------------------------------------------------------------------
+
+
+class SectionCorrectionPromptRequest(BaseModel):
+    """Request body for building a single-section correction prompt."""
+
+    section_key: str = Field(
+        ..., description="Key of the section to correct (e.g., 'executive_summary')"
+    )
+    current_text: str = Field(
+        ..., description="Current text content of the section"
+    )
+    user_feedback: str = Field(
+        ..., description="User's correction request / feedback"
+    )
+    report_context: dict = Field(
+        default_factory=dict,
+        description="Context: findings_summary, risk_score, other_sections",
+    )
+    language: str = Field(
+        ..., description="Language code: 'en' or 'pt-pt'"
+    )
+
+
+class SectionCorrectionPromptResponse(BaseModel):
+    """Response with system and user prompts for section correction."""
+
+    system_prompt: str = Field(..., description="System prompt for the LLM")
+    user_prompt: str = Field(..., description="User prompt with section + feedback")
+
+
+# ---------------------------------------------------------------------------
+# POST /report/validate-section-correction
+# ---------------------------------------------------------------------------
+
+
+class ValidateSectionCorrectionRequest(BaseModel):
+    """Request body for validating a section correction LLM response."""
+
+    raw_json: str = Field(
+        ..., description="Raw JSON string from LLM correction response"
+    )
+    expected_section_key: str = Field(
+        ..., description="The section key that was requested for correction"
+    )
+
+
+class ValidateSectionCorrectionResponse(BaseModel):
+    """Response with validated section correction data."""
+
+    section_key: str = Field("", description="The corrected section key")
+    revised_text: str = Field("", description="The revised section text")
+    valid: bool = Field(..., description="Whether the correction response was valid")
+    error: str | None = Field(None, description="Error message if validation failed")
+
+
+# ---------------------------------------------------------------------------
+# POST /report/build-report
+# ---------------------------------------------------------------------------
+
+
 class BuildReportRequest(BaseModel):
     """Request body for building the final DOCX report."""
 
