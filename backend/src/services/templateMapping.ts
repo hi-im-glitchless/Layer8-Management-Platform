@@ -25,6 +25,38 @@ import type { TemplateMapping, BlueprintPattern, StyleHint } from '@prisma/clien
 export type UpsertMode = 'confirm' | 'correct' | 'create';
 
 // ---------------------------------------------------------------------------
+// Prescriptive Lookup Types
+// ---------------------------------------------------------------------------
+
+export interface SectionForLookup {
+  sectionIndex: number;
+  sectionText: string;
+  zone: string;
+}
+
+export interface LockedSection {
+  sectionIndex: number;
+  sectionText: string;
+  normalizedText: string;
+  zone: string;
+  gwField: string;
+  markerType: string;
+  placeholderTemplate: string;
+  confidence: number;
+}
+
+export interface UnknownSection {
+  sectionIndex: number;
+  sectionText: string;
+  zone: string;
+}
+
+export interface PrescriptiveLookupResult {
+  locked: LockedSection[];
+  unknown: UnknownSection[];
+}
+
+// ---------------------------------------------------------------------------
 // Zod Schemas
 // ---------------------------------------------------------------------------
 
@@ -350,6 +382,106 @@ export async function queryByZone(
   }
 
   return grouped;
+}
+
+// ---------------------------------------------------------------------------
+// Prescriptive Lookup
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the correct Jinja2 placeholder template string based on markerType.
+ *
+ * - paragraph_rt -> {{p gwField }}
+ * - run_rt       -> {{r gwField }}
+ * - table_row_loop -> {%tr for item in gwField %}
+ * - control_flow -> {% if gwField %}
+ * - text (default) -> {{ gwField }}
+ */
+function buildPlaceholderTemplate(gwField: string, markerType: string): string {
+  switch (markerType) {
+    case 'paragraph_rt':
+      return `{{p ${gwField} }}`;
+    case 'run_rt':
+      return `{{r ${gwField} }}`;
+    case 'table_row_loop':
+      return `{%tr for item in ${gwField} %}`;
+    case 'control_flow':
+      return `{% if ${gwField} %}`;
+    default:
+      return `{{ ${gwField} }}`;
+  }
+}
+
+/**
+ * Prescriptive lookup: exact match against the KB to split document sections
+ * into locked (high-confidence KB matches) and unknown (need LLM analysis).
+ *
+ * Matches on (normalizedSectionText + zone + templateType + language) with
+ * confidence >= lockThreshold. When multiple entries match the same
+ * (text, zone) key, the highest-confidence entry wins.
+ *
+ * @param sections - Document sections with sectionIndex, sectionText, and zone
+ * @param templateType - Template type to match against
+ * @param language - Language to match against
+ * @param lockThreshold - Minimum confidence to consider a match locked (default 0.8)
+ * @returns { locked, unknown } split
+ */
+export async function prescriptiveLookup(
+  sections: SectionForLookup[],
+  templateType: string,
+  language: string,
+  lockThreshold: number = 0.8,
+): Promise<PrescriptiveLookupResult> {
+  const locked: LockedSection[] = [];
+  const unknown: UnknownSection[] = [];
+
+  // Fetch all high-confidence entries for this template type + language in one query
+  const candidates = await prisma.templateMapping.findMany({
+    where: {
+      templateType,
+      language,
+      confidence: { gte: lockThreshold },
+    },
+  });
+
+  // Build lookup map: key = normalizedText + zone -> entry
+  const lookupMap = new Map<string, TemplateMapping>();
+  for (const entry of candidates) {
+    const key = `${entry.normalizedSectionText}::${entry.zone}`;
+    // If multiple entries for same text+zone, keep highest confidence
+    const existing = lookupMap.get(key);
+    if (!existing || entry.confidence > existing.confidence) {
+      lookupMap.set(key, entry);
+    }
+  }
+
+  // Match each section against the lookup map
+  for (const section of sections) {
+    const normalizedText = normalizeSectionText(section.sectionText);
+    const key = `${normalizedText}::${section.zone}`;
+    const match = lookupMap.get(key);
+
+    if (match) {
+      locked.push({
+        sectionIndex: section.sectionIndex,
+        sectionText: section.sectionText,
+        normalizedText,
+        zone: section.zone,
+        gwField: match.gwField,
+        markerType: match.markerType,
+        placeholderTemplate: buildPlaceholderTemplate(match.gwField, match.markerType),
+        confidence: match.confidence,
+      });
+    } else {
+      unknown.push({
+        sectionIndex: section.sectionIndex,
+        sectionText: section.sectionText,
+        zone: section.zone,
+      });
+    }
+  }
+
+  return { locked, unknown };
 }
 
 /**
