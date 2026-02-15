@@ -17,6 +17,7 @@ export interface MappingEntry {
   confidence: number
   markerType: string
   rationale: string
+  source?: 'kb' | 'llm'
 }
 
 export interface MappingPlan {
@@ -100,6 +101,8 @@ export interface AutoMapResponse {
   skippedCount: number
   warnings: string[]
   mappingPlan: MappingPlan
+  kbLockedCount: number
+  llmAnalyzedCount: number
 }
 
 /** POST /api/adapter/reapply response */

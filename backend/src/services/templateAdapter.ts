@@ -57,6 +57,7 @@ export interface MappingEntry {
   confidence: number;
   markerType: string;
   rationale: string;
+  source?: 'kb' | 'llm';
 }
 
 export interface MappingPlan {
@@ -69,6 +70,8 @@ export interface MappingPlan {
 export interface AnalysisResult {
   mappingPlan: MappingPlan;
   referenceTemplateHash: string;
+  kbLockedCount: number;
+  llmAnalyzedCount: number;
 }
 
 /** Response from Python /adapter/analyze */
