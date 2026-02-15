@@ -368,19 +368,10 @@ router.post('/update-metadata', requireAuth, async (req: Request, res: Response)
 // POST /api/report/generate
 // ---------------------------------------------------------------------------
 
-/** Generation pipeline stage names. */
-type GenerationStage =
-  | 'extracting'
-  | 'computing'
-  | 'generating_charts'
-  | 'narrative'
-  | 'building_report'
-  | 'converting_pdf';
-
 /**
  * Trigger the full generation pipeline via SSE streaming.
  * Body: { sessionId }
- * Stages: extracting -> computing -> generating_charts -> narrative -> building_report -> converting_pdf
+ * Stages: computing -> generating_charts -> narrative -> building_report -> converting_pdf
  * Events: stage (progress), delta (LLM text), done (usage), error
  */
 router.post('/generate', requireAuth, async (req: Request, res: Response) => {
@@ -729,8 +720,10 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
 
     if (!state.reportPdfJobId) {
       return res.json({
-        status: 'no_job',
+        status: state.reportPdfUrl ? 'completed' : 'no_job',
+        progress: state.reportPdfUrl ? 100 : 0,
         pdfUrl: state.reportPdfUrl,
+        reportDocxPath: state.reportDocxPath,
       });
     }
 
@@ -739,14 +732,32 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
     const response: Record<string, unknown> = {
       status: jobStatus.status,
       progress: jobStatus.progress ?? 0,
+      reportDocxPath: state.reportDocxPath,
     };
 
     if (jobStatus.status === 'completed' && jobStatus.pdfPath) {
-      response.pdfUrl = `/uploads/documents/${jobStatus.pdfPath}`;
+      const pdfUrl = `/uploads/documents/${jobStatus.pdfPath}`;
+      response.pdfUrl = pdfUrl;
+
+      // Persist PDF URL in session so subsequent loads don't need to re-poll
+      if (!state.reportPdfUrl) {
+        updateReportSession(userId, sessionId, {
+          reportPdfUrl: pdfUrl,
+        }).catch((err) => {
+          console.error('[executiveReport route] Failed to persist pdfUrl:', err);
+        });
+      }
     }
 
     if (jobStatus.status === 'failed') {
       response.error = jobStatus.error;
+    }
+
+    // If PDF URL was already stored, return it even without re-checking the job
+    if (state.reportPdfUrl && !response.pdfUrl) {
+      response.pdfUrl = state.reportPdfUrl;
+      response.status = 'completed';
+      response.progress = 100;
     }
 
     res.json(response);
