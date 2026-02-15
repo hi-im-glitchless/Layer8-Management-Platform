@@ -463,4 +463,20 @@ def _build_rules_section(
             "11. This template type uses scope loops and affected_entities fields."
         )
 
+    # Prescriptive KB annotation rules
+    lines.append(
+        "12. Sections marked [RESOLVED: field] are already mapped from the knowledge base. "
+        "Do NOT re-map them. Use their field assignments as context to inform your mapping "
+        "of nearby [NEEDS MAPPING] sections."
+    )
+    lines.append(
+        "13. Only map sections marked [NEEDS MAPPING]. Do NOT include [RESOLVED] sections "
+        "in your output JSON."
+    )
+    lines.append(
+        "14. Use the pattern of resolved sections to infer the likely field for unknown "
+        "sections. For example, if [RESOLVED: finding.title] appears before a [NEEDS MAPPING] "
+        "section, the unknown section likely maps to a finding sub-field."
+    )
+
     return "\n".join(lines)
