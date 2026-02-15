@@ -679,8 +679,28 @@ router.delete('/session/:sessionId', requireAuth, async (req: Request, res: Resp
         if (fs.existsSync(state.reportDocxPath)) {
           fs.unlinkSync(state.reportDocxPath);
         }
+        // Also clean up the PDF (same name with .pdf extension)
+        const pdfPath = state.reportDocxPath.replace(/\.docx$/i, '.pdf');
+        if (fs.existsSync(pdfPath)) {
+          fs.unlinkSync(pdfPath);
+        }
       } catch (cleanupErr) {
-        console.warn('[executiveReport route] Failed to clean up report DOCX:', cleanupErr);
+        console.warn('[executiveReport route] Failed to clean up report files:', cleanupErr);
+      }
+    }
+
+    // Clean up PDF file referenced by URL if different from derived path
+    if (state?.reportPdfUrl) {
+      try {
+        // reportPdfUrl is a relative URL like /uploads/documents/filename.pdf
+        const pdfFilePath = state.reportPdfUrl.startsWith('/')
+          ? `${process.cwd()}${state.reportPdfUrl}`
+          : state.reportPdfUrl;
+        if (fs.existsSync(pdfFilePath)) {
+          fs.unlinkSync(pdfFilePath);
+        }
+      } catch (cleanupErr) {
+        console.warn('[executiveReport route] Failed to clean up PDF file:', cleanupErr);
       }
     }
 

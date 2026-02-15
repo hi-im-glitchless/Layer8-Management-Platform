@@ -106,18 +106,25 @@ export function ReportWizardShell({
   const handleStepClick = useCallback(
     (step: ReportWizardStep) => {
       const targetIndex = REPORT_STEP_ORDER[step]
-      if (targetIndex < currentStepIndex) {
+      // Allow clicking only if going backward within navigable range
+      if (targetIndex < currentStepIndex && targetIndex >= minNavigableIndex) {
         setOverrideStep(step)
       }
     },
-    [currentStepIndex],
+    [currentStepIndex, minNavigableIndex],
   )
 
+  // Step regression prevention: after generation, can't go back past sanitize-review
+  const minNavigableIndex = sessionData?.narrativeSections
+    ? REPORT_STEP_ORDER['sanitize-review']
+    : 0
+
   const goBack = useCallback(() => {
-    if (currentStepIndex > 0) {
-      setOverrideStep(STEP_SEQUENCE[currentStepIndex - 1])
+    const targetIndex = currentStepIndex - 1
+    if (targetIndex >= minNavigableIndex) {
+      setOverrideStep(STEP_SEQUENCE[targetIndex])
     }
-  }, [currentStepIndex])
+  }, [currentStepIndex, minNavigableIndex])
 
   const goForward = useCallback(() => {
     if (currentStepIndex < maxReachableIndex) {
@@ -260,7 +267,7 @@ export function ReportWizardShell({
               variant="outline"
               size="sm"
               onClick={goBack}
-              disabled={currentStepIndex === 0}
+              disabled={currentStepIndex <= minNavigableIndex}
             >
               <ArrowLeft className="h-4 w-4 mr-1" aria-hidden="true" />
               Back
