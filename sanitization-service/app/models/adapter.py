@@ -200,9 +200,10 @@ FIELD_MARKER_MAP: dict[str, str] = {
     "finding['title']": "text",
     "totals.findings": "text",
     "item.scope": "text",
+    "finding.cvss_score": "text",
     "finding.classification_rt": "text",
-    "finding.affected_entities_rt": "text",
-    "finding.cvss_vector_link_rt": "text",
+    "finding.affected_entities_rt": "run_rt",
+    "finding.cvss_vector_link_rt": "run_rt",
     # Rich text paragraph fields
     "finding.description_rt": "paragraph_rt",
     "finding.impact_rt": "paragraph_rt",

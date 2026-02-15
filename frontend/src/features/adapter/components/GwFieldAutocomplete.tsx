@@ -59,9 +59,10 @@ export const GW_FIELD_OPTIONS: GwFieldOption[] = [
   { gwField: "finding['title']", markerType: 'text' },
   { gwField: 'totals.findings', markerType: 'text' },
   { gwField: 'item.scope', markerType: 'text' },
+  { gwField: 'finding.cvss_score', markerType: 'text' },
   { gwField: 'finding.classification_rt', markerType: 'text' },
-  { gwField: 'finding.affected_entities_rt', markerType: 'text' },
-  { gwField: 'finding.cvss_vector_link_rt', markerType: 'text' },
+  { gwField: 'finding.affected_entities_rt', markerType: 'run_rt' },
+  { gwField: 'finding.cvss_vector_link_rt', markerType: 'run_rt' },
   // Rich text paragraph fields
   { gwField: 'finding.description_rt', markerType: 'paragraph_rt' },
   { gwField: 'finding.impact_rt', markerType: 'paragraph_rt' },

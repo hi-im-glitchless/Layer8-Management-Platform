@@ -64,6 +64,7 @@ _PLACEHOLDER_TO_GW_FIELD: dict[str, str] = {
     # Findings
     "finding.title": "finding.title",
     "finding['title']": "finding['title']",
+    "finding.cvss_score": "finding.cvss_score",
     "finding.severity_rt": "finding.severity_rt",
     "finding.classification_rt": "finding.classification_rt",
     "finding.affected_entities_rt": "finding.affected_entities_rt",

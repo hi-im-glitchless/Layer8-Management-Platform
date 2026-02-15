@@ -76,7 +76,7 @@ export function mapReportToTemplateContext(report: GWReport): TemplateContext {
   const sortedFindings = [...(report.findings || [])].sort((a, b) => {
     const wA = a.severity?.weight ?? 0;
     const wB = b.severity?.weight ?? 0;
-    if (wB !== wA) return wB - wA;
+    if (wB !== wA) return wA - wB;
     return (b.cvssScore ?? 0) - (a.cvssScore ?? 0);
   });
 

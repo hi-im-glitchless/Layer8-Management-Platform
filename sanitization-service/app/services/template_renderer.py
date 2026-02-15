@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import Any
 
 from docxtpl import DocxTemplate, RichText
+from docxtpl.richtext import RichTextParagraph
 from jinja2 import Environment, UndefinedError, Undefined
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,16 @@ RICH_TEXT_FIELDS = frozenset({
     "recommendation",
     "replication_steps",
     "affected_entities",
+})
+
+# Subset of RICH_TEXT_FIELDS that use {{p }} (paragraph-level) markers.
+# These need RichTextParagraph wrapping so docxtpl inserts valid <w:p> elements.
+# Fields NOT in this set use {{r }} (run-level) and stay as plain RichText.
+PARAGRAPH_RT_FIELDS = frozenset({
+    "description",
+    "impact",
+    "recommendation",
+    "replication_steps",
 })
 
 # CVSS calculator base URL
@@ -204,13 +215,25 @@ def prepare_context(raw_context: dict, tpl: DocxTemplate) -> dict:
     for finding in findings:
         f = dict(finding)
 
-        # Convert known HTML fields to RichText
+        # Convert known HTML fields to RichText / RichTextParagraph
         for field in RICH_TEXT_FIELDS:
             html_value = f.get(field, "")
             if html_value:
-                f[f"{field}_rt"] = html_to_richtext(html_value, tpl)
+                rt = html_to_richtext(html_value, tpl)
+                if field in PARAGRAPH_RT_FIELDS:
+                    # Wrap in RichTextParagraph for {{p }} marker compatibility.
+                    # docxtpl's {{p }} removes the <w:p> element, so the replacement
+                    # must include its own <w:p> wrapper to produce valid OOXML.
+                    rtp = RichTextParagraph()
+                    rtp.add(rt)
+                    f[f"{field}_rt"] = rtp
+                else:
+                    f[f"{field}_rt"] = rt
             else:
-                f[f"{field}_rt"] = RichText()
+                if field in PARAGRAPH_RT_FIELDS:
+                    f[f"{field}_rt"] = RichTextParagraph()
+                else:
+                    f[f"{field}_rt"] = RichText()
 
         # Severity as coloured RichText
         severity_label = f.get("severity", "")
