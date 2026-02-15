@@ -269,7 +269,7 @@ export function MappingTable({
                 <ArrowUpDown className="h-3 w-3 ml-0.5" aria-hidden="true" />
               </Button>
             </TableHead>
-            <TableHead className="w-20">Marker</TableHead>
+            <TableHead className="w-24">Marker</TableHead>
             {isEditable && <TableHead className="w-10">Actions</TableHead>}
           </TableRow>
         </TableHeader>
@@ -362,15 +362,25 @@ export function MappingTable({
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        'text-[9px] uppercase tracking-wider',
-                        confidenceBg(entry.confidence),
+                    <div className="flex items-center gap-1">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          'text-[9px] uppercase tracking-wider',
+                          confidenceBg(entry.confidence),
+                        )}
+                      >
+                        {entry.markerType}
+                      </Badge>
+                      {entry.source === 'kb' && (
+                        <Badge
+                          variant="outline"
+                          className="text-[8px] uppercase tracking-wider border-slate-300 text-slate-500 dark:border-slate-600 dark:text-slate-400 px-1 py-0"
+                        >
+                          KB
+                        </Badge>
                       )}
-                    >
-                      {entry.markerType}
-                    </Badge>
+                    </div>
                   </TableCell>
                   {isEditable && (
                     <TableCell onClick={(e) => e.stopPropagation()}>
