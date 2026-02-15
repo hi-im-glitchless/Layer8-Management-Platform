@@ -94,6 +94,14 @@ class AnalyzeRequest(BaseModel):
         None,
         description="Enriched KB context with zone-grouped mappings, blueprints, and style hints",
     )
+    locked_sections: list["LockedSection"] = Field(
+        default_factory=list,
+        description="Sections resolved from the prescriptive KB (no LLM analysis needed)",
+    )
+    unknown_sections: list["UnknownSection"] = Field(
+        default_factory=list,
+        description="Sections that need LLM analysis (not found in KB)",
+    )
 
 
 class AnalyzeResponse(BaseModel):
@@ -478,6 +486,30 @@ class KBContext(BaseModel):
     repetition_summary: list[dict] = Field(default_factory=list)
     # TODO: Remove with _build_kb_context_block in Plan 05.6-03
     is_cross_type_fallback: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Prescriptive KB section models (consumed by Plan 05.6-03)
+# ---------------------------------------------------------------------------
+
+
+class LockedSection(BaseModel):
+    """A section resolved from the KB (prescriptive lookup)."""
+
+    section_index: int
+    section_text: str
+    zone: str
+    gw_field: str
+    marker_type: str
+    confidence: float
+
+
+class UnknownSection(BaseModel):
+    """A section that needs LLM analysis."""
+
+    section_index: int
+    section_text: str
+    zone: str
 
 
 # ---------------------------------------------------------------------------
