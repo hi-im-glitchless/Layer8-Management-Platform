@@ -445,6 +445,8 @@ router.post('/auto-map', requireAuth, async (req: Request, res: Response) => {
       skippedCount: updated.adaptation.skippedCount,
       warnings: mappingPlan?.warnings ?? [],
       mappingPlan,
+      kbLockedCount: updated.analysis.kbLockedCount ?? 0,
+      llmAnalyzedCount: updated.analysis.llmAnalyzedCount ?? 0,
     });
   } catch (error) {
     handleAdapterError(res, error, 'Auto-map');

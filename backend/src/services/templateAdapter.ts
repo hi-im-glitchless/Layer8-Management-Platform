@@ -694,6 +694,8 @@ export async function autoMapTemplate(
     analysis: {
       mappingPlan: analysisResult.mappingPlan as unknown as Record<string, unknown>,
       referenceTemplateHash: analysisResult.referenceTemplateHash,
+      kbLockedCount: analysisResult.kbLockedCount,
+      llmAnalyzedCount: analysisResult.llmAnalyzedCount,
       llmPrompt: null,
     },
   });

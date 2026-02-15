@@ -31,6 +31,8 @@ export interface WizardAnalysis {
   mappingPlan: Record<string, unknown> | null;
   referenceTemplateHash: string | null;
   llmPrompt: string | null;
+  kbLockedCount?: number;
+  llmAnalyzedCount?: number;
 }
 
 export interface WizardAdaptation {
