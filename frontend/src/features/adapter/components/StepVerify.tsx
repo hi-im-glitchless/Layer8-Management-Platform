@@ -515,6 +515,18 @@ export function StepVerify({
             <CardTitle className="text-sm">Mapping Table</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0">
+            {/* KB Summary Banner */}
+            {kbLockedCount != null && kbLockedCount > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 px-3 py-2 text-xs mb-3">
+                <Brain className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                <span className="text-blue-800 dark:text-blue-200">
+                  <strong>{kbLockedCount}</strong> section{kbLockedCount !== 1 ? 's' : ''} resolved from Knowledge Base
+                  {llmAnalyzedCount != null && llmAnalyzedCount > 0 && (
+                    <>, <strong>{llmAnalyzedCount}</strong> analysed by LLM</>
+                  )}
+                </span>
+              </div>
+            )}
             {mappingPlan ? (
               <MappingTable
                 mappingPlan={mappingPlan}
