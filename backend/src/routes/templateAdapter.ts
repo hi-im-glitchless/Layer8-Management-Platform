@@ -1194,7 +1194,7 @@ router.post('/correction-update', requireAuth, async (req: Request, res: Respons
         sessionId,
         correctionCount: corrections.length,
         updated: result.updated,
-        decayed: result.decayed,
+        corrected: result.corrected,
         templateType,
         language,
       },
