@@ -467,15 +467,16 @@ class KBContext(BaseModel):
     """Enriched KB context payload sent from the backend to the prompt builder.
 
     Contains zone-grouped mappings, blueprint patterns, boilerplate style
-    names to filter, and repetition summary data. When is_cross_type_fallback
-    is True, the mappings originate from other template types with a 0.7x
-    confidence penalty.
+    names to filter, and repetition summary data. Cross-type fallback has been
+    removed from the backend (Phase 5.6). The is_cross_type_fallback field is
+    retained temporarily for backward compatibility.
     """
 
     zone_mappings: dict[str, list[KBContextMapping]] = Field(default_factory=dict)
     blueprints: list[BlueprintContext] = Field(default_factory=list)
     boilerplate_styles: list[str] = Field(default_factory=list)
     repetition_summary: list[dict] = Field(default_factory=list)
+    # TODO: Remove with _build_kb_context_block in Plan 05.6-03
     is_cross_type_fallback: bool = False
 
 
