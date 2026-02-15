@@ -24,12 +24,12 @@ import {
   type InteractiveSelection,
 } from './wizardState.js';
 import { addPdfConversionJob } from './pdfQueue.js';
-import { prisma } from '@/db/prisma.js';
 import {
   queryFewShotExamples,
   bulkUpsertMappings,
   upsertMapping,
   deleteAndRecreatMapping,
+  pruneDeadEntries,
   normalizeSectionText,
   queryByZone,
   queryBlueprints,
@@ -1086,17 +1086,8 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
     `${created} created (${mappingPlan.entries.length} total)`
   );
 
-  // Auto-prune dead entries
-  try {
-    const pruned = await prisma.templateMapping.deleteMany({
-      where: { templateType, language, confidence: { lt: 0.3 } },
-    });
-    if (pruned.count > 0) {
-      console.log(`[templateAdapter] Auto-pruned ${pruned.count} dead entries (confidence < 0.3)`);
-    }
-  } catch (err) {
-    console.error('[templateAdapter] Auto-prune failed:', err);
-  }
+  // Auto-prune dead entries (confidence < 0.3)
+  await pruneDeadEntries(templateType, language);
 
   // Fire-and-forget: blueprints and style hints (unchanged)
   persistBlueprintsAndHints(wizardState, mappingPlan).catch((err) => {

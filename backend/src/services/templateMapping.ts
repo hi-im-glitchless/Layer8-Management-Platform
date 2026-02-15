@@ -338,6 +338,38 @@ export async function deleteAndRecreatMapping(
   });
 }
 
+/**
+ * Delete all template mappings with confidence below the threshold.
+ * Used for ongoing cleanup during persist cycles and one-time migration cleanup.
+ *
+ * @returns Count of deleted entries
+ */
+export async function pruneDeadEntries(
+  templateType: string,
+  language: string,
+  threshold: number = 0.3,
+): Promise<number> {
+  try {
+    const result = await prisma.templateMapping.deleteMany({
+      where: {
+        templateType,
+        language,
+        confidence: { lt: threshold },
+      },
+    });
+    if (result.count > 0) {
+      console.log(
+        `[templateMapping] Pruned ${result.count} dead entries ` +
+        `(confidence < ${threshold}) for ${templateType}/${language}`
+      );
+    }
+    return result.count;
+  } catch (error) {
+    console.error('[templateMapping] pruneDeadEntries failed:', error);
+    return 0;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Few-Shot Query
 // ---------------------------------------------------------------------------
