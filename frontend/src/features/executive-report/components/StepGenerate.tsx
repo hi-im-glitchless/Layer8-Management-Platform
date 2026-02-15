@@ -1,9 +1,9 @@
 import { useEffect, useCallback, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, AlertTriangle, ArrowLeft, ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AnalysisProgressDisplay, type StepDef } from '@/features/adapter/components/AnalysisProgress'
-import { useReportGeneration } from '../hooks'
+import { useReportGeneration, useReportSession } from '../hooks'
 
 /** Report generation pipeline stages matching backend SSE stage events */
 const GENERATION_STEPS: StepDef[] = [
@@ -38,20 +38,26 @@ const GENERATION_PERCENT: Record<number, number> = {
 interface StepGenerateProps {
   sessionId: string
   onComplete: () => void
+  onGoBack?: () => void
 }
 
-export function StepGenerate({ sessionId, onComplete }: StepGenerateProps) {
+export function StepGenerate({ sessionId, onComplete, onGoBack }: StepGenerateProps) {
   const generation = useReportGeneration(sessionId)
+  const sessionQuery = useReportSession(sessionId)
   const [elapsed, setElapsed] = useState(0)
   const [hasStarted, setHasStarted] = useState(false)
+  const [warningsDismissed, setWarningsDismissed] = useState(false)
 
-  // Auto-start generation when step mounts
+  const warnings = sessionQuery.data?.warnings ?? []
+  const hasWarnings = warnings.length > 0 && !warningsDismissed
+
+  // Auto-start generation when step mounts (only if no warnings or warnings dismissed)
   useEffect(() => {
-    if (!hasStarted && !generation.isGenerating && !generation.isDone && !generation.error) {
+    if (!hasStarted && !generation.isGenerating && !generation.isDone && !generation.error && !hasWarnings) {
       setHasStarted(true)
       generation.startGeneration()
     }
-  }, [hasStarted, generation])
+  }, [hasStarted, generation, hasWarnings])
 
   // Elapsed timer while generating
   useEffect(() => {
@@ -79,6 +85,12 @@ export function StepGenerate({ sessionId, onComplete }: StepGenerateProps) {
     generation.startGeneration()
   }, [generation])
 
+  const handleContinueWithWarnings = useCallback(() => {
+    setWarningsDismissed(true)
+    setHasStarted(true)
+    generation.startGeneration()
+  }, [generation])
+
   // Map SSE stage to step index
   const activeStepIndex = generation.currentStage
     ? (STAGE_TO_INDEX[generation.currentStage] ?? 0)
@@ -92,6 +104,53 @@ export function StepGenerate({ sessionId, onComplete }: StepGenerateProps) {
       : generation.isGenerating
         ? 'running'
         : 'idle'
+
+  // Show warning gate before generation starts
+  if (hasWarnings && !hasStarted) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Review Warnings Before Generation</CardTitle>
+          <CardDescription>
+            The extraction step produced warnings. You can continue with generation
+            or go back to review and fix the input.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            {warnings.map((warning, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/10 p-3"
+              >
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                <span className="text-sm text-amber-700 dark:text-amber-300">
+                  {warning.replace(/^[a-z_]+:\s*/, '')}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            {onGoBack && (
+              <Button variant="outline" onClick={onGoBack}>
+                <ArrowLeft className="h-4 w-4 mr-2" aria-hidden="true" />
+                Go Back & Review
+              </Button>
+            )}
+            <Button
+              variant="gradient"
+              onClick={handleContinueWithWarnings}
+              className="ml-auto"
+            >
+              Continue with Warnings
+              <ChevronRight className="h-4 w-4 ml-2" aria-hidden="true" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>

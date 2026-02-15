@@ -100,7 +100,26 @@ def build_extraction_system_prompt(language: str) -> str:
         "7. The report text is sanitized -- personal names and organizations may appear "
         "as placeholders (e.g., [PERSON_1], [ORG_1]). Preserve these placeholders as-is.\n"
         "8. If a finding lacks a clear description, include what you can extract and "
-        "flag it in warnings."
+        "flag it in warnings.\n\n"
+        "## Edge Case Handling\n\n"
+        "Handle these situations gracefully -- always produce output, never return errors:\n"
+        "- **No CVSS scores:** Set cvss_score to null for all findings. Estimate severity "
+        "from the description (e.g., 'remote code execution' = critical, 'missing header' "
+        "= low). Add warning: 'missing_cvss: No CVSS scores found in report -- severity "
+        "estimated from descriptions.'\n"
+        "- **Non-standard formatting:** Reports may use bullet points, tables, or free-form "
+        "prose instead of structured sections. Extract findings from any format.\n"
+        "- **Very short reports:** If the report has fewer than 3 findings, extract what "
+        "you can and add warning: 'few_findings: Only N findings extracted -- report may "
+        "be incomplete or summarized.'\n"
+        "- **Mixed languages:** The report may mix languages (e.g., Portuguese headings "
+        "with English finding descriptions). Extract from all languages.\n"
+        "- **Missing metadata:** If client name, dates, or project code are not found, "
+        "set them to null and add warning: 'incomplete_metadata: Some metadata fields "
+        "could not be extracted (FIELD_NAME).'\n"
+        "- **Unclear severity:** When you estimate severity from context rather than "
+        "explicit labels, add warning: 'unclear_severity: Severity estimated for N "
+        "findings -- original report did not specify severity levels.'"
     )
 
 
@@ -236,9 +255,39 @@ def validate_extraction_response(raw_json: str) -> dict:
     warnings = data.get("warnings", [])
     if not isinstance(warnings, list):
         warnings = []
+    warnings = [str(w) for w in warnings]
+
+    # Post-validation: add automatic warnings for detected edge cases
+    # These supplement any warnings the LLM already included
+    cvss_count = sum(1 for f in validated_findings if f.get("cvss_score") is not None)
+    if len(validated_findings) > 0 and cvss_count == 0:
+        if not any("missing_cvss" in w for w in warnings):
+            warnings.append(
+                "missing_cvss: No CVSS scores found in report -- severity "
+                "estimated from descriptions."
+            )
+
+    if 0 < len(validated_findings) < 3:
+        if not any("few_findings" in w for w in warnings):
+            warnings.append(
+                f"few_findings: Only {len(validated_findings)} finding(s) extracted "
+                "-- report may be incomplete or summarized."
+            )
+
+    # Check for incomplete metadata
+    missing_fields = []
+    for field_name, field_value in metadata.items():
+        if not field_value:
+            missing_fields.append(field_name)
+    if missing_fields:
+        if not any("incomplete_metadata" in w for w in warnings):
+            warnings.append(
+                f"incomplete_metadata: Some metadata fields could not be extracted "
+                f"({', '.join(missing_fields)})."
+            )
 
     return {
         "findings": validated_findings,
         "metadata": metadata,
-        "warnings": [str(w) for w in warnings],
+        "warnings": warnings,
     }

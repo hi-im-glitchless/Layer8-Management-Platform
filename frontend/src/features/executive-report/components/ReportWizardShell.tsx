@@ -220,6 +220,7 @@ export function ReportWizardShell({
           <StepGenerate
             sessionId={sessionId!}
             onComplete={() => advanceToStep('review')}
+            onGoBack={() => setOverrideStep('sanitize-review')}
           />
         )
       case 'review':

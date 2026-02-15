@@ -389,11 +389,22 @@ export async function sanitizeReport(
     reverse: reverseMappings,
   };
 
-  // Step 3: Update session state
+  // Step 3: Check for edge cases and generate warnings
+  const warnings: string[] = [...(state.warnings || [])];
+
+  if (sanitizedParagraphs.length < 5) {
+    warnings.push(
+      `short_report: Only ${sanitizedParagraphs.length} paragraph(s) extracted from the report. ` +
+      `The report may be very short or poorly formatted. Results may be limited.`,
+    );
+  }
+
+  // Step 4: Update session state
   await updateReportSession(userId, sessionId, {
     currentStep: 'sanitize-review',
     sanitizedParagraphs,
     sanitizationMappings,
+    warnings,
   });
 
   console.log(
@@ -540,22 +551,30 @@ export async function extractFindings(
     scopeSummary: validateData.metadata.scope_summary || '',
   };
 
+  // Merge extraction warnings with any existing warnings from sanitization
+  const existingWarnings = state.warnings || [];
+  const extractionWarnings = validateData.warnings || [];
+  const allWarnings = [
+    ...existingWarnings,
+    ...extractionWarnings.filter((w: string) => !existingWarnings.includes(w)),
+  ];
+
   await updateReportSession(userId, sessionId, {
     currentStep: 'generate',
     findingsJson: validateData.findings as unknown as Record<string, unknown>,
     metadata,
-    warnings: validateData.warnings,
+    warnings: allWarnings,
   });
 
   console.log(
     `[reportService] Extracted ${validateData.findings.length} findings, ` +
-    `${validateData.warnings.length} warnings`,
+    `${allWarnings.length} warnings (${extractionWarnings.length} from extraction)`,
   );
 
   return {
     findings: validateData.findings,
     metadata,
-    warnings: validateData.warnings,
+    warnings: allWarnings,
   };
 }
 
