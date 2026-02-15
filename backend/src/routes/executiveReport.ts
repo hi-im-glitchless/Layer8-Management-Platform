@@ -19,12 +19,24 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
+import fs from 'fs';
 import { requireAuth } from '@/middleware/auth.js';
 import {
   getReportSession,
   getActiveReportSession,
+  updateReportSession,
   deleteReportSession,
 } from '@/services/reportWizardState.js';
+import {
+  uploadReport,
+  sanitizeReport,
+  updateDenyList,
+  extractFindings,
+  generateReport,
+  processReportChat,
+  getReportDownloadPath,
+} from '@/services/reportService.js';
+import { getPdfJobStatus } from '@/services/pdfQueue.js';
 import { logAuditEvent } from '@/services/audit.js';
 
 const router = Router();
@@ -152,10 +164,25 @@ router.post(
 
       const userId = req.session.userId!;
 
-      // TODO: Wire to reportService.uploadReport() in Task 4
+      const result = await uploadReport(req.file.buffer, req.file.originalname, userId);
+
+      // Audit log
+      const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+      await logAuditEvent({
+        userId,
+        action: 'report.upload',
+        details: {
+          sessionId: result.sessionId,
+          detectedLanguage: result.detectedLanguage,
+          originalName: req.file.originalname,
+          fileSize: req.file.size,
+        },
+        ipAddress,
+      });
+
       res.json({
-        sessionId: 'stub-session-id',
-        detectedLanguage: 'en',
+        sessionId: result.sessionId,
+        detectedLanguage: result.detectedLanguage,
         currentStep: 'upload',
       });
     } catch (error) {
@@ -188,11 +215,22 @@ router.post('/sanitize', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // TODO: Wire to reportService.sanitizeReport() in Task 4
-    res.json({
-      sanitizedParagraphs: [],
-      sanitizationMappings: { forward: {}, reverse: {} },
+    const result = await sanitizeReport(userId, sessionId);
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'report.sanitize',
+      details: {
+        sessionId,
+        paragraphCount: result.sanitizedParagraphs.length,
+        mappingCount: Object.keys(result.sanitizationMappings.forward).length,
+      },
+      ipAddress,
     });
+
+    res.json(result);
   } catch (error) {
     handleReportError(res, error, 'Report sanitization');
   }
@@ -222,10 +260,18 @@ router.post('/update-deny-list', requireAuth, async (req: Request, res: Response
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // TODO: Wire to reportService.updateDenyList() in Task 4
-    res.json({
-      updatedParagraphs: [],
+    const result = await updateDenyList(userId, sessionId, terms, action);
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'report.update_deny_list',
+      details: { sessionId, terms, denyListAction: action },
+      ipAddress,
     });
+
+    res.json(result);
   } catch (error) {
     handleReportError(res, error, 'Deny list update');
   }
@@ -255,12 +301,21 @@ router.post('/approve-sanitization', requireAuth, async (req: Request, res: Resp
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // TODO: Wire to reportService.extractFindings() in Task 4
-    res.json({
-      findings: null,
-      metadata: state.metadata,
-      warnings: [],
+    const result = await extractFindings(userId, sessionId);
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'report.approve_sanitization',
+      details: {
+        sessionId,
+        warningCount: result.warnings.length,
+      },
+      ipAddress,
     });
+
+    res.json(result);
   } catch (error) {
     handleReportError(res, error, 'Sanitization approval');
   }
@@ -290,10 +345,20 @@ router.post('/update-metadata', requireAuth, async (req: Request, res: Response)
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // TODO: Wire to reportWizardState.updateReportSession() in Task 4
-    res.json({
-      metadata: { ...state.metadata, ...metadata },
+    const updated = await updateReportSession(userId, sessionId, {
+      metadata: metadata as Partial<typeof state.metadata>,
+    } as Partial<typeof state>);
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'report.update_metadata',
+      details: { sessionId, updatedFields: Object.keys(metadata) },
+      ipAddress,
     });
+
+    res.json({ metadata: updated.metadata });
   } catch (error) {
     handleReportError(res, error, 'Metadata update');
   }
@@ -324,8 +389,15 @@ router.post('/generate', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // TODO: Implement SSE streaming in Task 5
-    res.json({ status: 'stub', message: 'Generation not yet implemented' });
+    // SSE streaming will be implemented in Task 5
+    // For now, call the stub synchronously
+    const result = await generateReport(userId, sessionId);
+
+    res.json({
+      status: 'stub',
+      reportDocxPath: result.reportDocxPath,
+      pdfJobId: result.pdfJobId,
+    });
   } catch (error) {
     handleReportError(res, error, 'Report generation');
   }
@@ -355,10 +427,17 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // TODO: Implement SSE streaming in Task 5
-    res.json({ status: 'stub', message: 'Chat not yet implemented' });
+    // SSE streaming will be implemented in Task 5
+    // For now, call the stub
+    await processReportChat(userId, sessionId, message, res);
+
+    if (!res.headersSent) {
+      res.json({ status: 'stub', message: 'Chat not yet implemented' });
+    }
   } catch (error) {
-    handleReportError(res, error, 'Report chat');
+    if (!res.headersSent) {
+      handleReportError(res, error, 'Report chat');
+    }
   }
 });
 
@@ -444,6 +523,7 @@ router.get('/session', requireAuth, async (req: Request, res: Response) => {
 
 /**
  * Delete a report session. Allows the user to reset and start over.
+ * Also cleans up uploaded files from disk.
  */
 router.delete('/session/:sessionId', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -455,7 +535,29 @@ router.delete('/session/:sessionId', requireAuth, async (req: Request, res: Resp
     const userId = req.session.userId!;
     const { sessionId } = params.data;
 
-    // TODO: Also clean up uploaded files in Task 4
+    // Clean up uploaded file before deleting session
+    const state = await getReportSession(userId, sessionId);
+    if (state?.uploadedFile.storagePath) {
+      try {
+        if (fs.existsSync(state.uploadedFile.storagePath)) {
+          fs.unlinkSync(state.uploadedFile.storagePath);
+        }
+      } catch (cleanupErr) {
+        console.warn('[executiveReport route] Failed to clean up uploaded file:', cleanupErr);
+      }
+    }
+
+    // Clean up generated report DOCX
+    if (state?.reportDocxPath) {
+      try {
+        if (fs.existsSync(state.reportDocxPath)) {
+          fs.unlinkSync(state.reportDocxPath);
+        }
+      } catch (cleanupErr) {
+        console.warn('[executiveReport route] Failed to clean up report DOCX:', cleanupErr);
+      }
+    }
+
     await deleteReportSession(userId, sessionId);
 
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
@@ -502,11 +604,22 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
       });
     }
 
-    // TODO: Wire to pdfQueue.getPdfJobStatus() in Task 4
-    res.json({
-      status: 'stub',
-      pdfUrl: state.reportPdfUrl,
-    });
+    const jobStatus = await getPdfJobStatus(state.reportPdfJobId);
+
+    const response: Record<string, unknown> = {
+      status: jobStatus.status,
+      progress: jobStatus.progress ?? 0,
+    };
+
+    if (jobStatus.status === 'completed' && jobStatus.pdfPath) {
+      response.pdfUrl = `/uploads/documents/${jobStatus.pdfPath}`;
+    }
+
+    if (jobStatus.status === 'failed') {
+      response.error = jobStatus.error;
+    }
+
+    res.json(response);
   } catch (error) {
     handleReportError(res, error, 'Preview status');
   }
@@ -534,8 +647,39 @@ router.get('/download/:sessionId', requireAuth, async (req: Request, res: Respon
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // TODO: Wire to reportService.getReportDownloadPath() in Task 4
-    res.status(404).json({ error: 'No report DOCX available yet. Run generation first.' });
+    const filePath = await getReportDownloadPath(userId, sessionId);
+    const filename = state.metadata.clientName
+      ? `executive_report_${state.metadata.clientName.replace(/[^a-zA-Z0-9-_]/g, '_')}.docx`
+      : `executive_report_${sessionId}.docx`;
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    await logAuditEvent({
+      userId,
+      action: 'report.download',
+      details: {
+        sessionId,
+        filename,
+        detectedLanguage: state.detectedLanguage,
+      },
+      ipAddress,
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    // Update wizard state step to download
+    updateReportSession(userId, sessionId, {
+      currentStep: 'download',
+    }).catch((err) => {
+      console.error('[executiveReport route] Failed to update step to download:', err);
+    });
   } catch (error) {
     handleReportError(res, error, 'Report download');
   }
