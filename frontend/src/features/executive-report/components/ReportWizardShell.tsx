@@ -103,6 +103,11 @@ export function ReportWizardShell({
     REPORT_STEP_ORDER[inferredMinStep],
   )
 
+  // Step regression prevention: after generation, can't go back past sanitize-review
+  const minNavigableIndex = sessionData?.narrativeSections
+    ? REPORT_STEP_ORDER['sanitize-review']
+    : 0
+
   const handleStepClick = useCallback(
     (step: ReportWizardStep) => {
       const targetIndex = REPORT_STEP_ORDER[step]
@@ -113,11 +118,6 @@ export function ReportWizardShell({
     },
     [currentStepIndex, minNavigableIndex],
   )
-
-  // Step regression prevention: after generation, can't go back past sanitize-review
-  const minNavigableIndex = sessionData?.narrativeSections
-    ? REPORT_STEP_ORDER['sanitize-review']
-    : 0
 
   const goBack = useCallback(() => {
     const targetIndex = currentStepIndex - 1
