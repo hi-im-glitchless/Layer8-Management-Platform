@@ -368,6 +368,15 @@ router.post('/update-metadata', requireAuth, async (req: Request, res: Response)
 // POST /api/report/generate
 // ---------------------------------------------------------------------------
 
+/** Generation pipeline stage names. */
+type GenerationStage =
+  | 'extracting'
+  | 'computing'
+  | 'generating_charts'
+  | 'narrative'
+  | 'building_report'
+  | 'converting_pdf';
+
 /**
  * Trigger the full generation pipeline via SSE streaming.
  * Body: { sessionId }
@@ -375,31 +384,120 @@ router.post('/update-metadata', requireAuth, async (req: Request, res: Response)
  * Events: stage (progress), delta (LLM text), done (usage), error
  */
 router.post('/generate', requireAuth, async (req: Request, res: Response) => {
+  const body = generateBodySchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
+  }
+
+  const userId = req.session.userId!;
+  const { sessionId } = body.data;
+
+  const state = await getReportSession(userId, sessionId);
+  if (!state) {
+    return res.status(404).json({ error: 'Report session not found' });
+  }
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  let clientDisconnected = false;
+
+  req.on('close', () => {
+    clientDisconnected = true;
+  });
+
+  // SSE event emitters
+  const sendStageEvent = (stage: GenerationStage, progress?: number) => {
+    if (clientDisconnected) return;
+    res.write(`event: stage\ndata: ${JSON.stringify({ stage, progress: progress ?? 0 })}\n\n`);
+  };
+
+  const sendDelta = (text: string) => {
+    if (clientDisconnected) return;
+    res.write(`event: delta\ndata: ${JSON.stringify({ text })}\n\n`);
+  };
+
+  const sendDone = (usage?: Record<string, unknown>) => {
+    if (clientDisconnected) return;
+    res.write(`event: done\ndata: ${JSON.stringify({ usage: usage ?? {} })}\n\n`);
+  };
+
+  const sendError = (message: string, retryable: boolean) => {
+    if (clientDisconnected) return;
+    res.write(`event: error\ndata: ${JSON.stringify({ message, retryable })}\n\n`);
+  };
+
   try {
-    const body = generateBodySchema.safeParse(req.body);
-    if (!body.success) {
-      return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
-    }
+    // Stage 1: Extracting (Pass 1 -- LLM extraction)
+    sendStageEvent('extracting', 0);
 
-    const userId = req.session.userId!;
-    const { sessionId } = body.data;
+    // TODO: In 06-C, this will call extractFindings() with streaming
+    // For now, send progress events to verify SSE infrastructure
+    sendStageEvent('extracting', 50);
+    sendStageEvent('extracting', 100);
 
-    const state = await getReportSession(userId, sessionId);
-    if (!state) {
-      return res.status(404).json({ error: 'Report session not found' });
-    }
+    // Stage 2: Computing (metrics, risk score, compliance)
+    sendStageEvent('computing', 0);
+    sendStageEvent('computing', 100);
 
-    // SSE streaming will be implemented in Task 5
-    // For now, call the stub synchronously
+    // Stage 3: Generating charts (matplotlib -> PNG)
+    sendStageEvent('generating_charts', 0);
+    sendStageEvent('generating_charts', 100);
+
+    // Stage 4: Narrative (Pass 2 -- LLM generation with streaming deltas)
+    sendStageEvent('narrative', 0);
+
+    // TODO: In 06-C, stream LLM tokens via sendDelta()
+    sendDelta('[Narrative generation will stream tokens here in 06-C]');
+    sendStageEvent('narrative', 100);
+
+    // Stage 5: Building report (python-docx DOCX construction)
+    sendStageEvent('building_report', 0);
+    sendStageEvent('building_report', 100);
+
+    // Stage 6: Converting to PDF (Gotenberg)
+    sendStageEvent('converting_pdf', 0);
+
+    // Call the service stub (will be real in 06-C)
     const result = await generateReport(userId, sessionId);
 
-    res.json({
-      status: 'stub',
+    sendStageEvent('converting_pdf', 100);
+
+    // Send completion event
+    sendDone({
       reportDocxPath: result.reportDocxPath,
       pdfJobId: result.pdfJobId,
     });
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    try {
+      await logAuditEvent({
+        userId,
+        action: 'report.generate',
+        details: {
+          sessionId,
+          detectedLanguage: state.detectedLanguage,
+        },
+        ipAddress,
+      });
+    } catch (auditErr) {
+      console.error('[executiveReport route] Failed to log generate audit:', auditErr);
+    }
   } catch (error) {
-    handleReportError(res, error, 'Report generation');
+    const errorMessage = error instanceof Error ? error.message : 'Report generation failed';
+
+    if (!clientDisconnected) {
+      sendError(errorMessage, true);
+    }
+  } finally {
+    if (!clientDisconnected) {
+      res.end();
+    }
   }
 });
 
@@ -410,33 +508,95 @@ router.post('/generate', requireAuth, async (req: Request, res: Response) => {
 /**
  * Chat corrections for iterative report refinement via SSE streaming.
  * Body: { sessionId, message }
- * Events: delta (LLM text), section_update (JSON), done, error
+ * Events: delta (LLM text), section_update (JSON with updated section key + text),
+ *         done (usage stats), error (message + retryable flag)
  */
 router.post('/chat', requireAuth, async (req: Request, res: Response) => {
+  const body = chatBodySchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
+  }
+
+  const userId = req.session.userId!;
+  const { sessionId, message } = body.data;
+
+  const state = await getReportSession(userId, sessionId);
+  if (!state) {
+    return res.status(404).json({ error: 'Report session not found' });
+  }
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  let clientDisconnected = false;
+
+  req.on('close', () => {
+    clientDisconnected = true;
+  });
+
+  // SSE event emitters for chat
+  const sendChatDelta = (text: string) => {
+    if (clientDisconnected) return;
+    res.write(`event: delta\ndata: ${JSON.stringify({ text })}\n\n`);
+  };
+
+  const sendSectionUpdate = (sectionKey: string, text: string) => {
+    if (clientDisconnected) return;
+    res.write(`event: section_update\ndata: ${JSON.stringify({ sectionKey, text })}\n\n`);
+  };
+
+  const sendChatDone = (usage?: Record<string, unknown>) => {
+    if (clientDisconnected) return;
+    res.write(`event: done\ndata: ${JSON.stringify({ usage: usage ?? {} })}\n\n`);
+  };
+
+  const sendChatError = (errorMessage: string, retryable: boolean) => {
+    if (clientDisconnected) return;
+    res.write(`event: error\ndata: ${JSON.stringify({ message: errorMessage, retryable })}\n\n`);
+  };
+
   try {
-    const body = chatBodySchema.safeParse(req.body);
-    if (!body.success) {
-      return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
-    }
+    // TODO: In 06-C, processReportChat will use these emitters to stream
+    // LLM responses and section updates. For now, send placeholder events.
+    sendChatDelta('[Chat response will stream tokens here in 06-C]');
 
-    const userId = req.session.userId!;
-    const { sessionId, message } = body.data;
-
-    const state = await getReportSession(userId, sessionId);
-    if (!state) {
-      return res.status(404).json({ error: 'Report session not found' });
-    }
-
-    // SSE streaming will be implemented in Task 5
-    // For now, call the stub
+    // Call the service stub
     await processReportChat(userId, sessionId, message, res);
 
-    if (!res.headersSent) {
-      res.json({ status: 'stub', message: 'Chat not yet implemented' });
+    // Send completion
+    sendChatDone({
+      iterationCount: state.chatIterationCount + 1,
+    });
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    try {
+      await logAuditEvent({
+        userId,
+        action: 'report.chat',
+        details: {
+          sessionId,
+          messageLength: message.length,
+          iterationCount: state.chatIterationCount + 1,
+        },
+        ipAddress,
+      });
+    } catch (auditErr) {
+      console.error('[executiveReport route] Failed to log chat audit:', auditErr);
     }
   } catch (error) {
-    if (!res.headersSent) {
-      handleReportError(res, error, 'Report chat');
+    const errorMessage = error instanceof Error ? error.message : 'Report chat failed';
+
+    if (!clientDisconnected) {
+      sendChatError(errorMessage, true);
+    }
+  } finally {
+    if (!clientDisconnected) {
+      res.end();
     }
   }
 });
