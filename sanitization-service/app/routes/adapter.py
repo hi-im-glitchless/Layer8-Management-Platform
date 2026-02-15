@@ -43,6 +43,7 @@ from app.models.adapter import (
     HeaderFooterParagraphInfo,
     Instruction,
     InstructionSet,
+    LockedSection,
     MappingEntry,
     MappingPlan,
     ParagraphInfo,
@@ -51,6 +52,7 @@ from app.models.adapter import (
     PlacementPromptRequest,
     PlacementPromptResponse,
     StyleHintResult,
+    UnknownSection,
     ValidateMappingRequest,
     ValidateMappingResponse,
     ValidatePlacementRequest,
@@ -231,6 +233,8 @@ async def analyze_template(body: AnalyzeRequest) -> AnalyzeResponse:
         doc_structure, reference_info, body.template_type, body.language,
         few_shot_examples=body.few_shot_examples,
         kb_context=body.kb_context,
+        locked_sections=body.locked_sections if body.locked_sections else None,
+        unknown_sections=body.unknown_sections if body.unknown_sections else None,
     )
 
     # Get reference template hash
@@ -250,13 +254,16 @@ async def analyze_template(body: AnalyzeRequest) -> AnalyzeResponse:
     }
 
     logger.info(
-        "Prepared analysis prompt: type=%s, lang=%s, paragraphs=%d/%d, prompt_len=%d, few_shot_examples=%d",
+        "Prepared analysis prompt: type=%s, lang=%s, paragraphs=%d/%d, prompt_len=%d, "
+        "few_shot_examples=%d, locked=%d, unknown=%d",
         body.template_type,
         body.language,
         non_empty,
         total_paragraphs,
         len(prompt),
         len(body.few_shot_examples),
+        len(body.locked_sections),
+        len(body.unknown_sections),
     )
 
     return AnalyzeResponse(
