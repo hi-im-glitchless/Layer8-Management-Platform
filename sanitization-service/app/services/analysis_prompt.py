@@ -18,164 +18,7 @@ from app.models.adapter import (
 )
 from app.models.docx import DocxStructure
 
-import re
-
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Token estimation helpers
-# ---------------------------------------------------------------------------
-
-
-def _estimate_tokens(text: str) -> int:
-    """Estimate token count from text using word-count heuristic.
-
-    Rough approximation: 1 token ~= 0.75 words for English text.
-    """
-    word_count = len(text.split())
-    return int(word_count / 0.75)
-
-
-def _enforce_token_budget(
-    kb_block: str,
-    other_sections_text: str,
-    kb_context: "KBContext",
-    min_pct: float = 0.15,
-    max_pct: float = 0.25,
-    hard_cap: int = 1500,
-) -> str:
-    """Enforce dynamic token budget on the KB context block.
-
-    Calculates a budget between min_pct and max_pct of total prompt tokens,
-    hard-capped at hard_cap tokens. When the KB block exceeds the budget,
-    progressively trims content in this order:
-    1. Remove Confidence Notes section
-    2. Reduce entries per zone from 5 to 3
-    3. Remove cross-type fallback entries (when is_cross_type_fallback)
-    4. Truncate by removing lowest-confidence entries
-
-    Args:
-        kb_block: The full KB context block string.
-        other_sections_text: All other prompt sections joined together.
-        kb_context: The original KBContext data for rebuilding trimmed versions.
-        min_pct: Minimum percentage of total prompt for KB block.
-        max_pct: Maximum percentage of total prompt for KB block.
-        hard_cap: Absolute maximum tokens for KB block.
-
-    Returns:
-        The KB block, trimmed if necessary to fit the budget.
-    """
-    total_other_tokens = _estimate_tokens(other_sections_text)
-    kb_tokens = _estimate_tokens(kb_block)
-
-    # Calculate dynamic budget
-    total_tokens = total_other_tokens + kb_tokens
-    dynamic_budget = max(min_pct * total_tokens, min(max_pct * total_tokens, hard_cap))
-    budget = min(dynamic_budget, hard_cap)
-
-    if kb_tokens <= budget:
-        return kb_block
-
-    logger.info(
-        "KB context block (%d tokens) exceeds budget (%d tokens), trimming",
-        kb_tokens, int(budget),
-    )
-
-    # Progressive trimming: rebuild from kb_context with stricter limits
-
-    # Step 1: Remove Confidence Notes section
-    trimmed = re.sub(r"\n### Confidence Notes\n.*", "", kb_block, flags=re.DOTALL)
-    if _estimate_tokens(trimmed) <= budget:
-        return trimmed
-
-    # Step 2: Reduce entries per zone from 5 to 3 (rebuild Zone Distribution)
-    trimmed = _rebuild_kb_block_with_limit(kb_context, entries_per_zone=3, include_confidence_notes=False)
-    if _estimate_tokens(trimmed) <= budget:
-        return trimmed
-
-    # Step 3: Remove cross-type fallback entries entirely if applicable
-    if kb_context.is_cross_type_fallback:
-        # With cross-type fallback, everything is fallback data -- just reduce further
-        trimmed = _rebuild_kb_block_with_limit(kb_context, entries_per_zone=2, include_confidence_notes=False)
-        if _estimate_tokens(trimmed) <= budget:
-            return trimmed
-
-    # Step 4: Truncate by keeping only highest-confidence entries globally
-    trimmed = _rebuild_kb_block_with_limit(kb_context, entries_per_zone=1, include_confidence_notes=False)
-    if _estimate_tokens(trimmed) <= budget:
-        return trimmed
-
-    # Final fallback: just take the first `budget` tokens worth of the block
-    words = trimmed.split()
-    target_words = int(budget * 0.75)
-    return " ".join(words[:target_words])
-
-
-def _rebuild_kb_block_with_limit(
-    kb_context: "KBContext",
-    entries_per_zone: int = 5,
-    include_confidence_notes: bool = True,
-) -> str:
-    """Rebuild the KB context block with a limited number of entries per zone.
-
-    Used by the token budget enforcer to progressively reduce block size.
-    """
-    lines: list[str] = ["## Knowledge Base Context\n"]
-
-    if kb_context.is_cross_type_fallback:
-        lines.append(
-            "NOTE: These patterns are from other template types "
-            "(0.7x confidence penalty applied). Adapt with caution.\n"
-        )
-
-    lines.append("### Zone Distribution\n")
-
-    for zone, mappings in sorted(kb_context.zone_mappings.items()):
-        lines.append(f"Zone: {zone} ({len(mappings)} patterns)")
-        top_entries = sorted(mappings, key=lambda m: m.confidence, reverse=True)[:entries_per_zone]
-        for m in top_entries:
-            lines.append(
-                f"  - \"{m.normalized_section_text[:80]}\" -> "
-                f"{m.gw_field} [{m.marker_type}] (conf: {m.confidence:.2f})"
-            )
-
-    # Include repetition hints (compact, low token cost)
-    if kb_context.repetition_summary:
-        lines.append("")
-        for rep in kb_context.repetition_summary:
-            gw_field = rep.get("gw_field", "unknown")
-            zone = rep.get("zone", "unknown")
-            total = rep.get("total_count", 0)
-            if total > 1:
-                lines.append(f"  {gw_field} appears {total}x in {zone}")
-
-    # Blueprints (compact)
-    if kb_context.blueprints:
-        lines.append("\n### Blueprints\n")
-        for bp in kb_context.blueprints:
-            marker_names = [f"{m.get('gwField', '?')}" for m in bp.markers]
-            markers_str = ", ".join(marker_names)
-            anchor = f" (anchor: {bp.anchor_style})" if bp.anchor_style else ""
-            lines.append(
-                f"  {bp.pattern_type.capitalize()}: [{markers_str}] "
-                f"in zone {bp.zone}{anchor}"
-            )
-
-    # Confidence Notes (optional)
-    if include_confidence_notes:
-        low_confidence: list[str] = []
-        for _zone, mappings in kb_context.zone_mappings.items():
-            for m in mappings:
-                if m.confidence < 0.5:
-                    low_confidence.append(
-                        f"  Low confidence: \"{m.normalized_section_text[:60]}\" -> "
-                        f"{m.gw_field} ({m.confidence:.2f})"
-                    )
-        if low_confidence:
-            lines.append("\n### Confidence Notes\n")
-            lines.extend(low_confidence)
-
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -233,21 +76,24 @@ def build_analysis_prompt(
     language: TemplateLanguage,
     few_shot_examples: list[FewShotExample] | None = None,
     kb_context: KBContext | None = None,
+    locked_sections: list | None = None,
+    unknown_sections: list | None = None,
 ) -> str:
     """Build the full analysis prompt for LLM Pass 1.
 
-    The prompt contains five sections (plus an optional KB/few-shot section):
-    1. Condensed client DOCX structure (numbered paragraphs)
+    The prompt contains five sections (plus optional blueprints/few-shot):
+    1. Condensed client DOCX structure (numbered paragraphs with inline
+       [RESOLVED: field] and [NEEDS MAPPING] annotations)
     2. Reference template patterns
-    2b. KB Context Block (zone distribution + blueprints + confidence notes)
-        OR Previous Successful Mappings (flat few-shot, backward compat)
+    2b. Structural Blueprints (when available) OR Previous Successful
+        Mappings (flat few-shot, backward compat)
     3. Available GW fields
     4. Output format specification (JSON schema + example)
     5. Mapping rules
 
-    When kb_context is provided and non-empty, uses the structured KB context
-    block instead of the flat few-shot section. Falls back to few-shot when
-    kb_context is None or has no zone_mappings.
+    When locked_sections/unknown_sections are provided, paragraphs are
+    annotated inline in the document structure. Blueprints are included
+    as a standalone section when available via kb_context.
 
     Args:
         doc_structure: Parsed structure of the client's DOCX template.
@@ -255,7 +101,9 @@ def build_analysis_prompt(
         template_type: web, internal, or mobile.
         language: en or pt-pt.
         few_shot_examples: Optional list of confirmed mappings for few-shot learning.
-        kb_context: Optional enriched KB context with zone-grouped data.
+        kb_context: Optional enriched KB context with blueprints and style hints.
+        locked_sections: Sections resolved from the prescriptive KB.
+        unknown_sections: Sections that need LLM analysis.
 
     Returns:
         Complete prompt string ready for LLM consumption.
@@ -265,18 +113,25 @@ def build_analysis_prompt(
 
     sections: list[str] = []
 
-    # Section 1: Client document structure (with optional boilerplate filtering)
+    # Section 1: Client document structure (with optional boilerplate filtering
+    # and prescriptive KB annotations)
     sections.append(
-        _build_doc_structure_section(doc_structure, boilerplate_styles=boilerplate_styles)
+        _build_doc_structure_section(
+            doc_structure,
+            boilerplate_styles=boilerplate_styles,
+            locked_sections=locked_sections,
+            unknown_sections=unknown_sections,
+        )
     )
 
     # Section 2: Reference template patterns
     sections.append(_build_reference_patterns_section(reference_info))
 
-    # Section 2b: KB context block OR few-shot examples (backward compat)
-    kb_block: str | None = None
-    if kb_context and kb_context.zone_mappings:
-        kb_block = _build_kb_context_block(kb_context)
+    # Section 2b: Blueprints (structural patterns) OR few-shot examples
+    if kb_context:
+        blueprints = _build_blueprints_section(kb_context)
+        if blueprints:
+            sections.append(blueprints)
     elif few_shot_examples:
         few_shot = _build_few_shot_section(few_shot_examples)
         if few_shot:
@@ -290,13 +145,6 @@ def build_analysis_prompt(
 
     # Section 5: Rules
     sections.append(_build_rules_section(template_type, language))
-
-    # Apply token budget to KB block before including it
-    if kb_block and kb_context:
-        other_text = "\n\n".join(sections)
-        kb_block = _enforce_token_budget(kb_block, other_text, kb_context)
-        # Insert KB block after section 2 (reference patterns) at index 2
-        sections.insert(2, kb_block)
 
     return "\n\n".join(sections)
 
@@ -503,79 +351,23 @@ def _build_few_shot_section(examples: list[FewShotExample]) -> str | None:
     return "\n".join(lines)
 
 
-def _build_kb_context_block(kb_context: KBContext) -> str | None:
-    """Build the structured KB context block replacing the flat few-shot section.
+def _build_blueprints_section(kb_context: KBContext) -> str | None:
+    """Build standalone blueprints section for structural pattern context.
 
-    Emits three subsections:
-    - Zone Distribution: top-5 entries per zone sorted by confidence desc, with repetition hints
-    - Blueprints: structural patterns (loops, conditionals, groups)
-    - Confidence Notes: low-confidence entries the LLM should double-check
-
-    Returns None if kb_context has no zone_mappings.
+    Extracted from the old KB context block. Returns None if no blueprints.
     """
-    if not kb_context.zone_mappings:
+    if not kb_context or not kb_context.blueprints:
         return None
 
-    lines: list[str] = ["## Knowledge Base Context\n"]
-
-    # Cross-type fallback warning
-    if kb_context.is_cross_type_fallback:
+    lines = ["## Structural Blueprints\n"]
+    for bp in kb_context.blueprints:
+        marker_names = [f"{m.get('gwField', '?')}" for m in bp.markers]
+        markers_str = ", ".join(marker_names)
+        anchor = f" (anchor: {bp.anchor_style})" if bp.anchor_style else ""
         lines.append(
-            "NOTE: These patterns are from other template types "
-            "(0.7x confidence penalty applied). Adapt with caution.\n"
+            f"  {bp.pattern_type.capitalize()}: [{markers_str}] "
+            f"in zone {bp.zone}{anchor}"
         )
-
-    # --- Zone Distribution subsection ---
-    lines.append("### Zone Distribution\n")
-
-    for zone, mappings in sorted(kb_context.zone_mappings.items()):
-        lines.append(f"Zone: {zone} ({len(mappings)} patterns)")
-        # Top 5 entries per zone, sorted by confidence desc
-        top_entries = sorted(mappings, key=lambda m: m.confidence, reverse=True)[:5]
-        for m in top_entries:
-            lines.append(
-                f"  - \"{m.normalized_section_text[:80]}\" -> "
-                f"{m.gw_field} [{m.marker_type}] (conf: {m.confidence:.2f})"
-            )
-
-    # Repetition hints
-    if kb_context.repetition_summary:
-        lines.append("")
-        for rep in kb_context.repetition_summary:
-            gw_field = rep.get("gw_field", "unknown")
-            zone = rep.get("zone", "unknown")
-            total = rep.get("total_count", 0)
-            if total > 1:
-                lines.append(f"  {gw_field} appears {total}x in {zone}")
-
-    # --- Blueprints subsection ---
-    if kb_context.blueprints:
-        lines.append("\n### Blueprints\n")
-        for bp in kb_context.blueprints:
-            marker_names = [
-                f"{m.get('gwField', '?')}" for m in bp.markers
-            ]
-            markers_str = ", ".join(marker_names)
-            anchor = f" (anchor: {bp.anchor_style})" if bp.anchor_style else ""
-            lines.append(
-                f"  {bp.pattern_type.capitalize()}: [{markers_str}] "
-                f"in zone {bp.zone}{anchor}"
-            )
-
-    # --- Confidence Notes subsection ---
-    low_confidence: list[str] = []
-    for _zone, mappings in kb_context.zone_mappings.items():
-        for m in mappings:
-            if m.confidence < 0.5:
-                low_confidence.append(
-                    f"  Low confidence: \"{m.normalized_section_text[:60]}\" -> "
-                    f"{m.gw_field} ({m.confidence:.2f})"
-                )
-
-    if low_confidence:
-        lines.append("\n### Confidence Notes\n")
-        lines.extend(low_confidence)
-
     return "\n".join(lines)
 
 
