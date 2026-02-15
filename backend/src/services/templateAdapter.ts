@@ -1212,42 +1212,34 @@ export interface CorrectionEntry {
  * Process table-based corrections and update the knowledge base.
  *
  * For each correction:
- * - If oldGwField differs from newGwField: decay old mapping (mode='correct'),
- *   create/boost new mapping (mode='create' or 'confirm')
- * - If only markerType changed: update existing entry with new markerType
+ * - If oldGwField differs from newGwField: atomic delete old + create new
+ * - If only markerType changed: update existing entry with confirm mode
  *
  * Fire-and-forget: errors are logged but never thrown to the caller.
  *
- * @returns Count of updated and decayed entries
+ * @returns Count of updated and corrected entries
  */
 export async function processCorrectionUpdate(
   templateType: string,
   language: string,
   corrections: CorrectionEntry[],
-): Promise<{ updated: number; decayed: number }> {
+): Promise<{ updated: number; corrected: number }> {
   let updated = 0;
-  let decayed = 0;
+  let corrected = 0;
 
   for (const correction of corrections) {
     try {
       if (correction.oldGwField !== correction.newGwField) {
-        // Decay old mapping
-        await upsertMapping(
+        // Atomic delete old + create new
+        const normalizedText = normalizeSectionText(correction.sectionText);
+        await deleteAndRecreatMapping(
           {
             templateType,
             language,
-            sectionText: correction.sectionText,
+            normalizedSectionText: normalizedText,
             gwField: correction.oldGwField,
-            markerType: correction.newMarkerType,
-            confidence: 1.0,
             zone: correction.zone ?? 'body',
           },
-          'correct',
-        );
-        decayed++;
-
-        // Create/boost new mapping
-        await upsertMapping(
           {
             templateType,
             language,
@@ -1257,9 +1249,8 @@ export async function processCorrectionUpdate(
             confidence: 1.0,
             zone: correction.zone ?? 'body',
           },
-          'create',
         );
-        updated++;
+        corrected++;
       } else {
         // Only markerType changed -- update existing entry
         await upsertMapping(
@@ -1286,11 +1277,11 @@ export async function processCorrectionUpdate(
   }
 
   console.log(
-    `[templateAdapter] Correction update: ${updated} updated, ${decayed} decayed ` +
+    `[templateAdapter] Correction update: ${updated} updated, ${corrected} corrected ` +
     `(${corrections.length} total corrections)`,
   );
 
-  return { updated, decayed };
+  return { updated, corrected };
 }
 
 // ---------------------------------------------------------------------------
