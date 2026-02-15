@@ -33,6 +33,15 @@ export interface WizardAnalysis {
   llmPrompt: string | null;
   kbLockedCount?: number;
   llmAnalyzedCount?: number;
+  /** Raw paragraph texts keyed by sectionIndex from document-structure.
+   *  Used by KB persist to store the actual document text as the lookup key. */
+  rawSectionTexts?: Record<number, string>;
+  /** Raw paragraph zones keyed by sectionIndex from document-structure.
+   *  Used by KB persist as fallback when adaptation zoneMap is empty. */
+  rawSectionZones?: Record<number, string>;
+  /** Section texts that the user explicitly rejected (deleted auto-map, no replacement).
+   *  Keyed by sectionIndex. Stored as __skip__ in KB during persist. */
+  rejectedSectionTexts?: Record<number, string>;
 }
 
 export interface WizardAdaptation {

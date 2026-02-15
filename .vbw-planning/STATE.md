@@ -3,10 +3,10 @@
 **Project:** Template AI Engine (Layer8)
 
 ## Current Phase
-Phase: 5.5 of 11 (LLM-Powered Placeholder Regeneration)
-Plans: 4/4
+Phase: 5.6 of 12 (Prescriptive Knowledge Base)
+Plans: 5/5
 Progress: 100%
-Status: complete
+Status: Built
 
 ## Decisions
 - CLIProxyAPI as primary LLM provider (OpenAI SDK format)
@@ -21,7 +21,7 @@ Status: complete
 - docxtpl for Jinja2 template rendering (native GW template syntax support)
 
 ## Todos
-- Execute Phase 5.5 (LLM-Powered Placeholder Regeneration)
+- Verify Phase 5.6 (Prescriptive Knowledge Base)
 
 ## Blockers
 None
@@ -33,6 +33,12 @@ None
 **Registry available:** yes
 
 ## Activity Log
+- 2026-02-15: Phase 5.6 completed (prescriptive knowledge base) - QA: 46/46 PASS
+- 2026-02-15: Phase 8 added (UI polish) — complete dashboard and minor visual details, inserted before Production Deployment (renumbered to Phase 9)
+- 2026-02-15: Phase 7 removed (Template Adapter - Modification & Bulk) — Phases 8-9 renumbered to 7-8
+- 2026-02-15: Phase 5.6 planned (5 plans, 3 waves) — schema migration + prescriptive lookup, annotated prompt + persistence overhaul, frontend KB badge + banner
+- 2026-02-15: Phase 5.6 discussed (18 questions, 11 decisions) — match key, exact match only, lock threshold, delete-and-recreate, inline annotations, remove cross-type fallback
+- 2026-02-15: Phase 5.6 added (prescriptive knowledge base) — transform KB from advisory to deterministic mapping cache with LLM fallback
 - 2026-02-14: Phase 5.5 planned (4 plans, 3 waves) — placement prompt builder + validation, LLM pipeline backend, unified pipeline + KB enrichment, dead code removal + CSS cleanup
 - 2026-02-14: Phase 5.5 discussed (7 questions, 7 decisions) — full regen, zone map input, placement instructions output, skip-and-warn, replace mechanical entirely, unified pipeline, KB enrichment
 - 2026-02-14: Phase 5.5 added (LLM-powered placeholder regeneration) — replace mechanical find-and-replace with LLM-based intelligent placement, mapping table UI unchanged

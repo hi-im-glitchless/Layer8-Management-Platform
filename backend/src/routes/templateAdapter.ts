@@ -946,6 +946,8 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
     if (updates.fullPlan) {
       const prevCount = mappingPlan.entries.length;
       mappingPlan.entries = updates.fullPlan as MappingEntry[];
+      // Full plan import — clear rejected entries since user is starting fresh
+      state.analysis.rejectedSectionTexts = {} as unknown as Record<string, unknown>;
       console.log(
         `[update-mapping] Full plan replacement: ${prevCount} → ${mappingPlan.entries.length} entries`,
       );
@@ -953,9 +955,21 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
     // Apply deletions -- remove entries by sectionIndex
     if (updates.deletedSectionIndices && updates.deletedSectionIndices.length > 0) {
       const deleteSet = new Set(updates.deletedSectionIndices);
+      // Track deleted entries as rejected (user explicitly said "don't map this")
+      const rawTexts = state.analysis.rawSectionTexts as Record<number, string> | undefined ?? {};
+      const existingRejected = state.analysis.rejectedSectionTexts as Record<number, string> | undefined ?? {};
+      const newRejected = { ...existingRejected };
+      for (const entry of mappingPlan.entries) {
+        if (deleteSet.has(entry.sectionIndex)) {
+          // Use raw document text if available, fall back to mapping entry text
+          newRejected[entry.sectionIndex] = rawTexts[entry.sectionIndex] ?? entry.sectionText;
+        }
+      }
       mappingPlan.entries = mappingPlan.entries.filter(
         (e) => !deleteSet.has(e.sectionIndex),
       );
+      // Store rejected texts in wizard state (will be persisted as __skip__ on download)
+      state.analysis.rejectedSectionTexts = newRejected as unknown as Record<string, unknown>;
       console.log(
         `[update-mapping] Deleted ${updates.deletedSectionIndices.length} entries: ${[...deleteSet].join(', ')}`,
       );
@@ -1114,6 +1128,19 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
           rationale: 'User-added mapping',
         };
         mappingPlan.entries.push(newEntry);
+      }
+    }
+    // If user added entries for previously rejected sections, un-reject them
+    if (updates.addedEntries) {
+      const rejected = state.analysis.rejectedSectionTexts as Record<number, string> | undefined;
+      if (rejected) {
+        for (const added of updates.addedEntries) {
+          // Check if the resolved section index was previously rejected
+          const addedIdx = added.paragraphIndex;
+          if (addedIdx in rejected) {
+            delete rejected[addedIdx];
+          }
+        }
       }
     }
     } // end else (diff-based updates)

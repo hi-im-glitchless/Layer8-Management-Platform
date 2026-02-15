@@ -136,3 +136,21 @@ model StyleHint {
   @@unique([templateType, styleName, zone])
   @@index([templateType])
 }
+
+/// Stores the full accepted mapping plan for a known template, keyed by structural hash.
+/// When the same template is re-uploaded, the stored snapshot is returned directly
+/// without any LLM analysis — giving 100% reproducible results.
+model TemplateMappingSnapshot {
+  id               String   @id @default(cuid())
+  templateHash     String   // structural hash from document-structure service
+  templateType     String   // web|internal|mobile
+  language         String   // en|pt-pt
+  mappingPlanJson  String   // full MappingPlan JSON
+  entryCount       Int      @default(0)
+  usageCount       Int      @default(1) // how many times this snapshot was replayed
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([templateHash, templateType, language])
+  @@index([templateType, language])
+}

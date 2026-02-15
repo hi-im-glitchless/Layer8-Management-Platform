@@ -17,10 +17,9 @@ Layer8 automates template adaptation and executive report generation for offensi
 - [x] Phase 5.4: Intelligent Knowledge Base (INSERTED)
 - [ ] Phase 5.5: LLM-Powered Placeholder Regeneration (INSERTED)
 - [ ] Phase 5.6: Prescriptive Knowledge Base (INSERTED)
-- [ ] Phase 6: Template Adapter - Translation
-- [ ] Phase 7: Template Adapter - Modification & Bulk
-- [ ] Phase 8: Executive Report Generator
-- [ ] Phase 9: Production Deployment
+- [ ] Phase 6: Executive Report Generator
+- [ ] Phase 7: UI Polish (INSERTED)
+- [ ] Phase 8: Production Deployment
 
 ### Phase 1: Foundation, Security & Web UI Design
 **Goal:** Secure infrastructure for authentication, session isolation, compliance-grade audit logging, and fully designed frontend
@@ -111,28 +110,21 @@ Layer8 automates template adaptation and executive report generation for offensi
 **Reqs:** TMPL-01, TMPL-06
 **Success:** Re-uploading a previously mapped document produces near-identical correct mappings with zero LLM calls for known sections; only genuinely new/unknown sections go to the LLM; users can still override any locked mapping; dead entries pruned from KB
 
-### Phase 6: Template Adapter - Translation
-**Goal:** Bidirectional EN/PT-PT translation preserving Jinja2 logic
-**Deps:** Phase 5
-**Reqs:** TRNS-01-04, UIUX-11
-**Success:** Translation preserves all Jinja2 variables, uses PT-PT exclusively
-**Plans:** 4 (3 waves)
-
-### Phase 7: Template Adapter - Modification & Bulk
-**Goal:** Reference template modification and bulk upload queue
-**Deps:** Phase 5
-**Reqs:** TMOD-01-05, BULK-01-04, UIUX-12-13
-**Success:** Modify existing templates, bulk queue with per-template progress
-
-### Phase 8: Executive Report Generator
+### Phase 6: Executive Report Generator
 **Goal:** Sanitized executive report generation with complete workflow
 **Deps:** Phase 2, Phase 3, Phase 4
 **Reqs:** EXEC-01-13, DENY-01-04, LANG-01-03, UIUX-14-15
 **Success:** Upload → sanitize → review → generate → desanitize → annotate → download
 
-### Phase 9: Production Deployment
+### Phase 7: UI Polish (INSERTED)
+**Goal:** Complete the dashboard and minor visual details across the application
+**Deps:** Phase 6
+**Reqs:** Visual polish (no formal requirement IDs)
+**Success:** Dashboard fully functional, minor visual inconsistencies resolved, polished user experience
+
+### Phase 8: Production Deployment
 **Goal:** Production-ready Docker Compose stack with multi-user concurrency
-**Deps:** Phase 5, Phase 8
+**Deps:** Phase 5, Phase 6
 **Reqs:** DEPL-01-03
 **Success:** Docker Compose running, concurrent users, Nginx reverse proxy with SSE
 
@@ -153,10 +145,9 @@ Layer8 automates template adaptation and executive report generation for offensi
 | 5.4 - Intelligent KB | 0/TBD | Not started | - |
 | 5.5 - LLM Placeholder Regen | 0/4 | Planned | - |
 | 5.6 - Prescriptive KB | 0/TBD | Not started | - |
-| 6 - Translation | 0/4 | planned | - |
-| 7 - Modification & Bulk | 0/TBD | Not started | - |
-| 8 - Executive Report | 0/TBD | Not started | - |
-| 9 - Deployment | 0/TBD | Not started | - |
+| 6 - Executive Report | 0/TBD | Not started | - |
+| 7 - UI Polish | 0/TBD | Not started | - |
+| 8 - Deployment | 0/TBD | Not started | - |
 
 ---
 *Imported from GSD: 2026-02-12*

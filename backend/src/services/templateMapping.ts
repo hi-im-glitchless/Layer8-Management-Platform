@@ -7,6 +7,7 @@
  *
  * Non-blocking persistence -- errors are logged, not thrown to callers.
  */
+import { createHash } from 'crypto';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma.js';
 import type { TemplateMapping, BlueprintPattern, StyleHint } from '@prisma/client';
@@ -100,6 +101,16 @@ export function normalizeSectionText(text: string): string {
 
   // Convert to lowercase
   normalized = normalized.toLowerCase();
+
+  // Strip textbox/location prefix patterns (LLM annotations describing element locations)
+  // Bracketed: [textbox in body], [textbox cover], [textbox in first-page footer], etc.
+  normalized = normalized.replace(/^\[textbox[^\]]*\]\s*/, '');
+  // Colon form: textbox body:, textbox in footer:, textbox first-page footer:, etc.
+  normalized = normalized.replace(/^textbox\s+(?:in\s+)?(?:[\w-]+(?:\s+[\w-]+)*):\s*/, '');
+  // Bare textbox: prefix
+  normalized = normalized.replace(/^textbox:\s*/, '');
+  // Bare textbox prefix (LLM sometimes adds just "textbox" before the text)
+  normalized = normalized.replace(/^textbox\s+/, '');
 
   // Strip placeholder underscores (sequences of 2+ underscores)
   normalized = normalized.replace(/_{2,}/g, '');
@@ -319,11 +330,22 @@ export async function deleteAndRecreatMapping(
       },
     });
 
-    // Create new entry at confidence 1.0
+    // Upsert new entry at confidence 1.0 (upsert handles case where
+    // the new composite key already exists from a prior persist cycle)
     const validated = templateMappingSchema.parse(createInput);
     const normalizedText = normalizeSectionText(validated.sectionText);
-    return tx.templateMapping.create({
-      data: {
+    const whereClause = {
+      templateType_language_normalizedSectionText_gwField_zone: {
+        templateType: validated.templateType,
+        language: validated.language,
+        normalizedSectionText: normalizedText,
+        gwField: validated.gwField,
+        zone: validated.zone ?? 'body',
+      },
+    };
+    return tx.templateMapping.upsert({
+      where: whereClause,
+      create: {
         templateType: validated.templateType,
         language: validated.language,
         normalizedSectionText: normalizedText,
@@ -332,6 +354,12 @@ export async function deleteAndRecreatMapping(
         confidence: 1.0,
         usageCount: 1,
         zone: validated.zone ?? 'body',
+        zoneRepetitionCount: validated.zoneRepetitionCount ?? 1,
+      },
+      update: {
+        markerType: validated.markerType,
+        confidence: 1.0,
+        usageCount: { increment: 1 },
         zoneRepetitionCount: validated.zoneRepetitionCount ?? 1,
       },
     });
@@ -499,34 +527,61 @@ export async function prescriptiveLookup(
     },
   });
 
-  // Build lookup map: key = normalizedText + zone -> entry
+  // Build exact lookup map: key = normalizedText::zone -> entry
   const lookupMap = new Map<string, TemplateMapping>();
+  // Build text-only fallback map: normalizedText -> entry (highest confidence across all zones)
+  const textFallbackMap = new Map<string, TemplateMapping>();
   for (const entry of candidates) {
-    const key = `${entry.normalizedSectionText}::${entry.zone}`;
+    // Re-normalize to handle legacy entries with textbox prefixes still in DB
+    const cleanText = normalizeSectionText(entry.normalizedSectionText);
+    const key = `${cleanText}::${entry.zone}`;
     // If multiple entries for same text+zone, keep highest confidence
     const existing = lookupMap.get(key);
     if (!existing || entry.confidence > existing.confidence) {
       lookupMap.set(key, entry);
+    }
+    // Text-only fallback: keep highest confidence entry regardless of zone
+    const textExisting = textFallbackMap.get(cleanText);
+    if (!textExisting || entry.confidence > textExisting.confidence) {
+      textFallbackMap.set(cleanText, entry);
     }
   }
 
   // Match each section against the lookup map
   for (const section of sections) {
     const normalizedText = normalizeSectionText(section.sectionText);
-    const key = `${normalizedText}::${section.zone}`;
-    const match = lookupMap.get(key);
+
+    // Try exact match first (normalizedText + zone)
+    const exactKey = `${normalizedText}::${section.zone}`;
+    let match = lookupMap.get(exactKey);
+
+    // Fallback 1: KB entry may have zone='unknown' (stored before zone was known,
+    // e.g. from import flow that skipped adaptation). Try text::unknown.
+    if (!match && section.zone !== 'unknown') {
+      match = lookupMap.get(`${normalizedText}::unknown`);
+    }
+
+    // Fallback 2: section zone is 'unknown', try text-only match (highest confidence across zones)
+    if (!match && section.zone === 'unknown') {
+      match = textFallbackMap.get(normalizedText);
+    }
 
     if (match) {
-      locked.push({
-        sectionIndex: section.sectionIndex,
-        sectionText: section.sectionText,
-        normalizedText,
-        zone: section.zone,
-        gwField: match.gwField,
-        markerType: match.markerType,
-        placeholderTemplate: buildPlaceholderTemplate(match.gwField, match.markerType),
-        confidence: match.confidence,
-      });
+      if (match.gwField === '__skip__') {
+        // User previously rejected this section — don't send to LLM, don't add to mapping
+        // (silently filtered from both locked and unknown)
+      } else {
+        locked.push({
+          sectionIndex: section.sectionIndex,
+          sectionText: section.sectionText,
+          normalizedText,
+          zone: match.zone, // Use the KB's zone, not the input's 'unknown'
+          gwField: match.gwField,
+          markerType: match.markerType,
+          placeholderTemplate: buildPlaceholderTemplate(match.gwField, match.markerType),
+          confidence: match.confidence,
+        });
+      }
     } else {
       unknown.push({
         sectionIndex: section.sectionIndex,
@@ -869,4 +924,130 @@ export async function getBoilerplateStyles(
       return h.mappedCount / total < threshold;
     })
     .map((h) => h.styleName);
+}
+
+// ---------------------------------------------------------------------------
+// Template Mapping Snapshot (exact-replay for known templates)
+// ---------------------------------------------------------------------------
+
+/** MappingPlan shape stored in snapshot JSON (matches templateAdapter.MappingPlan). */
+export interface SnapshotMappingPlan {
+  entries: Array<{
+    sectionIndex: number;
+    sectionText: string;
+    gwField: string;
+    placeholderTemplate: string;
+    confidence: number;
+    markerType: string;
+    rationale: string;
+    source?: 'kb' | 'llm';
+  }>;
+  templateType: string;
+  language: string;
+  warnings: string[];
+}
+
+/**
+ * Compute a deterministic structural hash from document paragraphs.
+ *
+ * Uses SHA-256 over normalized paragraph texts in index order.
+ * Two DOCX files with identical text content produce the same hash,
+ * even if metadata/styles differ.
+ */
+export function computeTemplateHash(
+  paragraphs: Array<{ sectionIndex: number; text: string }>,
+): string {
+  const hash = createHash('sha256');
+  // Sort by index to ensure deterministic order
+  const sorted = [...paragraphs].sort((a, b) => a.sectionIndex - b.sectionIndex);
+  for (const p of sorted) {
+    hash.update(normalizeSectionText(p.text));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
+/**
+ * Compute a template hash from rawSectionTexts record (used during persist).
+ */
+export function computeHashFromRawTexts(rawTexts: Record<number, string>): string {
+  const hash = createHash('sha256');
+  const sortedKeys = Object.keys(rawTexts).map(Number).sort((a, b) => a - b);
+  for (const key of sortedKeys) {
+    hash.update(normalizeSectionText(rawTexts[key]));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
+/**
+ * Look up a stored mapping plan snapshot by template structural hash.
+ *
+ * If found, increments usageCount and returns the stored plan.
+ * Returns null when no snapshot exists for this hash.
+ */
+export async function getSnapshot(
+  templateHash: string,
+  templateType: string,
+  language: string,
+): Promise<SnapshotMappingPlan | null> {
+  const snapshot = await prisma.templateMappingSnapshot.findUnique({
+    where: {
+      templateHash_templateType_language: {
+        templateHash,
+        templateType,
+        language,
+      },
+    },
+  });
+
+  if (!snapshot) return null;
+
+  // Increment usage count (fire-and-forget)
+  prisma.templateMappingSnapshot.update({
+    where: { id: snapshot.id },
+    data: { usageCount: { increment: 1 } },
+  }).catch((err: unknown) => {
+    console.warn('[templateMapping] Failed to increment snapshot usageCount:', err);
+  });
+
+  return JSON.parse(snapshot.mappingPlanJson) as SnapshotMappingPlan;
+}
+
+/**
+ * Save (or update) a mapping plan snapshot keyed by template structural hash.
+ *
+ * Called after the user downloads the adapted DOCX (accepts the mapping).
+ * On re-upload of the same template, the stored plan is replayed without LLM.
+ */
+export async function saveSnapshot(
+  templateHash: string,
+  templateType: string,
+  language: string,
+  mappingPlan: SnapshotMappingPlan,
+): Promise<void> {
+  const json = JSON.stringify(mappingPlan);
+
+  await prisma.templateMappingSnapshot.upsert({
+    where: {
+      templateHash_templateType_language: {
+        templateHash,
+        templateType,
+        language,
+      },
+    },
+    create: {
+      templateHash,
+      templateType,
+      language,
+      mappingPlanJson: json,
+      entryCount: mappingPlan.entries.length,
+      usageCount: 1,
+    },
+    update: {
+      mappingPlanJson: json,
+      entryCount: mappingPlan.entries.length,
+      // Don't increment usageCount on save — only on replay (getSnapshot)
+    },
+  });
 }

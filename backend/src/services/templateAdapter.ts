@@ -9,6 +9,7 @@
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { prisma } from '@/db/prisma.js';
 import { config } from '../config.js';
 import { createLLMClient } from './llm/client.js';
 import { logLLMInteraction } from './llm/audit.js';
@@ -38,6 +39,10 @@ import {
   upsertBlueprint,
   bulkUpsertStyleHints,
   prescriptiveLookup,
+  computeTemplateHash,
+  computeHashFromRawTexts,
+  getSnapshot,
+  saveSnapshot,
   type TemplateMappingInput,
   type BlueprintPatternInput,
   type SectionForLookup,
@@ -77,6 +82,12 @@ export interface AnalysisResult {
   referenceTemplateHash: string;
   kbLockedCount: number;
   llmAnalyzedCount: number;
+  /** Raw paragraph texts keyed by sectionIndex — used by KB persist to store
+   *  the actual document text (not the LLM's rewritten/truncated version). */
+  rawSectionTexts: Record<number, string>;
+  /** Raw paragraph zones keyed by sectionIndex from document-structure.
+   *  Used by KB persist as fallback when adaptation zoneMap is empty. */
+  rawSectionZones: Record<number, string>;
 }
 
 /** Response from Python POST /adapter/document-structure */
@@ -241,6 +252,41 @@ export async function analyzeTemplate(
       zone: p.zone ?? zoneMapFromStruct[String(p.paragraph_index)] ?? 'unknown',
     }));
 
+  // Step 0.5: Snapshot lookup -- if the exact same template was processed before,
+  // return the stored mapping plan directly (no KB lookup, no LLM).
+  const templateHash = computeTemplateHash(
+    sections.map((s) => ({ sectionIndex: s.sectionIndex, text: s.sectionText })),
+  );
+
+  try {
+    const snapshot = await getSnapshot(templateHash, templateType, language);
+    if (snapshot) {
+      console.log(
+        `[templateAdapter] Snapshot HIT for hash ${templateHash.substring(0, 12)}... — ` +
+        `replaying ${snapshot.entries.length} entries (skipping KB + LLM)`,
+      );
+
+      const rawSectionTexts: Record<number, string> = {};
+      const rawSectionZones: Record<number, string> = {};
+      for (const s of sections) {
+        rawSectionTexts[s.sectionIndex] = s.sectionText;
+        rawSectionZones[s.sectionIndex] = s.zone;
+      }
+
+      return {
+        mappingPlan: snapshot,
+        referenceTemplateHash: templateHash,
+        kbLockedCount: snapshot.entries.length,
+        llmAnalyzedCount: 0,
+        rawSectionTexts,
+        rawSectionZones,
+      };
+    }
+    console.log(`[templateAdapter] Snapshot MISS for hash ${templateHash.substring(0, 12)}... — proceeding with KB + LLM`);
+  } catch (err) {
+    console.warn('[templateAdapter] Snapshot lookup failed, continuing normally:', err);
+  }
+
   // Step 1: Prescriptive lookup -- split into locked (KB match) and unknown
   let locked: LockedSection[] = [];
   let unknownSections: SectionForLookup[] = [];
@@ -263,9 +309,10 @@ export async function analyzeTemplate(
     unknownSections = sections;
   }
 
-  // Step 2: If ALL sections locked, skip LLM entirely
+  // Step 2: If ALL sections are accounted for (locked + skipped = total), skip LLM entirely.
+  // locked.length + unknownSections.length may be < sections.length when __skip__ entries exist.
   if (locked.length > 0 && unknownSections.length === 0) {
-    console.log('[templateAdapter] All sections locked by KB -- skipping LLM call');
+    console.log(`[templateAdapter] All sections locked/skipped by KB -- skipping LLM call (${locked.length} locked, ${sections.length - locked.length} skipped)`);
 
     const mappingPlan: MappingPlan = {
       entries: locked.map((l) => ({
@@ -283,11 +330,20 @@ export async function analyzeTemplate(
       warnings: [],
     };
 
+    const rawSectionTexts: Record<number, string> = {};
+    const rawSectionZones: Record<number, string> = {};
+    for (const s of sections) {
+      rawSectionTexts[s.sectionIndex] = s.sectionText;
+      rawSectionZones[s.sectionIndex] = s.zone;
+    }
+
     return {
       mappingPlan,
       referenceTemplateHash: '', // No Python analyze call, no hash
       kbLockedCount: locked.length,
       llmAnalyzedCount: 0,
+      rawSectionTexts,
+      rawSectionZones,
     };
   }
 
@@ -415,9 +471,17 @@ export async function analyzeTemplate(
   }
 
   // Step 7: Merge locked (source='kb') + LLM (source='llm') entries
+  // Build raw-text map from document-structure sections so KB stores the actual
+  // document text (not the LLM's rewritten/truncated version which replaces real
+  // values like company names with descriptive placeholders like "client shortname").
+  const rawTextMap = new Map<number, string>();
+  for (const s of sections) {
+    rawTextMap.set(s.sectionIndex, s.sectionText);
+  }
+
   const llmEntries: MappingEntry[] = validateData.mapping_plan.entries.map((e) => ({
     sectionIndex: e.section_index,
-    sectionText: e.section_text,
+    sectionText: rawTextMap.get(e.section_index) ?? e.section_text,
     gwField: e.gw_field,
     placeholderTemplate: e.placeholder_template,
     confidence: e.confidence,
@@ -449,11 +513,21 @@ export async function analyzeTemplate(
     warnings: validateData.mapping_plan.warnings,
   };
 
+  // Build raw section text + zone maps for KB persist (keyed by sectionIndex)
+  const rawSectionTexts: Record<number, string> = {};
+  const rawSectionZones: Record<number, string> = {};
+  for (const s of sections) {
+    rawSectionTexts[s.sectionIndex] = s.sectionText;
+    rawSectionZones[s.sectionIndex] = s.zone;
+  }
+
   return {
     mappingPlan,
     referenceTemplateHash: analyzeData.reference_template_hash,
     kbLockedCount: locked.length,
     llmAnalyzedCount: unknownSections.length,
+    rawSectionTexts,
+    rawSectionZones,
   };
 }
 
@@ -699,6 +773,8 @@ export async function autoMapTemplate(
       kbLockedCount: analysisResult.kbLockedCount,
       llmAnalyzedCount: analysisResult.llmAnalyzedCount,
       llmPrompt: null,
+      rawSectionTexts: analysisResult.rawSectionTexts,
+      rawSectionZones: analysisResult.rawSectionZones,
     },
   });
 
@@ -1013,11 +1089,42 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
 
   const { templateType, language } = mappingPlan;
   const cachedZoneMap = wizardState.adaptation.zoneMap ?? {};
+  // Raw paragraph zones from document-structure — fallback when adaptation zoneMap is empty
+  const rawZones = wizardState.analysis.rawSectionZones ?? {};
+  // Raw paragraph texts from document-structure — the ACTUAL text in the document.
+  // Used as KB key so future lookups match against raw document text, not LLM or import text.
+  const rawTexts = wizardState.analysis.rawSectionTexts ?? {};
+  const rawTextsCount = Object.keys(rawTexts).length;
+  console.log(`[templateAdapter] KB persist: rawSectionTexts has ${rawTextsCount} entries`);
+  if (rawTextsCount > 0) {
+    // Log a sample to verify raw text is correct
+    const sampleKey = Object.keys(rawTexts)[0];
+    console.log(`[templateAdapter] KB persist: sample rawTexts[${sampleKey}] = "${String(rawTexts[Number(sampleKey)]).substring(0, 60)}..."`);
+  }
+
+  // Clean up legacy entries with textbox prefixes (cannot match raw document text)
+  try {
+    const deleted = await prisma.templateMapping.deleteMany({
+      where: {
+        templateType,
+        language,
+        OR: [
+          { normalizedSectionText: { startsWith: '[textbox' } },
+          { normalizedSectionText: { startsWith: 'textbox' } },
+        ],
+      },
+    });
+    if (deleted.count > 0) {
+      console.log(`[templateAdapter] Cleaned up ${deleted.count} legacy entries with textbox prefixes`);
+    }
+  } catch (err) {
+    console.warn('[templateAdapter] Textbox prefix cleanup failed:', err);
+  }
 
   // Build zone repetition counts
   const zoneCounts = new Map<string, number>();
   for (const entry of mappingPlan.entries) {
-    const zone = cachedZoneMap[entry.sectionIndex] ?? 'unknown';
+    const zone = cachedZoneMap[entry.sectionIndex] ?? rawZones[entry.sectionIndex] ?? 'unknown';
     const key = `${entry.gwField}::${zone}`;
     zoneCounts.set(key, (zoneCounts.get(key) ?? 0) + 1);
   }
@@ -1043,18 +1150,36 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
   let confirmed = 0, corrected = 0, created = 0;
 
   for (const entry of mappingPlan.entries) {
-    const zone = cachedZoneMap[entry.sectionIndex] ?? 'unknown';
-    const normalizedText = normalizeSectionText(entry.sectionText);
+    // Zone priority: adaptation zoneMap (from LLM placement) > document-structure zone > 'unknown'
+    const zone = cachedZoneMap[entry.sectionIndex] ?? rawZones[entry.sectionIndex] ?? 'unknown';
+    // Use raw document text (from document-structure) as the KB key when available,
+    // BUT only if the raw text is similar to the entry text. If sectionIndex is wrong
+    // (e.g. from buggy PDF selection), rawTexts[idx] points to a completely different
+    // paragraph — in that case, fall back to entry.sectionText.
+    const rawText = rawTexts[entry.sectionIndex];
+    const entryNorm = normalizeSectionText(entry.sectionText);
+    let kbText = entry.sectionText; // default: use entry's own text
+    if (rawText) {
+      const rawNorm = normalizeSectionText(rawText);
+      // Check if raw text is similar enough (one contains the other, or they match)
+      if (rawNorm === entryNorm ||
+          rawNorm.includes(entryNorm) ||
+          entryNorm.includes(rawNorm) ||
+          (entryNorm.length > 10 && rawNorm.includes(entryNorm.substring(0, 20)))) {
+        kbText = rawText; // raw text matches — use canonical form
+      }
+    }
+    const normalizedText = normalizeSectionText(kbText);
     const lookupKey = `${normalizedText}::${zone}`;
     const existing = existingByTextZone.get(lookupKey);
     const repKey = `${entry.gwField}::${zone}`;
 
     const baseInput: TemplateMappingInput = {
       templateType, language,
-      sectionText: entry.sectionText,
+      sectionText: kbText,
       gwField: entry.gwField,
       markerType: entry.markerType,
-      confidence: entry.confidence,
+      confidence: 1.0, // Always persist at 1.0 — user accepted the final mapping by downloading
       zone,
       zoneRepetitionCount: zoneCounts.get(repKey) ?? 1,
     };
@@ -1081,13 +1206,51 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
     }
   }
 
+  // Persist user-rejected auto-map entries as __skip__ so LLM doesn't re-map them.
+  // These are entries the LLM mapped but the user explicitly deleted without replacement.
+  const rejected = wizardState.analysis.rejectedSectionTexts as Record<number, string> | undefined ?? {};
+  let rejectedCount = 0;
+  for (const [idxStr, rejectedText] of Object.entries(rejected)) {
+    const idx = Number(idxStr);
+    const zone = cachedZoneMap[idx] ?? rawZones[idx] ?? 'unknown';
+    try {
+      await upsertMapping({
+        templateType,
+        language,
+        sectionText: rawTexts[idx] ?? rejectedText,
+        gwField: '__skip__',
+        markerType: 'text',
+        confidence: 1.0,
+        zone,
+      }, 'create');
+      rejectedCount++;
+    } catch (err) {
+      // Ignore — skip entries are best-effort
+    }
+  }
+
   console.log(
     `[templateAdapter] KB reconciliation: ${confirmed} confirmed, ${corrected} corrected, ` +
-    `${created} created (${mappingPlan.entries.length} total)`
+    `${created} created, ${rejectedCount} rejected (${mappingPlan.entries.length} total)`
   );
 
   // Auto-prune dead entries (confidence < 0.3)
   await pruneDeadEntries(templateType, language);
+
+  // Save mapping snapshot keyed by template structural hash.
+  // On re-upload of the same template, this snapshot is replayed 100% without LLM.
+  try {
+    if (rawTextsCount > 0) {
+      const snapshotHash = computeHashFromRawTexts(rawTexts as Record<number, string>);
+      await saveSnapshot(snapshotHash, templateType, language, mappingPlan);
+      console.log(
+        `[templateAdapter] Snapshot saved: hash=${snapshotHash.substring(0, 12)}..., ` +
+        `${mappingPlan.entries.length} entries`,
+      );
+    }
+  } catch (err) {
+    console.warn('[templateAdapter] Snapshot save failed (non-blocking):', err);
+  }
 
   // Fire-and-forget: blueprints and style hints (unchanged)
   persistBlueprintsAndHints(wizardState, mappingPlan).catch((err) => {

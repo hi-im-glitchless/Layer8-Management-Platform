@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Brain, RefreshCw, Loader2 } from 'lucide-react'
+import { ArrowRight, Brain, RefreshCw, Loader2, Download, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import {
   usePlaceholderPreview,
   useAnnotatedPreviewStatus,
   useCachedAnnotatedPreview,
+  useDocumentStructure,
 } from '../hooks'
 import { adapterApi } from '../api'
 import { InteractivePdfViewer, type TextSelectionPayload } from './InteractivePdfViewer'
@@ -90,6 +91,9 @@ export function StepVerify({
   // Persistent visual selections on PDF
   const [selections, setSelections] = useState<SelectionEntry[]>([])
   const selectionCounterRef = useRef(0)
+
+  // Document structure: real paragraph indices + text for resolving PDF selections
+  const docStructure = useDocumentStructure(sessionId)
 
   // Restore cached preview on page reload
   const cachedPreview = useCachedAnnotatedPreview(sessionId)
@@ -233,24 +237,39 @@ export function StepVerify({
     (selection: TextSelectionPayload) => {
       if (!mappingPlan) return
 
+      // Resolve the real paragraph index by matching selected text against
+      // document-structure paragraphs. The PDF viewer's DOM-based estimate is
+      // unreliable (counts sibling spans, not actual paragraphs).
+      let resolvedIndex = selection.paragraphIndex
+      const selectedLower = selection.text.toLowerCase().trim()
+      const paragraphs = docStructure.data?.paragraphs
+      if (paragraphs?.length && selectedLower.length > 0) {
+        // Best match: paragraph text contains the selected text (or vice versa)
+        let bestMatch: { idx: number; score: number } | null = null
+        for (const p of paragraphs) {
+          if (p.isEmpty || !p.text) continue
+          const pLower = p.text.toLowerCase().trim()
+          if (pLower.includes(selectedLower) || selectedLower.includes(pLower)) {
+            // Prefer tighter matches (shorter difference = better)
+            const score = Math.abs(pLower.length - selectedLower.length)
+            if (!bestMatch || score < bestMatch.score) {
+              bestMatch = { idx: p.paragraphIndex, score }
+            }
+          }
+        }
+        if (bestMatch) {
+          resolvedIndex = bestMatch.idx
+        }
+      }
+
       const newEntry: MappingEntry = {
-        sectionIndex: selection.paragraphIndex,
+        sectionIndex: resolvedIndex,
         sectionText: selection.text,
         gwField: '',
         placeholderTemplate: '',
         confidence: 0,
         markerType: 'text',
         rationale: 'Added via PDF selection',
-      }
-
-      // Deduplicate: if this sectionIndex already exists, highlight instead
-      const existingIdx = mappingPlan.entries.findIndex(
-        (e) => e.sectionIndex === selection.paragraphIndex,
-      )
-      if (existingIdx >= 0) {
-        toast.info(`Paragraph #${selection.paragraphIndex} is already in the mapping table`)
-        setHighlightedIdx(existingIdx)
-        return
       }
 
       const updatedPlan: MappingPlan = {
@@ -261,14 +280,14 @@ export function StepVerify({
       setMappingPlan(updatedPlan)
       onMappingUpdate(updatedPlan)
       setIsDirty(true)
-      setNewRowIndex(selection.paragraphIndex)
+      setNewRowIndex(resolvedIndex)
 
       // Persist visual selection on PDF (green = confirmed)
       selectionCounterRef.current += 1
       const selEntry: SelectionEntry = {
         id: crypto.randomUUID(),
         selectionNumber: selectionCounterRef.current,
-        paragraphIndex: selection.paragraphIndex,
+        paragraphIndex: resolvedIndex,
         text: selection.text,
         boundingRect: {
           top: selection.boundingRect.top,
@@ -285,9 +304,9 @@ export function StepVerify({
       }
       setSelections((prev) => [...prev, selEntry])
 
-      toast.success(`#${selection.paragraphIndex} added to mapping table`)
+      toast.success(`#${resolvedIndex} added to mapping table`)
     },
-    [mappingPlan, onMappingUpdate],
+    [mappingPlan, onMappingUpdate, docStructure.data?.paragraphs],
   )
 
   // Retry placeholder preview generation (after error)
@@ -390,6 +409,78 @@ export function StepVerify({
     setNewRowIndex(null)
   }, [])
 
+  // Hidden file input for mapping import
+  const importInputRef = useRef<HTMLInputElement>(null)
+
+  // Export current mappings as JSON
+  const handleExportMappings = useCallback(() => {
+    if (!mappingPlan) return
+    const exportData = {
+      templateType: mappingPlan.templateType,
+      language: mappingPlan.language,
+      entries: mappingPlan.entries.map((e) => ({
+        sectionIndex: e.sectionIndex,
+        sectionText: e.sectionText,
+        gwField: e.gwField,
+        markerType: e.markerType,
+        confidence: e.confidence,
+      })),
+    }
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mappings-${templateType}-${language}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Mappings exported')
+  }, [mappingPlan, templateType, language])
+
+  // Import mappings from JSON file — overrides LLM auto-map
+  const handleImportMappings = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file || !mappingPlan) return
+
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string)
+          const entries: MappingEntry[] = (data.entries ?? data).map(
+            (entry: Record<string, unknown>) => ({
+              sectionIndex: entry.sectionIndex as number,
+              sectionText: (entry.sectionText as string) ?? '',
+              gwField: (entry.gwField as string) ?? '',
+              markerType: (entry.markerType as string) ?? 'text',
+              placeholderTemplate: `{{ ${entry.gwField} }}`,
+              confidence: 1.0, // Always 1.0 for imported (user-accepted) mappings
+              rationale: 'Imported from file',
+              source: 'kb' as const,
+            }),
+          )
+
+          const importedPlan: MappingPlan = {
+            ...mappingPlan,
+            entries,
+          }
+
+          setMappingPlan(importedPlan)
+          onMappingUpdate(importedPlan)
+          originalMappingPlanRef.current = importedPlan
+          setIsDirty(true)
+          toast.success(`Imported ${entries.length} mappings`)
+        } catch (err) {
+          toast.error('Invalid mapping file')
+          console.error('[StepVerify] Import failed:', err)
+        }
+      }
+      reader.readAsText(file)
+      // Reset input so re-importing the same file triggers onChange
+      event.target.value = ''
+    },
+    [mappingPlan, onMappingUpdate],
+  )
+
   return (
     <div className="space-y-4">
       {/* Toolbar: placeholder count, KB badge, Regenerate, Approve */}
@@ -405,6 +496,30 @@ export function StepVerify({
             isOpen={navigatorOpen}
             onToggle={() => setNavigatorOpen((prev) => !prev)}
             onJumpToPlaceholder={handleJumpToPlaceholder}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportMappings}
+            disabled={!mappingPlan?.entries.length}
+          >
+            <Download className="h-3 w-3 mr-1" aria-hidden="true" />
+            Export
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => importInputRef.current?.click()}
+          >
+            <Upload className="h-3 w-3 mr-1" aria-hidden="true" />
+            Import
+          </Button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImportMappings}
           />
           {isDirty && (
             <Button
