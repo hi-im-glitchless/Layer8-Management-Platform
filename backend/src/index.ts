@@ -20,6 +20,7 @@ import llmRouter from './routes/llm.js';
 import documentsRouter from './routes/documents.js';
 import ghostwriterRouter from './routes/ghostwriter.js';
 import templateAdapterRouter from './routes/templateAdapter.js';
+import executiveReportRouter from './routes/executiveReport.js';
 import { waitForSanitizer } from './services/sanitization.js';
 import { checkGotenbergHealth } from './services/documents.js';
 
@@ -128,6 +129,9 @@ async function startServer() {
 
     // Mount template adapter routes
     app.use('/api/adapter', templateAdapterRouter);
+
+    // Mount executive report routes
+    app.use('/api/report', executiveReportRouter);
 
     // Mount sanitization routes
     app.use('/api', sanitizationRouter);
