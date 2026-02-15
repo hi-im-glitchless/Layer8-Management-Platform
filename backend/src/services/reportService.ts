@@ -71,6 +71,99 @@ export interface GenerationResult {
   pdfJobId: string;
 }
 
+/** Python /report/build-section-correction-prompt response. */
+interface SectionCorrectionPromptResponse {
+  system_prompt: string;
+  user_prompt: string;
+}
+
+/** Python /report/validate-section-correction response. */
+interface ValidateSectionCorrectionResponse {
+  section_key: string;
+  revised_text: string;
+  valid: boolean;
+  error: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Section identification heuristic
+// ---------------------------------------------------------------------------
+
+/** Map common keywords in user messages to section keys. */
+const SECTION_KEYWORD_MAP: Record<string, string> = {
+  summary: 'executive_summary',
+  executive: 'executive_summary',
+  'risk score': 'risk_score_explanation',
+  'risk level': 'risk_score_explanation',
+  scoring: 'risk_score_explanation',
+  metrics: 'key_metrics_text',
+  severity: 'severity_analysis',
+  category: 'category_analysis',
+  categories: 'category_analysis',
+  threats: 'key_threats',
+  threat: 'key_threats',
+  compliance: 'compliance_risk_text',
+  'non-compliance': 'compliance_risk_text',
+  conformidade: 'compliance_risk_text',
+  vulnerabilities: 'top_vulnerabilities_text',
+  'top 10': 'top_vulnerabilities_text',
+  recommendations: 'strategic_recommendations',
+  recommendation: 'strategic_recommendations',
+  positive: 'positive_aspects',
+  strengths: 'positive_aspects',
+  conclusion: 'conclusion',
+};
+
+/**
+ * Identify the target section from a user correction message.
+ * Uses keyword matching against section names and common aliases.
+ * Returns the section key and whether the match was confident.
+ */
+function identifyTargetSection(
+  message: string,
+  availableSections: string[],
+): { sectionKey: string; confident: boolean } {
+  const lowerMessage = message.toLowerCase();
+
+  // Try exact section key references first
+  for (const key of availableSections) {
+    if (lowerMessage.includes(key.replace(/_/g, ' '))) {
+      return { sectionKey: key, confident: true };
+    }
+  }
+
+  // Try keyword heuristic
+  for (const [keyword, sectionKey] of Object.entries(SECTION_KEYWORD_MAP)) {
+    if (lowerMessage.includes(keyword) && availableSections.includes(sectionKey)) {
+      return { sectionKey, confident: true };
+    }
+  }
+
+  // For strategic_recommendations sub-keys
+  if (
+    (lowerMessage.includes('immediate') || lowerMessage.includes('short term') ||
+     lowerMessage.includes('long term') || lowerMessage.includes('board')) &&
+    availableSections.some((k) => k.startsWith('strategic_recommendations'))
+  ) {
+    // Find the right sub-key
+    for (const key of availableSections) {
+      if (key.startsWith('strategic_recommendations')) {
+        if (lowerMessage.includes('immediate') && key.includes('immediate')) return { sectionKey: key, confident: true };
+        if (lowerMessage.includes('short') && key.includes('short')) return { sectionKey: key, confident: true };
+        if (lowerMessage.includes('long') && key.includes('long')) return { sectionKey: key, confident: true };
+        if (lowerMessage.includes('board') && key.includes('board')) return { sectionKey: key, confident: true };
+      }
+    }
+  }
+
+  // Default to executive_summary if no match
+  const defaultKey = availableSections.includes('executive_summary')
+    ? 'executive_summary'
+    : availableSections[0] || 'executive_summary';
+
+  return { sectionKey: defaultKey, confident: false };
+}
+
 /** Python /adapter/document-structure response shape. */
 interface DocStructureParagraph {
   paragraph_index: number;
@@ -815,16 +908,271 @@ export async function generateReport(
 
 /**
  * Process a chat correction message for targeted section regeneration.
- * Streams LLM response via SSE, updating only the affected sections.
+ *
+ * Flow:
+ * 1. Load session state (must be in 'review' step with narrative sections)
+ * 2. Identify target section from user message via keyword heuristic
+ * 3. Re-sanitize user feedback using session forward mappings
+ * 4. Build correction prompt via Python service
+ * 5. Stream LLM correction call, emit delta events
+ * 6. Validate correction response via Python service
+ * 7. De-sanitize revised text
+ * 8. Update session with new narrative section text
+ * 9. Rebuild DOCX via Python service
+ * 10. Queue new PDF via Gotenberg
+ * 11. Emit section_update SSE event
+ * 12. Increment chat iteration count
+ *
+ * @param sendDelta - SSE callback for LLM token streaming
+ * @param sendSectionUpdate - SSE callback for section updates
  */
 export async function processReportChat(
   userId: string,
   sessionId: string,
   message: string,
-  res: Response,
-): Promise<void> {
-  // Stub -- implementation deferred to Phase 6 frontend plan
-  console.log('[reportService] processReportChat: stub');
+  sendDelta: (text: string) => void,
+  sendSectionUpdate: (sectionKey: string, text: string) => void,
+): Promise<{ sectionKey: string; pdfJobId: string }> {
+  // Step 1: Load and validate session
+  const state = await getReportSession(userId, sessionId);
+  if (!state) {
+    throw new Error(`Report session not found: ${sessionId}`);
+  }
+
+  if (!state.narrativeSections || Object.keys(state.narrativeSections).length === 0) {
+    throw new Error('No narrative sections available. Generate the report first.');
+  }
+
+  const sanitizerUrl = config.SANITIZER_URL;
+  const availableSections = Object.keys(state.narrativeSections);
+
+  // Step 2: Identify target section from user message
+  const { sectionKey, confident } = identifyTargetSection(message, availableSections);
+
+  if (!confident) {
+    sendDelta(
+      `I'll update the "${sectionKey.replace(/_/g, ' ')}" section based on your feedback. ` +
+      `(Tip: mention a specific section name for more precise targeting.)\n\n`,
+    );
+  } else {
+    sendDelta(
+      `Updating the "${sectionKey.replace(/_/g, ' ')}" section...\n\n`,
+    );
+  }
+
+  const currentText = state.narrativeSections[sectionKey] || '';
+
+  // Step 3: Re-sanitize user feedback using session forward mappings
+  let sanitizedFeedback = message;
+  if (state.sanitizationMappings?.forward) {
+    // Replace real names with placeholders so the LLM doesn't see PII
+    for (const [realText, placeholder] of Object.entries(state.sanitizationMappings.forward)) {
+      if (sanitizedFeedback.includes(realText)) {
+        sanitizedFeedback = sanitizedFeedback.split(realText).join(placeholder);
+      }
+    }
+  }
+
+  // Also re-sanitize the current section text (it was de-sanitized for storage)
+  let sanitizedCurrentText = currentText;
+  if (state.sanitizationMappings?.forward) {
+    for (const [realText, placeholder] of Object.entries(state.sanitizationMappings.forward)) {
+      if (sanitizedCurrentText.includes(realText)) {
+        sanitizedCurrentText = sanitizedCurrentText.split(realText).join(placeholder);
+      }
+    }
+  }
+
+  // Step 4: Build correction prompt via Python
+  const reportContext: Record<string, unknown> = {
+    risk_score: state.riskScore,
+    findings_summary: Array.isArray(state.findingsJson)
+      ? `${state.findingsJson.length} findings extracted`
+      : 'Findings extracted',
+    other_sections: {} as Record<string, string>,
+  };
+
+  // Add other sections as context (first 200 chars each, sanitized)
+  for (const [key, text] of Object.entries(state.narrativeSections)) {
+    if (key !== sectionKey && text) {
+      let sanitizedPreview = text;
+      if (state.sanitizationMappings?.forward) {
+        for (const [realText, placeholder] of Object.entries(state.sanitizationMappings.forward)) {
+          if (sanitizedPreview.includes(realText)) {
+            sanitizedPreview = sanitizedPreview.split(realText).join(placeholder);
+          }
+        }
+      }
+      (reportContext.other_sections as Record<string, string>)[key] = sanitizedPreview;
+    }
+  }
+
+  const promptRes = await fetch(`${sanitizerUrl}/report/build-section-correction-prompt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      section_key: sectionKey,
+      current_text: sanitizedCurrentText,
+      user_feedback: sanitizedFeedback,
+      report_context: reportContext,
+      language: state.detectedLanguage || 'en',
+    }),
+  });
+
+  if (!promptRes.ok) {
+    const detail = await promptRes.text();
+    throw new Error(`Failed to build correction prompt: ${detail}`);
+  }
+
+  const promptData = await promptRes.json() as SectionCorrectionPromptResponse;
+
+  // Step 5: LLM correction call with streaming
+  const client = await createLLMClient();
+  const messages: LLMMessage[] = [
+    { role: 'system', content: promptData.system_prompt },
+    { role: 'user', content: promptData.user_prompt },
+  ];
+
+  let llmResponse = '';
+  const stream = client.generateStream(messages, {
+    maxTokens: 4096,
+    feature: 'executive-report',
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.text) {
+      llmResponse += chunk.text;
+      sendDelta(chunk.text);
+    }
+  }
+
+  if (!llmResponse.trim()) {
+    throw new Error('LLM returned empty response for section correction');
+  }
+
+  // Step 6: Validate correction response via Python
+  const validateRes = await fetch(`${sanitizerUrl}/report/validate-section-correction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      raw_json: llmResponse,
+      expected_section_key: sectionKey,
+    }),
+  });
+
+  if (!validateRes.ok) {
+    const detail = await validateRes.text();
+    throw new Error(`Section correction validation failed: ${detail}`);
+  }
+
+  const validateData = await validateRes.json() as ValidateSectionCorrectionResponse;
+
+  if (!validateData.valid) {
+    throw new Error(`Section correction validation failed: ${validateData.error || 'Unknown error'}`);
+  }
+
+  // Step 7: De-sanitize revised text
+  let revisedText = validateData.revised_text;
+  try {
+    const desanResult = await desanitizeText(revisedText, sessionId);
+    revisedText = desanResult.text;
+
+    if (desanResult.unresolvedPlaceholders.length > 0) {
+      console.warn(
+        `[reportService] Unresolved placeholders in corrected section ${sectionKey}:`,
+        desanResult.unresolvedPlaceholders,
+      );
+    }
+  } catch (err) {
+    console.warn(
+      `[reportService] De-sanitization failed for corrected section ${sectionKey}, ` +
+      `falling back to local reverse mapping:`,
+      err,
+    );
+    // Fallback: apply reverse mappings locally
+    if (state.sanitizationMappings?.reverse) {
+      for (const [placeholder, realText] of Object.entries(state.sanitizationMappings.reverse)) {
+        if (revisedText.includes(placeholder)) {
+          revisedText = revisedText.split(placeholder).join(realText);
+        }
+      }
+    }
+  }
+
+  // Step 8: Update session with new section text
+  const updatedNarrativeSections = {
+    ...state.narrativeSections,
+    [sectionKey]: revisedText,
+  };
+
+  // Step 9: Rebuild DOCX with updated sections
+  const buildRes = await fetch(`${sanitizerUrl}/report/build-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      language: state.detectedLanguage || 'en',
+      narrative_sections: updatedNarrativeSections,
+      metadata: {
+        client_name: state.metadata.clientName || '',
+        project_code: state.metadata.projectCode || '',
+        report_date: new Date().toISOString().split('T')[0],
+        start_date: state.metadata.startDate || '',
+        end_date: state.metadata.endDate || '',
+      },
+      chart_images: (state.chartData || {}) as Record<string, string>,
+      risk_score: state.riskScore || 0,
+      risk_level: '',
+    }),
+  });
+
+  if (!buildRes.ok) {
+    const detail = await buildRes.text();
+    throw new Error(`Report rebuild failed: ${detail}`);
+  }
+
+  const buildData = await buildRes.json() as BuildReportResponse;
+
+  // Save updated DOCX to disk
+  const docxBuffer = Buffer.from(buildData.docx_base64, 'base64');
+  const docxFilename = buildData.filename || `executive_report_${sessionId}.docx`;
+  const docxPath = path.join(DOCUMENTS_DIR, docxFilename);
+  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+  fs.writeFileSync(docxPath, docxBuffer);
+
+  // Step 10: Queue new PDF conversion
+  const pdfJobId = await addPdfConversionJob(docxPath, docxFilename);
+
+  console.log(
+    `[reportService] Corrected section "${sectionKey}", rebuilt DOCX, ` +
+    `queued PDF job ${pdfJobId}`,
+  );
+
+  // Step 11: Update session state
+  const chatMsg: import('./reportWizardState.js').ReportChatMessage = {
+    role: 'user',
+    content: message,
+    timestamp: new Date().toISOString(),
+  };
+
+  const assistantMsg: import('./reportWizardState.js').ReportChatMessage = {
+    role: 'assistant',
+    content: `Updated section: ${sectionKey.replace(/_/g, ' ')}`,
+    timestamp: new Date().toISOString(),
+  };
+
+  await updateReportSession(userId, sessionId, {
+    narrativeSections: updatedNarrativeSections,
+    reportDocxPath: docxPath,
+    reportPdfJobId: pdfJobId,
+    reportPdfUrl: null, // Reset so preview re-polls
+    chatHistory: [...state.chatHistory, chatMsg, assistantMsg],
+    chatIterationCount: state.chatIterationCount + 1,
+  });
+
+  // Step 12: Emit section_update event
+  sendSectionUpdate(sectionKey, revisedText);
+
+  return { sectionKey, pdfJobId };
 }
 
 /**

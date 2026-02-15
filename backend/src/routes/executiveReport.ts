@@ -521,16 +521,20 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
   };
 
   try {
-    // TODO: In 06-C, processReportChat will use these emitters to stream
-    // LLM responses and section updates. For now, send placeholder events.
-    sendChatDelta('[Chat response will stream tokens here in 06-C]');
-
-    // Call the service stub
-    await processReportChat(userId, sessionId, message, res);
+    // Call processReportChat with SSE emitters
+    const result = await processReportChat(
+      userId,
+      sessionId,
+      message,
+      sendChatDelta,
+      sendSectionUpdate,
+    );
 
     // Send completion
     sendChatDone({
       iterationCount: state.chatIterationCount + 1,
+      sectionKey: result.sectionKey,
+      pdfJobId: result.pdfJobId,
     });
 
     // Audit log
@@ -538,10 +542,11 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
     try {
       await logAuditEvent({
         userId,
-        action: 'report.chat',
+        action: 'report.correct',
         details: {
           sessionId,
           messageLength: message.length,
+          sectionKey: result.sectionKey,
           iterationCount: state.chatIterationCount + 1,
         },
         ipAddress,
