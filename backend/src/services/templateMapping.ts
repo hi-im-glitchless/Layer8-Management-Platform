@@ -67,7 +67,7 @@ export const templateMappingSchema = z.object({
   gwField: z.string().min(1),
   markerType: z.string().min(1),
   confidence: z.number().min(0).max(1).default(1.0),
-  zone: z.string().min(1).optional(),
+  zone: z.string().min(1).default('body'),
   zoneRepetitionCount: z.number().int().min(1).optional(),
 });
 
@@ -164,11 +164,12 @@ export async function upsertMapping(
   const normalizedText = normalizeSectionText(validated.sectionText);
 
   const whereClause = {
-    templateType_language_normalizedSectionText_gwField: {
+    templateType_language_normalizedSectionText_gwField_zone: {
       templateType: validated.templateType,
       language: validated.language,
       normalizedSectionText: normalizedText,
       gwField: validated.gwField,
+      zone: validated.zone ?? 'body',
     },
   };
 
@@ -192,10 +193,8 @@ export async function upsertMapping(
     updateClause.usageCount = { increment: 1 };
   }
 
-  // Include zone fields if provided
-  if (validated.zone !== undefined) {
-    updateClause.zone = validated.zone;
-  }
+  // Always include zone fields
+  updateClause.zone = validated.zone ?? 'body';
   if (validated.zoneRepetitionCount !== undefined) {
     updateClause.zoneRepetitionCount = validated.zoneRepetitionCount;
   }
@@ -210,7 +209,7 @@ export async function upsertMapping(
       markerType: validated.markerType,
       confidence: validated.confidence,
       usageCount: 1,
-      ...(validated.zone !== undefined && { zone: validated.zone }),
+      zone: validated.zone ?? 'body',
       ...(validated.zoneRepetitionCount !== undefined && {
         zoneRepetitionCount: validated.zoneRepetitionCount,
       }),
@@ -247,11 +246,12 @@ export async function bulkUpsertMappings(
         const normalizedText = normalizeSectionText(validated.sectionText);
 
         const whereClause = {
-          templateType_language_normalizedSectionText_gwField: {
+          templateType_language_normalizedSectionText_gwField_zone: {
             templateType: validated.templateType,
             language: validated.language,
             normalizedSectionText: normalizedText,
             gwField: validated.gwField,
+            zone: validated.zone ?? 'body',
           },
         };
 
@@ -275,9 +275,8 @@ export async function bulkUpsertMappings(
           updateClause.usageCount = { increment: 1 };
         }
 
-        if (validated.zone !== undefined) {
-          updateClause.zone = validated.zone;
-        }
+        // Always include zone fields
+        updateClause.zone = validated.zone ?? 'body';
         if (validated.zoneRepetitionCount !== undefined) {
           updateClause.zoneRepetitionCount = validated.zoneRepetitionCount;
         }
@@ -292,7 +291,7 @@ export async function bulkUpsertMappings(
             markerType: validated.markerType,
             confidence: validated.confidence,
             usageCount: 1,
-            ...(validated.zone !== undefined && { zone: validated.zone }),
+            zone: validated.zone ?? 'body',
             ...(validated.zoneRepetitionCount !== undefined && {
               zoneRepetitionCount: validated.zoneRepetitionCount,
             }),
