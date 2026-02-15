@@ -309,16 +309,33 @@ def build_analysis_prompt(
 def _build_doc_structure_section(
     doc: DocxStructure,
     boilerplate_styles: list[str] | None = None,
+    locked_sections: list | None = None,
+    unknown_sections: list | None = None,
 ) -> str:
     """Section 1: Numbered, condensed client document paragraphs.
 
     Includes body paragraphs, tables, and header/footer content.
     When boilerplate_styles is provided and non-empty, paragraphs whose
-    style_name matches any entry in the list are skipped. Tables are never
-    filtered by style. A summary note is appended showing how many paragraphs
-    were filtered and which styles were excluded.
+    style_name matches any entry in the list are skipped (unless they are
+    locked sections). Tables are never filtered by style. A summary note
+    is appended showing how many paragraphs were filtered and which styles
+    were excluded.
+
+    When locked_sections and/or unknown_sections are provided, paragraph
+    lines are annotated with [RESOLVED: gwField] or [NEEDS MAPPING]
+    inline in document order.
     """
     boilerplate_set = set(boilerplate_styles) if boilerplate_styles else set()
+
+    # Build lookup maps for prescriptive KB annotations
+    locked_map: dict[int, str] = {}  # section_index -> gw_field
+    unknown_set: set[int] = set()    # section_index set
+    if locked_sections:
+        for ls in locked_sections:
+            locked_map[ls.section_index] = ls.gw_field
+    if unknown_sections:
+        for us in unknown_sections:
+            unknown_set.add(us.section_index)
 
     lines = ["## Client Template Structure\n"]
     lines.append("Below are the non-empty paragraphs from the client's DOCX template. "
@@ -331,15 +348,23 @@ def _build_doc_structure_section(
         if not text:
             continue
 
-        # Filter boilerplate paragraphs by style name
+        # Filter boilerplate paragraphs by style name (but never filter locked sections)
         if boilerplate_set and para.style_name and para.style_name in boilerplate_set:
-            filtered_count += 1
-            continue
+            if i not in locked_map:
+                filtered_count += 1
+                continue
 
         para_count += 1
         heading = f"H{para.heading_level}" if para.heading_level else "  "
         truncated = text[:200] + ("..." if len(text) > 200 else "")
-        lines.append(f"[{i:3d}] {heading:3s} | {truncated}")
+
+        # Annotation for prescriptive KB
+        if i in locked_map:
+            lines.append(f"[{i:3d}] {heading:3s} | {truncated}  [RESOLVED: {locked_map[i]}]")
+        elif i in unknown_set:
+            lines.append(f"[{i:3d}] {heading:3s} | {truncated}  [NEEDS MAPPING]")
+        else:
+            lines.append(f"[{i:3d}] {heading:3s} | {truncated}")
 
     # Include table locations (tables are never filtered by style)
     if doc.tables:
@@ -352,6 +377,17 @@ def _build_doc_structure_section(
                 first_cell = table.rows[0].cells[0].text.strip()[:80]
             lines.append(f"  Table {ti}: {row_count}x{col_count}, starts with: \"{first_cell}\"")
 
+    # Build text-based lookup for annotating header/footer and text box
+    # sections (they use different indexing, so match by section_text)
+    locked_text_map: dict[str, str] = {}  # section_text -> gw_field
+    unknown_text_set: set[str] = set()
+    if locked_sections:
+        for ls in locked_sections:
+            locked_text_map[ls.section_text.strip()] = ls.gw_field
+    if unknown_sections:
+        for us in unknown_sections:
+            unknown_text_set.add(us.section_text.strip())
+
     # Include header/footer content -- these often contain report title,
     # dates, client names, and other fields that need placeholder mapping
     hf_lines: list[str] = []
@@ -363,9 +399,13 @@ def _build_doc_structure_section(
                 if not text:
                     continue
                 truncated = text[:200] + ("..." if len(text) > 200 else "")
-                hf_lines.append(
-                    f"  [{hf_type.upper()} S{sec_idx + 1} P{h_idx}] {truncated}"
-                )
+                label = f"  [{hf_type.upper()} S{sec_idx + 1} P{h_idx}] {truncated}"
+                # Text-based annotation for headers/footers
+                if text in locked_text_map:
+                    label += f"  [RESOLVED: {locked_text_map[text]}]"
+                elif text in unknown_text_set:
+                    label += "  [NEEDS MAPPING]"
+                hf_lines.append(label)
 
     if hf_lines:
         lines.append("\n### Headers & Footers")
@@ -382,9 +422,13 @@ def _build_doc_structure_section(
             if not text:
                 continue
             truncated = text[:200] + ("..." if len(text) > 200 else "")
-            txbx_lines.append(
-                f"  [TEXTBOX {tb_idx} in {text_box.location}] {truncated}"
-            )
+            label = f"  [TEXTBOX {tb_idx} in {text_box.location}] {truncated}"
+            # Text-based annotation for text boxes
+            if text in locked_text_map:
+                label += f"  [RESOLVED: {locked_text_map[text]}]"
+            elif text in unknown_text_set:
+                label += "  [NEEDS MAPPING]"
+            txbx_lines.append(label)
 
     if txbx_lines:
         lines.append("\n### Text Boxes")
@@ -392,6 +436,13 @@ def _build_doc_structure_section(
         lines.extend(txbx_lines)
 
     lines.append(f"\nTotal non-empty paragraphs: {para_count}")
+
+    # Prescriptive KB summary
+    if locked_map or unknown_set:
+        lines.append(
+            f"Prescriptive KB: {len(locked_map)} sections resolved, "
+            f"{len(unknown_set)} sections need mapping"
+        )
 
     # Boilerplate filtering summary
     if filtered_count > 0:
