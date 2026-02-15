@@ -24,10 +24,12 @@ import {
   type InteractiveSelection,
 } from './wizardState.js';
 import { addPdfConversionJob } from './pdfQueue.js';
+import { prisma } from '@/db/prisma.js';
 import {
   queryFewShotExamples,
   bulkUpsertMappings,
   upsertMapping,
+  deleteAndRecreatMapping,
   normalizeSectionText,
   queryByZone,
   queryBlueprints,
@@ -994,45 +996,25 @@ export async function generatePlaceholderPreview(
 /**
  * Persist confirmed mappings from the wizard state to the knowledge base.
  *
- * Called fire-and-forget after download. Compares the final mapping plan
- * against existing KB entries to determine which are:
- * - Confirmations (same sectionText + gwField already in KB) -> mode='confirm'
- * - Corrections (same sectionText but different gwField in KB) -> decay old + create new
- * - New entries (sectionText not in KB) -> mode='create'
+ * Called fire-and-forget after download. Uses source-aware reconciliation:
+ * - Confirmations (source='kb', same gwField) -> mode='confirm', usageCount++
+ * - Corrections (same text+zone, different gwField) -> atomic delete old + create new
+ * - New entries (LLM result or no existing match) -> mode='create' at 1.0
  *
+ * Auto-prunes dead entries (confidence < 0.3) at the end of each persist cycle.
  * Errors are logged but never propagated to the caller.
  */
 export async function persistMappingsToKB(wizardState: WizardState): Promise<void> {
   const mappingPlan = wizardState.analysis.mappingPlan as unknown as MappingPlan;
-
-  if (!mappingPlan || !mappingPlan.entries || mappingPlan.entries.length === 0) {
+  if (!mappingPlan?.entries?.length) {
     console.log('[templateAdapter] No mappings to persist to KB');
     return;
   }
 
   const { templateType, language } = mappingPlan;
-
-  // Step 1: Fetch existing KB entries for this (templateType, language)
-  let existingLookup = new Map<string, { gwField: string; markerType: string }>();
-  try {
-    const zoneMap = await queryByZone(templateType, language, 0);
-    for (const [, mappings] of zoneMap) {
-      for (const m of mappings) {
-        // Key by normalizedSectionText so we can detect corrections
-        existingLookup.set(m.normalizedSectionText, {
-          gwField: m.gwField,
-          markerType: m.markerType,
-        });
-      }
-    }
-  } catch (err) {
-    console.warn('[templateAdapter] Failed to fetch existing KB entries, using create mode for all:', err);
-  }
-
-  // Extract zone map from wizard state (populated by regenerateWithLLM)
   const cachedZoneMap = wizardState.adaptation.zoneMap ?? {};
 
-  // Count zone repetitions: for each gwField in each zone, count occurrences
+  // Build zone repetition counts
   const zoneCounts = new Map<string, number>();
   for (const entry of mappingPlan.entries) {
     const zone = cachedZoneMap[entry.sectionIndex] ?? 'unknown';
@@ -1040,20 +1022,35 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
     zoneCounts.set(key, (zoneCounts.get(key) ?? 0) + 1);
   }
 
-  let created = 0;
-  let confirmed = 0;
-  let corrected = 0;
+  // Fetch all existing KB entries for reconciliation
+  let existingByTextZone = new Map<string, { gwField: string; markerType: string; zone: string }>();
+  try {
+    const all = await queryByZone(templateType, language, 0);
+    for (const [, mappings] of all) {
+      for (const m of mappings) {
+        const key = `${m.normalizedSectionText}::${m.zone}`;
+        existingByTextZone.set(key, {
+          gwField: m.gwField,
+          markerType: m.markerType,
+          zone: m.zone,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('[templateAdapter] Failed to fetch existing KB entries:', err);
+  }
 
-  // Step 2: Process each entry with smart mode selection
+  let confirmed = 0, corrected = 0, created = 0;
+
   for (const entry of mappingPlan.entries) {
     const zone = cachedZoneMap[entry.sectionIndex] ?? 'unknown';
-    const repKey = `${entry.gwField}::${zone}`;
     const normalizedText = normalizeSectionText(entry.sectionText);
-    const existing = existingLookup.get(normalizedText);
+    const lookupKey = `${normalizedText}::${zone}`;
+    const existing = existingByTextZone.get(lookupKey);
+    const repKey = `${entry.gwField}::${zone}`;
 
     const baseInput: TemplateMappingInput = {
-      templateType,
-      language,
+      templateType, language,
       sectionText: entry.sectionText,
       gwField: entry.gwField,
       markerType: entry.markerType,
@@ -1063,49 +1060,47 @@ export async function persistMappingsToKB(wizardState: WizardState): Promise<voi
     };
 
     try {
-      if (existing && existing.gwField !== entry.gwField) {
-        // Correction: same sectionText maps to a DIFFERENT gwField
-        // Decay the old entry
-        await upsertMapping(
-          {
-            templateType,
-            language,
-            sectionText: entry.sectionText,
-            gwField: existing.gwField,
-            markerType: existing.markerType,
-            confidence: 1.0,
-            zone,
-          },
-          'correct',
-        );
-        // Create the new entry
-        await upsertMapping(baseInput, 'create');
-        corrected++;
-      } else if (existing) {
-        // Confirmation: same sectionText + gwField in KB
+      if (entry.source === 'kb' && existing && existing.gwField === entry.gwField) {
+        // Confirmation: locked from KB and unchanged -> usageCount++
         await upsertMapping(baseInput, 'confirm');
         confirmed++;
+      } else if (existing && existing.gwField !== entry.gwField) {
+        // Correction: same text+zone maps to different field -> delete old, create new
+        await deleteAndRecreatMapping(
+          { templateType, language, normalizedSectionText: normalizedText, gwField: existing.gwField, zone },
+          baseInput,
+        );
+        corrected++;
       } else {
-        // New: sectionText not in KB
+        // New entry (LLM result or no existing match) -> create at 1.0
         await upsertMapping(baseInput, 'create');
         created++;
       }
     } catch (err) {
-      console.error(
-        `[templateAdapter] KB persistence failed for entry (sectionIndex=${entry.sectionIndex}):`,
-        err,
-      );
+      console.error(`[templateAdapter] KB persist failed (sectionIndex=${entry.sectionIndex}):`, err);
     }
   }
 
   console.log(
-    `[templateAdapter] KB persistence: ${created} created, ${confirmed} confirmed, ` +
-    `${corrected} corrected (${mappingPlan.entries.length} total entries)`,
+    `[templateAdapter] KB reconciliation: ${confirmed} confirmed, ${corrected} corrected, ` +
+    `${created} created (${mappingPlan.entries.length} total)`
   );
 
-  // Fire-and-forget: detect blueprints and store style hints
+  // Auto-prune dead entries
+  try {
+    const pruned = await prisma.templateMapping.deleteMany({
+      where: { templateType, language, confidence: { lt: 0.3 } },
+    });
+    if (pruned.count > 0) {
+      console.log(`[templateAdapter] Auto-pruned ${pruned.count} dead entries (confidence < 0.3)`);
+    }
+  } catch (err) {
+    console.error('[templateAdapter] Auto-prune failed:', err);
+  }
+
+  // Fire-and-forget: blueprints and style hints (unchanged)
   persistBlueprintsAndHints(wizardState, mappingPlan).catch((err) => {
-    console.error('[templateAdapter] Blueprint/style hint persistence failed (non-blocking):', err);
+    console.error('[templateAdapter] Blueprint/style hint persistence failed:', err);
   });
 }
 
