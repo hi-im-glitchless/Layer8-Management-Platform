@@ -1,0 +1,191 @@
+import { apiClient, apiUpload } from '@/lib/api'
+import type {
+  ReportUploadResponse,
+  ReportSanitizeResponse,
+  ReportDenyListResponse,
+  ReportExtractResponse,
+  ReportMetadataResponse,
+  ReportPreviewResponse,
+  ReportWizardState,
+  ReportActiveSessionResponse,
+  ReportMetadata,
+} from './types'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
+/**
+ * Executive Report feature API.
+ * Maps 1:1 to backend/src/routes/executiveReport.ts endpoints.
+ */
+export const reportApi = {
+  /**
+   * Upload a DOCX technical report and create a new report wizard session.
+   * Multipart POST to /api/report/upload with file.
+   */
+  async uploadReport(file: File): Promise<ReportUploadResponse> {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiUpload<ReportUploadResponse>('/api/report/upload', formData)
+  },
+
+  /**
+   * Trigger paragraph-by-paragraph sanitization for the uploaded report.
+   * POST /api/report/sanitize with { sessionId }
+   */
+  async sanitizeReport(sessionId: string): Promise<ReportSanitizeResponse> {
+    return apiClient<ReportSanitizeResponse>('/api/report/sanitize', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  },
+
+  /**
+   * Add or remove deny list terms and re-sanitize affected paragraphs.
+   * POST /api/report/update-deny-list with { sessionId, terms, action }
+   */
+  async updateDenyList(
+    sessionId: string,
+    terms: string[],
+    action: 'add' | 'remove',
+  ): Promise<ReportDenyListResponse> {
+    return apiClient<ReportDenyListResponse>('/api/report/update-deny-list', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, terms, action }),
+    })
+  },
+
+  /**
+   * Lock sanitization and trigger Pass 1 (LLM extraction).
+   * POST /api/report/approve-sanitization with { sessionId }
+   */
+  async approveSanitization(sessionId: string): Promise<ReportExtractResponse> {
+    return apiClient<ReportExtractResponse>('/api/report/approve-sanitization', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    })
+  },
+
+  /**
+   * Update metadata fields before generation.
+   * POST /api/report/update-metadata with { sessionId, metadata }
+   */
+  async updateMetadata(
+    sessionId: string,
+    metadata: Partial<ReportMetadata>,
+  ): Promise<ReportMetadataResponse> {
+    return apiClient<ReportMetadataResponse>('/api/report/update-metadata', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, metadata }),
+    })
+  },
+
+  /**
+   * Open an SSE stream for the full generation pipeline.
+   * POST /api/report/generate with { sessionId }
+   * Returns a ReadableStream that emits SSE events.
+   *
+   * Must use fetch + ReadableStream (not EventSource, which only supports GET).
+   */
+  async streamGenerate(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<Response> {
+    const csrfMatch = document.cookie.match(/(?:^|; )__csrf=([^;]*)/)
+    const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : undefined
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
+    }
+
+    return fetch(`${API_BASE_URL}/api/report/generate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ sessionId }),
+      credentials: 'include',
+      signal,
+    })
+  },
+
+  /**
+   * Open an SSE stream for chat corrections in review step.
+   * POST /api/report/chat with { sessionId, message }
+   * Returns a ReadableStream that emits SSE events.
+   */
+  async streamChat(
+    sessionId: string,
+    message: string,
+    signal?: AbortSignal,
+  ): Promise<Response> {
+    const csrfMatch = document.cookie.match(/(?:^|; )__csrf=([^;]*)/)
+    const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : undefined
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
+    }
+
+    return fetch(`${API_BASE_URL}/api/report/chat`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ sessionId, message }),
+      credentials: 'include',
+      signal,
+    })
+  },
+
+  /**
+   * Get full report wizard state for a session.
+   * GET /api/report/session/:sessionId
+   */
+  async getSession(sessionId: string): Promise<ReportWizardState> {
+    return apiClient<ReportWizardState>(`/api/report/session/${sessionId}`)
+  },
+
+  /**
+   * Get the user's active report session (most recent).
+   * GET /api/report/session
+   */
+  async getActiveSession(): Promise<ReportActiveSessionResponse> {
+    return apiClient<ReportActiveSessionResponse>('/api/report/session')
+  },
+
+  /**
+   * Delete a report session (reset / start over).
+   * DELETE /api/report/session/:sessionId
+   */
+  async deleteSession(sessionId: string): Promise<{ success: boolean }> {
+    return apiClient<{ success: boolean }>(`/api/report/session/${sessionId}`, {
+      method: 'DELETE',
+    })
+  },
+
+  /**
+   * Poll PDF preview status for a report.
+   * GET /api/report/preview/:sessionId
+   */
+  async getPreviewStatus(sessionId: string): Promise<ReportPreviewResponse> {
+    return apiClient<ReportPreviewResponse>(`/api/report/preview/${sessionId}`)
+  },
+
+  /**
+   * Build the download URL for the generated executive report DOCX.
+   * Used with <a download> for browser download.
+   */
+  downloadUrl(sessionId: string): string {
+    return `${API_BASE_URL}/api/report/download/${sessionId}`
+  },
+
+  /**
+   * Build the PDF download URL from the preview status pdfUrl.
+   * The pdfUrl is a relative path that must be prefixed with API_BASE_URL.
+   */
+  pdfDownloadUrl(pdfUrl: string): string {
+    if (pdfUrl.startsWith('http')) return pdfUrl
+    return `${API_BASE_URL}${pdfUrl}`
+  },
+}
