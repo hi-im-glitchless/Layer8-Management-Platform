@@ -103,7 +103,7 @@ model TemplateMapping {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  @@unique([templateType, language, normalizedSectionText, gwField])
+  @@unique([templateType, language, normalizedSectionText, gwField, zone])
   @@index([templateType, language])
   @@index([templateType, language, zone])
   @@index([usageCount])
