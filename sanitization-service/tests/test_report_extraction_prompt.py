@@ -157,7 +157,9 @@ class TestValidateExtractionResponse:
         assert result["findings"][0]["severity"] == "high"
         assert result["findings"][0]["cvss_score"] == 8.6
         assert result["metadata"]["client_name"] == "[ORG_1]"
-        assert len(result["warnings"]) == 1
+        # 1 original warning + auto-generated few_findings (only 1 finding)
+        assert len(result["warnings"]) == 2
+        assert any("few_findings" in w for w in result["warnings"])
 
     def test_invalid_json_raises_value_error(self):
         with pytest.raises(ValueError, match="Invalid JSON"):
@@ -235,7 +237,12 @@ class TestValidateExtractionResponse:
             "findings": [{"title": "Test"}],
         })
         result = validate_extraction_response(response)
-        assert result["warnings"] == []
+        # No explicit warnings, but auto-warnings are generated for:
+        # missing_cvss (no cvss_score), few_findings (1 finding), incomplete_metadata
+        assert len(result["warnings"]) == 3
+        assert any("missing_cvss" in w for w in result["warnings"])
+        assert any("few_findings" in w for w in result["warnings"])
+        assert any("incomplete_metadata" in w for w in result["warnings"])
 
     def test_handles_metadata_not_dict(self):
         response = json.dumps({
@@ -251,7 +258,11 @@ class TestValidateExtractionResponse:
             "warnings": "not a list",
         })
         result = validate_extraction_response(response)
-        assert result["warnings"] == []
+        # Invalid warnings list is reset to [], then auto-warnings are added
+        assert len(result["warnings"]) == 3
+        assert any("missing_cvss" in w for w in result["warnings"])
+        assert any("few_findings" in w for w in result["warnings"])
+        assert any("incomplete_metadata" in w for w in result["warnings"])
 
     def test_multiple_findings(self):
         response = json.dumps({
