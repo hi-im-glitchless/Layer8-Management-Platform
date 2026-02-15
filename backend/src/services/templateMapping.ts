@@ -20,9 +20,8 @@ import type { TemplateMapping, BlueprintPattern, StyleHint } from '@prisma/clien
  *
  * - 'create': initial mapping, sets confidence from input (default behavior)
  * - 'confirm': user confirmed an existing mapping, boosts confidence by +0.1 (capped at 1.0)
- * - 'correct': user corrected an existing mapping, decays confidence by 0.7x
  */
-export type UpsertMode = 'confirm' | 'correct' | 'create';
+export type UpsertMode = 'confirm' | 'create';
 
 // ---------------------------------------------------------------------------
 // Prescriptive Lookup Types
@@ -129,7 +128,6 @@ export function normalizeSectionText(text: string): string {
  * Compute updated confidence based on upsert mode.
  *
  * - 'confirm': boost by +0.1, capped at 1.0
- * - 'correct': decay by 0.7x
  * - 'create': use the provided input confidence as-is
  */
 function computeConfidence(
@@ -140,9 +138,6 @@ function computeConfidence(
   if (mode === 'confirm' && existingConfidence !== undefined) {
     return Math.min(1.0, existingConfidence + 0.1);
   }
-  if (mode === 'correct' && existingConfidence !== undefined) {
-    return existingConfidence * 0.7;
-  }
   return inputConfidence;
 }
 
@@ -152,7 +147,6 @@ function computeConfidence(
  * Mode controls confidence behavior:
  * - 'create' (default): sets usageCount=1, confidence from input
  * - 'confirm': increments usageCount, boosts confidence by +0.1 (capped at 1.0)
- * - 'correct': increments correctionCount, decays confidence by 0.7x
  *
  * @returns The upserted TemplateMapping record
  */
@@ -173,7 +167,7 @@ export async function upsertMapping(
     },
   };
 
-  // For confirm/correct modes, fetch existing record to compute new confidence
+  // For confirm mode, fetch existing record to compute new confidence
   let existingConfidence: number | undefined;
   if (mode !== 'create') {
     const existing = await prisma.templateMapping.findUnique({ where: whereClause });
@@ -185,13 +179,8 @@ export async function upsertMapping(
   const updateClause: Record<string, unknown> = {
     markerType: validated.markerType,
     confidence: newConfidence,
+    usageCount: { increment: 1 },
   };
-
-  if (mode === 'correct') {
-    updateClause.correctionCount = { increment: 1 };
-  } else {
-    updateClause.usageCount = { increment: 1 };
-  }
 
   // Always include zone fields
   updateClause.zone = validated.zone ?? 'body';
@@ -267,13 +256,8 @@ export async function bulkUpsertMappings(
         const updateClause: Record<string, unknown> = {
           markerType: validated.markerType,
           confidence: newConfidence,
+          usageCount: { increment: 1 },
         };
-
-        if (mode === 'correct') {
-          updateClause.correctionCount = { increment: 1 };
-        } else {
-          updateClause.usageCount = { increment: 1 };
-        }
 
         // Always include zone fields
         updateClause.zone = validated.zone ?? 'body';
@@ -312,6 +296,46 @@ export async function bulkUpsertMappings(
     console.error('[templateMapping] bulkUpsertMappings failed:', error);
     return { created: 0, updated: 0 };
   }
+}
+
+/**
+ * Atomically delete an old mapping and create a new one.
+ * Used for corrections where the user says "this field is wrong, use this instead."
+ * Wrapped in a Prisma transaction for atomicity.
+ */
+export async function deleteAndRecreatMapping(
+  deleteInput: { templateType: string; language: string; normalizedSectionText: string; gwField: string; zone: string },
+  createInput: TemplateMappingInput,
+): Promise<TemplateMapping> {
+  return prisma.$transaction(async (tx) => {
+    // Delete old entry (may not exist if already pruned)
+    await tx.templateMapping.deleteMany({
+      where: {
+        templateType: deleteInput.templateType,
+        language: deleteInput.language,
+        normalizedSectionText: deleteInput.normalizedSectionText,
+        gwField: deleteInput.gwField,
+        zone: deleteInput.zone,
+      },
+    });
+
+    // Create new entry at confidence 1.0
+    const validated = templateMappingSchema.parse(createInput);
+    const normalizedText = normalizeSectionText(validated.sectionText);
+    return tx.templateMapping.create({
+      data: {
+        templateType: validated.templateType,
+        language: validated.language,
+        normalizedSectionText: normalizedText,
+        gwField: validated.gwField,
+        markerType: validated.markerType,
+        confidence: 1.0,
+        usageCount: 1,
+        zone: validated.zone ?? 'body',
+        zoneRepetitionCount: validated.zoneRepetitionCount ?? 1,
+      },
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
