@@ -291,7 +291,8 @@ export function MappingTable({
                   className={cn(
                     'cursor-pointer transition-all duration-300',
                     isHighlighted && 'ring-2 ring-primary/60 bg-primary/5 animate-pulse',
-                    !isHighlighted && 'hover:bg-muted/50',
+                    !isHighlighted && entry.source === 'kb' && 'bg-muted/20 opacity-75',
+                    !isHighlighted && entry.source !== 'kb' && 'hover:bg-muted/50',
                   )}
                   onClick={() => {
                     if (!isEditing) onRowClick?.(entry, entry._idx)
