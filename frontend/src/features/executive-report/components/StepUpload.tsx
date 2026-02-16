@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { FileUpload } from '@/components/ui/file-upload'
 import { AnalysisProgressDisplay, type StepDef } from '@/features/adapter/components/AnalysisProgress'
-import { useUploadReport, useSanitizeReport } from '../hooks'
+import { useUploadReport } from '../hooks'
 
 /** Upload + sanitization pipeline step definitions */
 const UPLOAD_PIPELINE_STEPS: StepDef[] = [
@@ -39,16 +39,13 @@ export function StepUpload({ onSessionCreate, onPipelineComplete }: StepUploadPr
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   // Pipeline progress state
-  const [pipelineSessionId, setPipelineSessionId] = useState<string | null>(null)
   const [pipelineStep, setPipelineStep] = useState(0)
   const [elapsed, setElapsed] = useState(0)
 
   const uploadMutation = useUploadReport()
-  const sanitizeMutation = useSanitizeReport()
 
   const isUploading = uploadMutation.isPending
-  const isSanitizing = sanitizeMutation.isPending
-  const isPipelineRunning = isUploading || isSanitizing
+  const isPipelineRunning = isUploading
 
   // Elapsed timer while pipeline is running
   useEffect(() => {
@@ -61,16 +58,14 @@ export function StepUpload({ onSessionCreate, onPipelineComplete }: StepUploadPr
   }, [isPipelineRunning])
 
   // Step estimation based on elapsed time
+  // Upload now includes server-side sanitization in a single call
   useEffect(() => {
     if (!isPipelineRunning) return
-    if (isSanitizing) {
-      if (elapsed >= 10) setPipelineStep(3)
-      else setPipelineStep(2)
-    } else if (isUploading) {
-      if (elapsed >= 2) setPipelineStep(1)
-      else setPipelineStep(0)
-    }
-  }, [elapsed, isPipelineRunning, isUploading, isSanitizing])
+    if (elapsed >= 10) setPipelineStep(3)
+    else if (elapsed >= 5) setPipelineStep(2)
+    else if (elapsed >= 2) setPipelineStep(1)
+    else setPipelineStep(0)
+  }, [elapsed, isPipelineRunning])
 
   const handleFileSelect = useCallback((file: File) => {
     setSelectedFile(file)
@@ -84,50 +79,33 @@ export function StepUpload({ onSessionCreate, onPipelineComplete }: StepUploadPr
 
     uploadMutation.mutate(selectedFile, {
       onSuccess: (data) => {
-        toast.success('Report uploaded successfully')
+        toast.success('Report uploaded and sanitized successfully')
         onSessionCreate(data.sessionId)
-        setPipelineSessionId(data.sessionId)
-
-        // Auto-trigger sanitization
-        setPipelineStep(2)
-        sanitizeMutation.mutate(data.sessionId, {
-          onSuccess: () => {
-            toast.success('Report sanitized successfully')
-            onPipelineComplete(data.sessionId)
-          },
-        })
+        onPipelineComplete(data.sessionId)
       },
     })
-  }, [selectedFile, uploadMutation, sanitizeMutation, onSessionCreate, onPipelineComplete])
+  }, [selectedFile, uploadMutation, onSessionCreate, onPipelineComplete])
 
   const handleRetry = useCallback(() => {
-    if (!pipelineSessionId) return
-    setPipelineStep(2)
+    if (!selectedFile) return
+    setPipelineStep(0)
     setElapsed(0)
-    sanitizeMutation.mutate(pipelineSessionId, {
-      onSuccess: () => {
-        toast.success('Report sanitized successfully')
-        onPipelineComplete(pipelineSessionId)
-      },
-    })
-  }, [pipelineSessionId, sanitizeMutation, onPipelineComplete])
+    handleUpload()
+  }, [selectedFile, handleUpload])
 
   // Pipeline phase for progress display
   const pipelinePhase: 'idle' | 'running' | 'complete' | 'error' =
-    uploadMutation.isError || sanitizeMutation.isError
+    uploadMutation.isError
       ? 'error'
-      : sanitizeMutation.isSuccess
+      : uploadMutation.isSuccess
         ? 'complete'
         : isPipelineRunning
           ? 'running'
           : 'idle'
 
-  const pipelineError =
-    uploadMutation.isError
-      ? (uploadMutation.error as Error)?.message || 'Upload failed'
-      : sanitizeMutation.isError
-        ? (sanitizeMutation.error as Error)?.message || 'Sanitization failed'
-        : undefined
+  const pipelineError = uploadMutation.isError
+    ? (uploadMutation.error as Error)?.message || 'Upload failed'
+    : undefined
 
   return (
     <Card>

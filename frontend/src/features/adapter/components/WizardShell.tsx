@@ -61,7 +61,7 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
 
   // Local state to carry mapping and file between steps client-side
   const [localMappingPlan, setLocalMappingPlan] = useState<MappingPlan | null>(null)
-  const [localFile, setLocalFile] = useState<File | null>(null)
+  const [, setLocalFile] = useState<File | null>(null)
 
   // Determine effective current step.
   // The server step may lag behind the frontend (e.g., during analysis the backend
@@ -142,12 +142,17 @@ export function WizardShell({ sessionId, onSessionCreate, onSessionClear }: Wiza
   const resetMutation = useResetSession()
 
   const handleNewSession = useCallback(() => {
+    // Delete backend session and clear active-session query cache to prevent
+    // auto-resume from re-establishing the old session via useActiveSession.
+    if (sessionId) {
+      resetMutation.mutate(sessionId)
+    }
     setOverrideStep(null)
     setLocalMappingPlan(null)
     setLocalFile(null)
     setFreshUpload(false)
     onSessionClear()
-  }, [onSessionClear])
+  }, [sessionId, resetMutation, onSessionClear])
 
   const handleReset = useCallback(() => {
     if (!sessionId) return

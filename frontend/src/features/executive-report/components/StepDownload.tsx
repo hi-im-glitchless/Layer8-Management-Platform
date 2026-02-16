@@ -1,11 +1,11 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { CheckCircle, Download, FileText, Plus, BarChart3, Globe, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { reportApi } from '../api'
-import type { ReportWizardState, EntityMapping } from '../types'
+import type { ReportWizardState } from '../types'
 
 interface StepDownloadProps {
   sessionId: string
@@ -13,36 +13,8 @@ interface StepDownloadProps {
   onStartNew: () => void
 }
 
-/**
- * Build a placeholder -> originalValue lookup from entity mappings
- * for de-sanitization before PDF generation.
- */
-function buildDesanitizeMap(mappings: EntityMapping[]): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const m of mappings) {
-    if (m.placeholder && m.originalValue) {
-      map[m.placeholder] = m.originalValue
-    }
-  }
-  return map
-}
-
-/**
- * Apply de-sanitization to HTML: replace all placeholders with original values.
- */
-function desanitizeHtml(html: string, desanitizeMap: Record<string, string>): string {
-  let result = html
-  for (const [placeholder, originalValue] of Object.entries(desanitizeMap)) {
-    result = result.replaceAll(placeholder, originalValue)
-  }
-  return result
-}
-
 export function StepDownload({ sessionId, wizardState, onStartNew }: StepDownloadProps) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
-
-  const entityMappings = wizardState?.entityMappings ?? []
-  const desanitizeMap = useMemo(() => buildDesanitizeMap(entityMappings), [entityMappings])
 
   const handleDownloadPdf = useCallback(async () => {
     if (!wizardState?.generatedHtml) {
