@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Executive Security Report</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- Report Stylesheet -->
+  <link rel="stylesheet" href="report-template.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+  <div class="report-container">
+
+    <!-- ================================================================
+         COVER PAGE
+         ================================================================ -->
+    <section data-section="cover" class="cover-page">
+      <div class="cover-brand-bar"></div>
+
+      <div class="cover-background">
+        <div class="cover-logo">
+          <div class="cover-logo-text">LAYER<span class="logo-accent">8</span></div>
+        </div>
+      </div>
+
+      <div class="cover-info">
+        <div class="cover-info-label">CLIENT</div>
+        <div class="cover-info-value">[CLIENT_NAME]</div>
+
+        <div class="cover-info-label">DOCUMENT</div>
+        <div class="cover-info-value document-title">Executive Security Report</div>
+
+        <div class="cover-info-label">DATE</div>
+        <div class="cover-info-value date">[REPORT_DATE]</div>
+
+        <div class="cover-info-label">PERIOD</div>
+        <div class="cover-info-value date">[START_DATE] - [END_DATE]</div>
+
+        <div class="cover-info-label">PROJECT CODE</div>
+        <div class="cover-info-value date">[PROJECT_CODE]</div>
+
+        <div class="confidential-badge">CONFIDENTIAL</div>
+      </div>
+
+      <div class="cover-footer">
+        <a href="https://www.layer8.pt">www.layer8.pt</a>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         1. EXECUTIVE SUMMARY
+         ================================================================ -->
+    <section data-section="executive_summary" class="report-page section-header">
+      <div class="page-header">Project Code: [PROJECT_CODE]</div>
+
+      <h2 class="section-title">Executive Summary</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated executive summary content -->
+      </div>
+    </section>
+
+    <!-- ================================================================
+         2. GLOBAL RISK SCORE
+         ================================================================ -->
+    <section data-section="risk_score_explanation" class="report-page section-header">
+      <h2 class="section-title">Global Risk Score</h2>
+      <hr class="section-divider">
+
+      <div class="risk-score-card">
+        <div class="risk-score-value" data-field="risk_score">[RISK_SCORE]</div>
+        <div class="risk-score-label" data-field="risk_label">Global Risk Score</div>
+        <div class="risk-score-level">Risk Level: <strong data-field="risk_level">[RISK_LEVEL]</strong></div>
+      </div>
+
+      <div class="section-content">
+        <!-- LLM-generated risk score methodology -->
+      </div>
+    </section>
+
+    <!-- ================================================================
+         3. KEY METRICS
+         ================================================================ -->
+    <section data-section="key_metrics_text" class="report-page section-header">
+      <h2 class="section-title">Key Metrics</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated metrics overview text -->
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-card brand-primary">
+          <div class="metric-value brand-primary" data-metric="total">[TOTAL]</div>
+          <div class="metric-label">Total Vulnerabilities</div>
+        </div>
+        <div class="metric-card severity-high">
+          <div class="metric-value severity-high" data-metric="critical">[CRITICAL]</div>
+          <div class="metric-label">Critical Severity</div>
+        </div>
+        <div class="metric-card severity-high">
+          <div class="metric-value severity-high" data-metric="high">[HIGH]</div>
+          <div class="metric-label">High Severity</div>
+        </div>
+        <div class="metric-card severity-medium">
+          <div class="metric-value severity-medium" data-metric="medium">[MEDIUM]</div>
+          <div class="metric-label">Medium Severity</div>
+        </div>
+        <div class="metric-card severity-low">
+          <div class="metric-value severity-low" data-metric="low">[LOW]</div>
+          <div class="metric-label">Low Severity</div>
+        </div>
+        <div class="metric-card brand-accent">
+          <div class="metric-value brand-accent" data-metric="categories">[CATEGORIES]</div>
+          <div class="metric-label">Categories Affected</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         4. SEVERITY DISTRIBUTION
+         ================================================================ -->
+    <section data-section="severity_analysis" class="report-page section-header">
+      <h2 class="section-title">Severity Distribution</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated severity analysis text -->
+      </div>
+
+      <div class="chart-container">
+        <canvas data-chart="severity_pie" data-config="" width="500" height="400"></canvas>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         5. VULNERABILITIES BY CATEGORY
+         ================================================================ -->
+    <section data-section="category_analysis" class="report-page section-header">
+      <h2 class="section-title">Vulnerabilities by Category</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated category analysis text -->
+      </div>
+
+      <div class="chart-container">
+        <canvas data-chart="category_bar" data-config="" width="600" height="400"></canvas>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         6. DETAILED ANALYSIS: SEVERITY BY CATEGORY
+         ================================================================ -->
+    <section data-section="detailed_analysis" class="report-page section-header">
+      <h2 class="section-title">Detailed Analysis: Severity by Category</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated detailed analysis text -->
+      </div>
+
+      <div class="chart-container">
+        <canvas data-chart="stacked_severity" data-config="" width="600" height="400"></canvas>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         7. KEY THREATS
+         ================================================================ -->
+    <section data-section="key_threats" class="report-page section-header">
+      <h2 class="section-title">Key Threats</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated key threats with business impact -->
+      </div>
+    </section>
+
+    <!-- ================================================================
+         8. COMPLIANCE RISK
+         ================================================================ -->
+    <section data-section="compliance_risk_text" class="report-page section-header">
+      <h2 class="section-title">Compliance Risk</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated compliance risk text -->
+      </div>
+
+      <div class="chart-container">
+        <canvas data-chart="compliance_radar" data-config="" width="500" height="500"></canvas>
+      </div>
+
+      <!-- Compliance framework table placeholder -->
+      <div class="section-content" data-subsection="compliance_table">
+        <!-- LLM-generated compliance table -->
+      </div>
+    </section>
+
+    <!-- ================================================================
+         9. TOP 10 VULNERABILITIES
+         ================================================================ -->
+    <section data-section="top_vulnerabilities_text" class="report-page section-header">
+      <h2 class="section-title">Top 10 Vulnerabilities</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated methodology and top 10 text -->
+      </div>
+
+      <div class="chart-container">
+        <canvas data-chart="top_vulnerabilities" data-config="" width="600" height="400"></canvas>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         10. STRATEGIC RECOMMENDATIONS
+         ================================================================ -->
+    <section data-section="strategic_recommendations" class="report-page section-header">
+      <h2 class="section-title">Strategic Recommendations</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated tiered recommendations:
+             - Immediate Action (0-30 days)
+             - Short Term (1-3 months)
+             - Long Term (3-12 months)
+             - Board Recommendations
+        -->
+      </div>
+    </section>
+
+    <!-- ================================================================
+         11. POSITIVE ASPECTS
+         ================================================================ -->
+    <section data-section="positive_aspects" class="report-page section-header">
+      <h2 class="section-title">Positive Aspects</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated positive findings -->
+      </div>
+    </section>
+
+    <!-- ================================================================
+         12. CONCLUSION
+         ================================================================ -->
+    <section data-section="conclusion" class="report-page section-header">
+      <h2 class="section-title">Conclusion</h2>
+      <hr class="section-divider">
+
+      <div class="section-content">
+        <!-- LLM-generated conclusion -->
+      </div>
+    </section>
+
+  </div><!-- /.report-container -->
+
+  <!-- =================================================================
+       Chart.js Initialization Script
+       Reads data-chart and data-config attributes from <canvas> elements
+       and creates Chart.js instances with the provided configuration.
+       ================================================================= -->
+  <script>
+    (function () {
+      'use strict';
+
+      /**
+       * Initialize all Chart.js charts on the page.
+       * Each <canvas data-chart="..." data-config="..."> element is found,
+       * its data-config JSON is parsed, and a Chart instance is created.
+       */
+      function initCharts() {
+        var canvases = document.querySelectorAll('canvas[data-chart]');
+
+        canvases.forEach(function (canvas) {
+          var chartId = canvas.getAttribute('data-chart');
+          var configStr = canvas.getAttribute('data-config');
+
+          if (!configStr) {
+            // No config yet -- skip (will be populated by the pipeline)
+            return;
+          }
+
+          try {
+            var config = JSON.parse(configStr);
+
+            // Apply default responsive settings
+            if (!config.options) {
+              config.options = {};
+            }
+            config.options.responsive = true;
+            config.options.maintainAspectRatio = true;
+
+            // Apply default animation settings (disable for PDF rendering)
+            if (config.options.animation === undefined) {
+              config.options.animation = { duration: 0 };
+            }
+
+            new Chart(canvas.getContext('2d'), config);
+          } catch (err) {
+            console.error('Failed to initialize chart "' + chartId + '":', err);
+          }
+        });
+      }
+
+      // Initialize charts when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCharts);
+      } else {
+        initCharts();
+      }
+    })();
+  </script>
+</body>
+</html>
