@@ -93,9 +93,9 @@ export function OnboardingWizard({
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors ${
                     index < currentStepIndex
-                      ? 'border-blue-500 bg-blue-500 text-white'
+                      ? 'border-accent bg-accent text-accent-foreground'
                       : index === currentStepIndex
-                      ? 'border-blue-500 text-blue-500'
+                      ? 'border-accent text-accent'
                       : 'border-white/30 text-white/50'
                   }`}
                 >
@@ -109,7 +109,7 @@ export function OnboardingWizard({
                   <div
                     className={`h-0.5 w-12 transition-colors ${
                       index < currentStepIndex
-                        ? 'bg-blue-500'
+                        ? 'bg-accent'
                         : 'bg-white/20'
                     }`}
                   />
@@ -157,8 +157,8 @@ export function OnboardingWizard({
 
             {currentStep === 'welcome' && (
               <div className="flex flex-col items-center justify-center space-y-6 py-12 fade-in">
-                <div className="rounded-full bg-green-100 p-4 dark:bg-green-900/20">
-                  <CheckCircle2 className="h-16 w-16 text-green-600 dark:text-green-500" />
+                <div className="rounded-full bg-success/15 p-4">
+                  <CheckCircle2 className="h-16 w-16 text-success" />
                 </div>
                 <div className="space-y-2 text-center">
                   <h2 className="text-2xl font-semibold text-white">You're All Set!</h2>
