@@ -1,8 +1,9 @@
 """Pass 2 LLM prompt builder for executive report narrative generation.
 
 Builds structured prompts that instruct the LLM to generate professional
-executive-level narrative text for all report sections from computed
-findings data, metrics, and compliance scores.
+executive-level HTML content for all report sections from computed
+findings data, metrics, and compliance scores. Output uses CSS classes
+from report-template.css for consistent styling in the HTML report.
 """
 
 import json
@@ -37,9 +38,75 @@ STRATEGIC_RECOMMENDATION_KEYS = [
     "board_recommendations",
 ]
 
+# ---------------------------------------------------------------------------
+# CSS class reference for the LLM prompt
+# ---------------------------------------------------------------------------
+
+CSS_CLASS_REFERENCE = """
+## Available CSS Classes (from report-template.css)
+
+The HTML skeleton uses these CSS classes. Use them in your output:
+
+### Section Content
+- `.section-content` -- wraps all narrative text inside a section
+- `.section-content p` -- paragraphs with bottom margin
+- `.section-content strong` -- bold emphasis (font-weight: 700)
+
+### Metric Cards (for key_metrics_text)
+- `.metric-grid` -- grid container for metric cards
+- `.metric-card` -- individual metric box with border-top accent
+- `.metric-card.severity-critical/.severity-high/.severity-medium/.severity-low` -- severity-colored top border
+- `.metric-value` -- large number display (48px)
+- `.metric-value.severity-critical/.severity-high/.severity-medium/.severity-low` -- colored values
+- `.metric-label` -- small descriptive label below the number
+
+### Severity Colors
+- `.severity-critical` -- red text (#C62828)
+- `.severity-high` -- red text (#E53935)
+- `.severity-medium` -- orange text (#FB8C00)
+- `.severity-low` -- green text (#43A047)
+- `.severity-info` -- blue text (#1E88E5)
+
+### Compliance Table
+- `<table class="compliance-table">` -- styled table with branded header
+- `.compliance-badge.risk-high/.risk-medium/.risk-low` -- colored risk badges
+
+### Recommendation Cards
+- `.recommendation-card` -- card wrapper with border and rounded corners
+- `.recommendation-header` -- card title bar
+- `.recommendation-header.tier-immediate` -- critical-colored top border (0-30 days)
+- `.recommendation-header.tier-short` -- medium-colored top border (1-3 months)
+- `.recommendation-header.tier-long` -- medium-colored top border (3-12 months)
+- `.recommendation-header.tier-board` -- dark-colored top border (board level)
+- `.recommendation-body` -- card content area
+- `.recommendation-body ul > li` -- styled list items with colored bullets
+
+### Threat Cards
+- `.threat-card` -- background card for threat grouping
+- `.threat-item` -- flex row with icon + content
+- `.threat-content` -- text content within a threat item
+- `.business-impact-card` -- callout box for business impact
+
+### Positive Aspects
+- `.positive-card` -- background card wrapper
+- `.positive-item` -- flex row with icon + content
+- `.positive-content` -- text content
+
+### Conclusion
+- `.conclusion-card` -- background card wrapper
+- `.final-recommendation` -- closing recommendation callout
+
+### Utility
+- `.avoid-break` -- prevents page break inside element
+- `.text-justify` -- justified text alignment
+"""
+
 
 def build_narrative_system_prompt(language: str) -> str:
     """Build the system prompt for LLM Pass 2 (narrative generation).
+
+    Instructs the LLM to output HTML fragments using CSS classes from
+    report-template.css instead of plain text with markdown formatting.
 
     Args:
         language: Output language code ("en" or "pt-pt"). Controls
@@ -55,22 +122,22 @@ def build_narrative_system_prompt(language: str) -> str:
     )
 
     section_schema = {
-        "executive_summary": "str (2-3 paragraph executive summary)",
-        "risk_score_explanation": "str (methodology explanation for the risk score)",
-        "key_metrics_text": "str (narrative interpreting the key metrics)",
-        "severity_analysis": "str (analysis of severity distribution)",
-        "category_analysis": "str (analysis of vulnerability categories)",
-        "key_threats": "str (top threats with business impact context)",
-        "compliance_risk_text": "str (compliance framework risk analysis)",
-        "top_vulnerabilities_text": "str (top 10 vulnerabilities narrative with CVSS)",
+        "executive_summary": "HTML string (2-3 paragraphs using <p> tags)",
+        "risk_score_explanation": "HTML string (methodology explanation using <p>, <strong>)",
+        "key_metrics_text": "HTML string (narrative interpreting the key metrics)",
+        "severity_analysis": "HTML string (analysis of severity distribution)",
+        "category_analysis": "HTML string (analysis of vulnerability categories)",
+        "key_threats": "HTML string (threats using <div class='threat-card'> structure)",
+        "compliance_risk_text": "HTML string (compliance analysis with <table class='compliance-table'>)",
+        "top_vulnerabilities_text": "HTML string (top 10 vulnerabilities narrative with CVSS)",
         "strategic_recommendations": {
-            "immediate": "str (actions for 0-30 days)",
-            "short_term": "str (actions for 1-3 months)",
-            "long_term": "str (actions for 3-12 months)",
-            "board_recommendations": "str (executive board talking points)",
+            "immediate": "HTML string (0-30 day actions using recommendation-card structure)",
+            "short_term": "HTML string (1-3 month actions using recommendation-card structure)",
+            "long_term": "HTML string (3-12 month actions using recommendation-card structure)",
+            "board_recommendations": "HTML string (board talking points using recommendation-card structure)",
         },
-        "positive_aspects": "str (security strengths observed)",
-        "conclusion": "str (closing summary with forward-looking statement)",
+        "positive_aspects": "HTML string (strengths using <div class='positive-card'> structure)",
+        "conclusion": "HTML string (closing summary using <div class='conclusion-card'> structure)",
     }
 
     return (
@@ -83,20 +150,36 @@ def build_narrative_system_prompt(language: str) -> str:
         f"{lang_instruction}\n\n"
         "You must return ONLY valid JSON -- no markdown fences, no commentary outside "
         "the JSON structure.\n\n"
+        "## Output Format: HTML with CSS Classes\n\n"
+        "Each section value must be an HTML fragment string. Use the CSS classes from "
+        "report-template.css to style the content. The HTML will be injected into "
+        "<div class=\"section-content\"> elements inside the report skeleton.\n\n"
         "## Output Schema\n\n"
         "Return a JSON object with these section keys:\n\n"
         f"```json\n{json.dumps(section_schema, indent=2)}\n```\n\n"
-        "## Style Guidelines\n\n"
-        "1. Use **bold** for emphasis on key terms.\n"
-        "2. Use numbered lists for recommendations and action items.\n"
-        "3. Reference specific findings by name when discussing threats.\n"
-        "4. Quantify impact where possible (e.g., 'X out of Y findings are critical').\n"
-        "5. Avoid technical details (no code, no CVE IDs, no exploit steps).\n"
-        "6. Frame vulnerabilities in terms of business risk and regulatory exposure.\n"
-        "7. Strategic recommendations should be tiered: immediate (0-30 days), "
+        f"{CSS_CLASS_REFERENCE}\n\n"
+        "## HTML Style Guidelines\n\n"
+        "1. Use `<strong>` for emphasis on key terms (NOT **bold** markdown).\n"
+        "2. Use `<ol><li>` for ordered lists, `<ul><li>` for unordered lists.\n"
+        "3. Use `<p>` tags for paragraphs.\n"
+        "4. Use `<table class=\"compliance-table\">` for compliance data tables.\n"
+        "5. Use `<div class=\"recommendation-card\">` with `.recommendation-header` "
+        "and `.recommendation-body` for tiered recommendations.\n"
+        "6. Use `<div class=\"threat-card\">` with `.threat-item` for key threats.\n"
+        "7. Use severity color classes (e.g., `<span class=\"severity-critical\">Critical</span>`) "
+        "to highlight severity levels.\n"
+        "8. Reference specific findings by name when discussing threats.\n"
+        "9. Quantify impact where possible (e.g., 'X out of Y findings are critical').\n"
+        "10. Avoid technical details (no code, no CVE IDs, no exploit steps).\n"
+        "11. Frame vulnerabilities in terms of business risk and regulatory exposure.\n"
+        "12. Strategic recommendations should be tiered: immediate (0-30 days), "
         "short-term (1-3 months), long-term (3-12 months), and board-level.\n"
-        "8. The report text may contain sanitized placeholders (e.g., [PERSON_1], "
-        "[ORG_1]). Preserve these placeholders exactly as they appear."
+        "13. The report text may contain sanitized placeholders (e.g., [PERSON_1], "
+        "[ORG_1]). Preserve these placeholders exactly as they appear.\n"
+        "14. Do NOT include `<style>` tags or inline CSS `style` attributes. "
+        "Use only the provided CSS class names.\n"
+        "15. Do NOT include `<script>` tags or JavaScript.\n"
+        "16. Do NOT generate chart HTML -- charts are handled separately by Chart.js."
     )
 
 
@@ -120,6 +203,24 @@ def build_narrative_user_prompt(
         User prompt string with all data needed for narrative generation.
     """
     sections: list[str] = []
+
+    # Section 0: HTML skeleton structure reference
+    sections.append("## HTML Report Skeleton Structure\n")
+    sections.append(
+        "The report uses an HTML skeleton with these sections. Each section has "
+        "a `<div class=\"section-content\">` where your HTML output will be injected:\n"
+        "  1. executive_summary -- Executive Summary\n"
+        "  2. risk_score_explanation -- Global Risk Score (has risk-score-card above)\n"
+        "  3. key_metrics_text -- Key Metrics (has metric-grid below)\n"
+        "  4. severity_analysis -- Severity Distribution (has severity_pie chart below)\n"
+        "  5. category_analysis -- Vulnerabilities by Category (has category_bar chart below)\n"
+        "  6. key_threats -- Key Threats\n"
+        "  7. compliance_risk_text -- Compliance Risk (has compliance_radar chart below)\n"
+        "  8. top_vulnerabilities_text -- Top 10 Vulnerabilities (has top_vulnerabilities chart below)\n"
+        "  9. strategic_recommendations -- Strategic Recommendations (tiered cards)\n"
+        "  10. positive_aspects -- Positive Aspects\n"
+        "  11. conclusion -- Conclusion\n"
+    )
 
     # Section 1: Risk score
     sections.append("## Global Risk Score\n")
@@ -159,29 +260,37 @@ def build_narrative_user_prompt(
         impact = f.get("business_impact", "")
         cvss = f.get("cvss_score")
         cvss_str = f" (CVSS: {cvss})" if cvss else ""
-        sections.append(f"  {i}. [{sev.upper()}] {title}{cvss_str} — {cat}")
+        sections.append(f"  {i}. [{sev.upper()}] {title}{cvss_str} -- {cat}")
         if impact:
             sections.append(f"     Impact: {impact}")
 
     if len(findings) > 15:
         sections.append(f"\n  ... and {len(findings) - 15} additional findings")
 
-    # Section 6: Chart descriptions
+    # Section 6: Chart data summaries
     if chart_descriptions:
-        sections.append("\n## Chart Data Descriptions\n")
+        sections.append("\n## Chart Data Summaries\n")
+        sections.append(
+            "(Charts are rendered separately by Chart.js. Reference this data "
+            "in your narrative but do NOT generate chart HTML.)\n"
+        )
         for chart_name, desc in chart_descriptions.items():
             sections.append(f"  {chart_name}: {desc}")
 
     # Section 7: Instructions
     sections.append("\n## Instructions\n")
     sections.append(
-        "Using the data above, generate professional executive narrative text "
-        "for each of the 12 report sections defined in the system prompt schema.\n"
-        "1. Reference specific numbers and findings by name.\n"
-        "2. Frame all analysis in business risk terms.\n"
-        "3. Make recommendations actionable and time-bound.\n"
-        "4. Highlight positive security aspects to maintain stakeholder confidence.\n"
-        "5. Preserve any sanitized placeholders exactly as they appear."
+        "Using the data above, generate professional executive HTML content "
+        "for each of the report sections defined in the system prompt schema.\n"
+        "1. Output HTML fragments using CSS classes from report-template.css.\n"
+        "2. Use `<strong>` for emphasis, `<ol>/<li>` for lists, `<p>` for paragraphs.\n"
+        "3. Reference specific numbers and findings by name.\n"
+        "4. Frame all analysis in business risk terms.\n"
+        "5. Make recommendations actionable and time-bound.\n"
+        "6. Highlight positive security aspects to maintain stakeholder confidence.\n"
+        "7. Preserve any sanitized placeholders exactly as they appear.\n"
+        "8. Do NOT reference charts directly (they are auto-rendered below sections).\n"
+        "9. Do NOT include <style>, inline styles, or <script> tags."
     )
 
     return "\n".join(sections)
@@ -192,7 +301,7 @@ def build_section_correction_system_prompt(language: str) -> str:
 
     Instructs the LLM to revise one specific section of the executive
     report based on user feedback while maintaining consistency with
-    the rest of the report.
+    the rest of the report. Output must be HTML with CSS classes.
 
     Args:
         language: Output language code ("en" or "pt-pt").
@@ -209,21 +318,26 @@ def build_section_correction_system_prompt(language: str) -> str:
     return (
         "You are a senior cybersecurity consultant revising a single section of "
         "an executive report based on user feedback. Your task is to:\n"
-        "1. Read the current section text carefully.\n"
+        "1. Read the current section HTML carefully.\n"
         "2. Apply the user's requested changes precisely.\n"
         "3. Maintain consistency with the rest of the report (summaries of other "
         "sections are provided for context).\n"
         "4. Keep the same professional, business-focused tone.\n"
-        "5. Preserve any sanitized placeholders (e.g., [PERSON_1], [ORG_1]) exactly.\n\n"
+        "5. Preserve any sanitized placeholders (e.g., [PERSON_1], [ORG_1]) exactly.\n"
+        "6. Output HTML using the same CSS classes as the original section.\n\n"
         f"{lang_instruction}\n\n"
         "You must return ONLY valid JSON with this structure:\n"
-        '{ "section_key": "<the section key>", "revised_text": "<the full revised section text>" }\n\n'
-        "## Style Guidelines\n\n"
-        "- Use **bold** for emphasis on key terms.\n"
-        "- Use numbered lists for recommendations and action items.\n"
+        '{ "section_key": "<the section key>", "revised_text": "<the full revised section HTML>" }\n\n'
+        "## HTML Style Guidelines\n\n"
+        "- Use `<strong>` for emphasis on key terms (NOT **bold** markdown).\n"
+        "- Use `<ol><li>` for ordered lists, `<ul><li>` for unordered lists.\n"
+        "- Use `<p>` tags for paragraphs.\n"
+        "- Use CSS classes from report-template.css (e.g., severity-critical, "
+        "recommendation-card, compliance-table, threat-card).\n"
         "- Frame vulnerabilities in terms of business risk.\n"
         "- Be concise yet comprehensive.\n"
-        "- Do NOT add commentary outside the JSON structure."
+        "- Do NOT add commentary outside the JSON structure.\n"
+        "- Do NOT include <style> tags, inline CSS, or <script> tags."
     )
 
 
@@ -251,8 +365,8 @@ def build_section_correction_user_prompt(
 
     # Section being revised
     sections.append(f"## Section to Revise: {section_key}\n")
-    sections.append("Current text:\n")
-    sections.append(f"```\n{current_text}\n```\n")
+    sections.append("Current HTML:\n")
+    sections.append(f"```html\n{current_text}\n```\n")
 
     # User feedback
     sections.append("## User Feedback\n")
@@ -282,10 +396,12 @@ def build_section_correction_user_prompt(
     sections.append("\n## Instructions\n")
     sections.append(
         f'1. Revise the "{section_key}" section based on the user feedback above.\n'
-        "2. Return the FULL revised section text (not just the changed parts).\n"
-        "3. Maintain consistency with the report context.\n"
-        "4. Preserve any sanitized placeholders exactly as they appear.\n"
-        f'5. Return JSON: {{ "section_key": "{section_key}", "revised_text": "..." }}'
+        "2. Return the FULL revised section HTML (not just the changed parts).\n"
+        "3. Use the same CSS classes from report-template.css as the original.\n"
+        "4. Maintain consistency with the report context.\n"
+        "5. Preserve any sanitized placeholders exactly as they appear.\n"
+        "6. Do NOT include <style> tags, inline CSS, or <script> tags.\n"
+        f'7. Return JSON: {{ "section_key": "{section_key}", "revised_text": "<revised HTML>" }}'
     )
 
     return "\n".join(sections)
