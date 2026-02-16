@@ -1,14 +1,14 @@
 import { apiClient, apiUpload } from '@/lib/api'
 import type {
   ReportUploadResponse,
-  ReportSanitizeResponse,
-  ReportDenyListResponse,
+  ReportUpdateEntityMappingsResponse,
   ReportExtractResponse,
   ReportMetadataResponse,
   ReportPreviewResponse,
   ReportWizardState,
   ReportActiveSessionResponse,
   ReportMetadata,
+  EntityMapping,
 } from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -19,8 +19,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
  */
 export const reportApi = {
   /**
-   * Upload a DOCX technical report and create a new report wizard session.
+   * Upload a DOCX technical report, auto-sanitize HTML, and create a session.
    * Multipart POST to /api/report/upload with file.
+   * Returns sessionId, detectedLanguage, sanitizedHtml, entityMappings, currentStep.
    */
   async uploadReport(file: File): Promise<ReportUploadResponse> {
     const formData = new FormData()
@@ -29,28 +30,16 @@ export const reportApi = {
   },
 
   /**
-   * Trigger paragraph-by-paragraph sanitization for the uploaded report.
-   * POST /api/report/sanitize with { sessionId }
+   * Update entity mappings and re-sanitize HTML.
+   * POST /api/report/update-entity-mappings with { sessionId, mappings }
    */
-  async sanitizeReport(sessionId: string): Promise<ReportSanitizeResponse> {
-    return apiClient<ReportSanitizeResponse>('/api/report/sanitize', {
-      method: 'POST',
-      body: JSON.stringify({ sessionId }),
-    })
-  },
-
-  /**
-   * Add or remove deny list terms and re-sanitize affected paragraphs.
-   * POST /api/report/update-deny-list with { sessionId, terms, action }
-   */
-  async updateDenyList(
+  async updateEntityMappings(
     sessionId: string,
-    terms: string[],
-    action: 'add' | 'remove',
-  ): Promise<ReportDenyListResponse> {
-    return apiClient<ReportDenyListResponse>('/api/report/update-deny-list', {
+    mappings: EntityMapping[],
+  ): Promise<ReportUpdateEntityMappingsResponse> {
+    return apiClient<ReportUpdateEntityMappingsResponse>('/api/report/update-entity-mappings', {
       method: 'POST',
-      body: JSON.stringify({ sessionId, terms, action }),
+      body: JSON.stringify({ sessionId, mappings }),
     })
   },
 
@@ -173,7 +162,7 @@ export const reportApi = {
   },
 
   /**
-   * Build the download URL for the generated executive report DOCX.
+   * Build the download URL for the generated executive report PDF.
    * Used with <a download> for browser download.
    */
   downloadUrl(sessionId: string): string {

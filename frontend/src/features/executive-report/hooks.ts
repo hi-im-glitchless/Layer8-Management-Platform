@@ -7,6 +7,7 @@ import type {
   ReportChatMessage,
   ReportGenerateSSEEvent,
   ReportChatSSEEvent,
+  EntityMapping,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -15,6 +16,7 @@ import type {
 
 /**
  * Upload a DOCX technical report and create a report wizard session.
+ * Returns sanitizedHtml and entityMappings in the response.
  */
 export function useUploadReport() {
   return useMutation({
@@ -26,41 +28,23 @@ export function useUploadReport() {
 }
 
 /**
- * Trigger paragraph-by-paragraph sanitization for the uploaded report.
+ * Update entity mappings and re-sanitize HTML.
  */
-export function useSanitizeReport() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (sessionId: string) => reportApi.sanitizeReport(sessionId),
-    onSuccess: (_data, sessionId) => {
-      queryClient.invalidateQueries({ queryKey: ['report', 'session', sessionId] })
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to sanitize report')
-    },
-  })
-}
-
-/**
- * Add or remove deny list terms and re-sanitize affected paragraphs.
- */
-export function useUpdateDenyList() {
+export function useUpdateEntityMappings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
       sessionId,
-      terms,
-      action,
+      mappings,
     }: {
       sessionId: string
-      terms: string[]
-      action: 'add' | 'remove'
-    }) => reportApi.updateDenyList(sessionId, terms, action),
+      mappings: EntityMapping[]
+    }) => reportApi.updateEntityMappings(sessionId, mappings),
     onSuccess: (_data, { sessionId }) => {
       queryClient.invalidateQueries({ queryKey: ['report', 'session', sessionId] })
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update deny list')
+      toast.error(error.message || 'Failed to update entity mappings')
     },
   })
 }

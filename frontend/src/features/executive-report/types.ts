@@ -39,6 +39,21 @@ export interface ReportChatMessage {
   timestamp: string
 }
 
+/** Entity mapping for the HTML-centric sanitization pipeline. */
+export interface EntityMapping {
+  originalValue: string
+  placeholder: string
+  entityType: string
+  isManual: boolean
+}
+
+/** Supplementary text extracted from DOCX headers, footers, and text boxes. */
+export interface SupplementaryText {
+  headers: string[]
+  footers: string[]
+  textBoxes: string[]
+}
+
 export interface ReportWizardState {
   sessionId: string
   currentStep: ReportWizardStep
@@ -47,41 +62,49 @@ export interface ReportWizardState {
     uploadedAt: string
   }
   detectedLanguage: string
+  // HTML pipeline
+  uploadedHtml: string
+  sanitizedHtml: string
+  entityMappings: EntityMapping[]
+  entityCounterMap: Record<string, Record<string, number>>
+  supplementaryText: SupplementaryText
+  // Sanitization (backward compat)
   sanitizedParagraphs: SanitizedParagraph[]
-  denyListTerms: string[]
   sanitizationMappings: SanitizationMappings
+  // Extraction
   findingsJson: Record<string, unknown> | null
   metadata: ReportMetadata
   warnings: string[]
+  // Generation
   riskScore: number | null
   complianceScores: Record<string, number> | null
-  chartData: Record<string, unknown> | null
+  chartConfigs: Record<string, object> | null
   narrativeSections: Record<string, string> | null
-  reportDocxPath: string | null
+  // Report
+  generatedHtml: string | null
   reportPdfJobId: string | null
   reportPdfUrl: string | null
+  // Chat
   chatHistory: ReportChatMessage[]
   chatIterationCount: number
+  // Timestamps
   createdAt: string
   updatedAt: string
 }
 
-/** POST /api/report/upload response */
+/** POST /api/report/upload response (includes sanitization since pipeline auto-completes) */
 export interface ReportUploadResponse {
   sessionId: string
   detectedLanguage: string
+  sanitizedHtml: string
+  entityMappings: EntityMapping[]
   currentStep: ReportWizardStep
 }
 
-/** POST /api/report/sanitize response */
-export interface ReportSanitizeResponse {
-  sanitizedParagraphs: SanitizedParagraph[]
-  sanitizationMappings: SanitizationMappings
-}
-
-/** POST /api/report/update-deny-list response */
-export interface ReportDenyListResponse {
-  updatedParagraphs: SanitizedParagraph[]
+/** POST /api/report/update-entity-mappings response */
+export interface ReportUpdateEntityMappingsResponse {
+  sanitizedHtml: string
+  entityMappings: EntityMapping[]
 }
 
 /** POST /api/report/approve-sanitization response */
