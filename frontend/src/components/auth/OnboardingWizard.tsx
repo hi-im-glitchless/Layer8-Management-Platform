@@ -81,7 +81,7 @@ export function OnboardingWizard({
           <div className="flex justify-center">
             <img
               src="/layer8_logo_dark.png"
-              alt="Layer8"
+              alt="AI Template Regenerator"
               className="h-10 w-auto mx-auto object-contain"
             />
           </div>
@@ -119,7 +119,7 @@ export function OnboardingWizard({
           </div>
 
           <div className="text-center">
-            <h1 className="text-2xl font-semibold text-white">Welcome to Layer8</h1>
+            <h1 className="text-2xl font-semibold text-white">Welcome to AI Template Regenerator</h1>
             <p className="text-sm text-slate-400">
               Let's secure your account in a few simple steps
             </p>
@@ -164,7 +164,7 @@ export function OnboardingWizard({
                   <h2 className="text-2xl font-semibold text-white">You're All Set!</h2>
                   <p className="text-slate-400 max-w-md">
                     Your account is now secured with two-factor authentication.
-                    You can now use Layer8 to streamline your security reporting workflow.
+                    You can now use AI Template Regenerator to streamline your security reporting workflow.
                   </p>
                 </div>
                 <Button onClick={handleComplete} variant="gradient" size="lg" className="mt-4">
