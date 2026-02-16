@@ -34,19 +34,19 @@ function formatConfidence(confidence: number | null): string {
  */
 const STATE_STYLES = {
   pending: {
-    card: 'border-blue-400 bg-blue-50/95',
-    headerBadge: 'bg-blue-100 text-blue-800 border-blue-300',
-    markerBadge: 'bg-blue-50 text-blue-700 border-blue-200',
+    card: 'border-info/60 bg-info/5',
+    headerBadge: 'bg-info/15 text-info border-info/40',
+    markerBadge: 'bg-info/15 text-info border-info/40',
   },
   confirmed: {
-    card: 'border-green-400 bg-green-50/95',
-    headerBadge: 'bg-green-100 text-green-800 border-green-300',
-    markerBadge: 'bg-green-50 text-green-700 border-green-200',
+    card: 'border-success/60 bg-success/5',
+    headerBadge: 'bg-success/15 text-success border-success/40',
+    markerBadge: 'bg-success/15 text-success border-success/40',
   },
   rejected: {
-    card: 'border-orange-400 bg-orange-50/95',
-    headerBadge: 'bg-orange-100 text-orange-800 border-orange-300',
-    markerBadge: 'bg-orange-50 text-orange-700 border-orange-200',
+    card: 'border-warning/60 bg-warning/5',
+    headerBadge: 'bg-warning/15 text-warning border-warning/40',
+    markerBadge: 'bg-warning/15 text-warning border-warning/40',
   },
 } as const
 
@@ -96,13 +96,13 @@ export function MappingOverlayCard({
         {status === 'confirmed' && (
           <CheckCircle
             data-testid="confirmed-icon"
-            className="ml-auto h-3.5 w-3.5 text-green-600 shrink-0"
+            className="ml-auto h-3.5 w-3.5 text-success shrink-0"
           />
         )}
         {status === 'rejected' && (
           <AlertCircle
             data-testid="rejected-icon"
-            className="ml-auto h-3.5 w-3.5 text-orange-600 shrink-0"
+            className="ml-auto h-3.5 w-3.5 text-warning shrink-0"
           />
         )}
       </div>
@@ -140,7 +140,7 @@ export function MappingOverlayCard({
             data-testid="accept-button"
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-green-700 hover:bg-green-100 hover:text-green-800"
+            className="h-6 px-2 text-success hover:bg-success/15"
             onClick={() => onAccept(id)}
           >
             <Check className="h-3 w-3 mr-0.5" />
@@ -150,7 +150,7 @@ export function MappingOverlayCard({
             data-testid="reject-button"
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-orange-700 hover:bg-orange-100 hover:text-orange-800"
+            className="h-6 px-2 text-warning hover:bg-warning/15"
             onClick={() => onReject(id)}
           >
             <X className="h-3 w-3 mr-0.5" />

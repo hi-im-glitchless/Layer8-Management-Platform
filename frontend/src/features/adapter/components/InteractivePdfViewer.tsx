@@ -48,16 +48,16 @@ interface InteractivePdfViewerProps {
 
 // Status-based badge ring colors (Decision #8)
 const STATUS_RING_CLASSES: Record<SelectionStatus, string> = {
-  pending: 'ring-2 ring-blue-500 bg-blue-50 text-blue-700',
-  confirmed: 'ring-2 ring-green-500 bg-green-50 text-green-700',
-  rejected: 'ring-2 ring-orange-500 bg-orange-50 text-orange-700',
+  pending: 'ring-2 ring-info bg-info/10 text-info',
+  confirmed: 'ring-2 ring-success bg-success/10 text-success',
+  rejected: 'ring-2 ring-warning bg-warning/10 text-warning',
 }
 
 // Status-based text highlight background colors
 const HIGHLIGHT_BG: Record<SelectionStatus, string> = {
-  pending: 'bg-blue-400/20',
-  confirmed: 'bg-green-400/20',
-  rejected: 'bg-orange-400/20',
+  pending: 'bg-info/20',
+  confirmed: 'bg-success/20',
+  rejected: 'bg-warning/20',
 }
 
 /** Overlay card width in pixels, used for overflow detection */
@@ -433,7 +433,7 @@ export function InteractivePdfViewer({
             <Button
               variant="outline"
               size="sm"
-              className="text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800"
+              className="text-success border-success/40 hover:bg-success/10"
               disabled={isStreaming}
               onClick={onConfirmAll}
             >
