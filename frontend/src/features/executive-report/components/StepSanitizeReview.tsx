@@ -178,43 +178,67 @@ export function StepSanitizeReview({
   // Add mapping from popover — client-side replacement for instant preview update
   const handleAddMapping = useCallback(
     (text: string, entityType: string) => {
-      // Check if this value is already mapped (reuse existing placeholder)
-      const existing = localMappings.find((m) => m.originalValue === text)
+      // Check if this value is already mapped (case-insensitive for robustness)
+      const existing = localMappings.find(
+        (m) => m.originalValue.toLowerCase() === text.toLowerCase(),
+      )
       let placeholder: string
+      let updatedMappings: EntityMapping[]
+
       if (existing) {
+        // Reuse the existing placeholder
         placeholder = existing.placeholder
+        updatedMappings = localMappings
       } else {
         // Compute next placeholder index: count unique values for this entity type
         const uniqueOfType = new Set(
           localMappings.filter((m) => m.entityType === entityType).map((m) => m.originalValue),
         ).size
         placeholder = `[${entityType}_${uniqueOfType + 1}]`
+
+        const newMapping: EntityMapping = {
+          originalValue: text,
+          placeholder,
+          entityType,
+          isManual: true,
+        }
+        updatedMappings = [...localMappings, newMapping]
       }
 
-      const newMapping: EntityMapping = {
-        originalValue: text,
-        placeholder,
-        entityType,
-        isManual: true,
-      }
-
-      // Only add to mappings if not already present
-      const updatedMappings = existing ? localMappings : [...localMappings, newMapping]
       setLocalMappings(updatedMappings)
       setSelectedText(null)
 
       // Client-side replacement: update HTML immediately (all instances)
+      // Try exact match first, then case-insensitive if no exact matches found
       const span = buildEntitySpan(entityType, placeholder, text)
-      const updatedHtml = replaceInHtmlTextSegments(localHtml, text, span)
-      const replacedCount =
-        updatedHtml !== localHtml
-          ? Math.round((updatedHtml.length - localHtml.length) / (span.length - text.length)) || 1
-          : 0
-      setLocalHtml(updatedHtml)
-      clientHtmlDirtyRef.current = true
+      let updatedHtml = replaceInHtmlTextSegments(localHtml, text, span)
+      let replacedCount = 0
+
+      if (updatedHtml !== localHtml) {
+        replacedCount = Math.round(
+          (updatedHtml.length - localHtml.length) / (span.length - text.length),
+        ) || 1
+      } else if (existing && existing.originalValue !== text) {
+        // Exact text not found — try the original casing from Presidio
+        const presidioSpan = buildEntitySpan(entityType, placeholder, existing.originalValue)
+        updatedHtml = replaceInHtmlTextSegments(localHtml, existing.originalValue, presidioSpan)
+        if (updatedHtml !== localHtml) {
+          replacedCount = Math.round(
+            (updatedHtml.length - localHtml.length) / (presidioSpan.length - existing.originalValue.length),
+          ) || 1
+        }
+      }
 
       if (replacedCount > 0) {
+        setLocalHtml(updatedHtml)
+        clientHtmlDirtyRef.current = true
         toast.success(`Mapped "${text}" → ${placeholder} (${replacedCount} instance${replacedCount > 1 ? 's' : ''})`)
+      } else if (existing) {
+        toast.info(`"${text}" is already fully mapped as ${placeholder}`)
+      } else {
+        // New mapping but text not found in visible HTML — still add the mapping
+        clientHtmlDirtyRef.current = true
+        toast.success(`Added mapping "${text}" → ${placeholder}`)
       }
 
       // Persist to backend in background — don't overwrite client HTML from response

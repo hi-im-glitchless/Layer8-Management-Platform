@@ -63,10 +63,18 @@ export function EntityPopover({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onDismiss])
 
-  // Dismiss on click outside
+  // Dismiss on click outside (but not when clicking inside Radix UI portals like Select dropdown)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement
+      if (popoverRef.current && !popoverRef.current.contains(target)) {
+        // Radix Select renders its dropdown in a portal outside our popover DOM.
+        // Ignore clicks inside those portals to prevent premature dismissal.
+        if (target.closest?.('[data-radix-popper-content-wrapper]') ||
+            target.closest?.('[data-radix-select-content]') ||
+            target.closest?.('[role="listbox"]')) {
+          return
+        }
         onDismiss()
       }
     }
