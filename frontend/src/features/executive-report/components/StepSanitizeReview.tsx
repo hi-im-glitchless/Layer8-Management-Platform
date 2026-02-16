@@ -77,9 +77,12 @@ export function StepSanitizeReview({
   // Track the LLM-extracted metadata (read-only reference)
   const extractedMetadataRef = useRef<ReportMetadata>(localMetadata)
 
+  // When true, user has unsaved manual mappings — don't let server sync overwrite them
+  const pendingMappingsRef = useRef(false)
+
   // Sync from server when session query updates
   useEffect(() => {
-    if (state?.entityMappings) {
+    if (state?.entityMappings && !pendingMappingsRef.current) {
       setLocalMappings(state.entityMappings)
     }
     if (state?.sanitizedHtml) {
@@ -124,7 +127,8 @@ export function StepSanitizeReview({
     [],
   )
 
-  // Add mapping from popover — adds to table only; Re-sanitize applies to HTML
+  // Add mapping from popover — local only, no backend call.
+  // User batches multiple mappings, then clicks Re-sanitize to apply all.
   const handleAddMapping = useCallback(
     (text: string, entityType: string) => {
       // Check if this value is already mapped (case-insensitive for robustness)
@@ -150,28 +154,18 @@ export function StepSanitizeReview({
         entityType,
         isManual: true,
       }
-      const updatedMappings = [...localMappings, newMapping]
-      setLocalMappings(updatedMappings)
+      setLocalMappings((prev) => [...prev, newMapping])
       setSelectedText(null)
+      pendingMappingsRef.current = true
 
       toast.success(`Added "${text}" → ${placeholder}. Click Re-sanitize to apply.`)
-
-      // Persist mapping to backend (does NOT re-render HTML yet)
-      entityMappingsMutation.mutate(
-        { sessionId, mappings: updatedMappings },
-        {
-          onError: () => {
-            setLocalMappings(localMappings)
-          },
-        },
-      )
 
       // Auto-show mapping table when first mapping is added manually
       if (!showMappingTable) {
         setShowMappingTable(true)
       }
     },
-    [sessionId, localMappings, entityMappingsMutation, showMappingTable],
+    [localMappings, showMappingTable],
   )
 
   // Edit entity type in table — full server re-sanitize to update spans
@@ -186,7 +180,7 @@ export function StepSanitizeReview({
         { sessionId, mappings: updatedMappings },
         {
           onSuccess: (data) => {
-
+            pendingMappingsRef.current = false
             setLocalMappings(data.entityMappings)
             setLocalHtml(data.sanitizedHtml)
             sessionQuery.refetch()
@@ -210,7 +204,7 @@ export function StepSanitizeReview({
         { sessionId, mappings: updatedMappings },
         {
           onSuccess: (data) => {
-
+            pendingMappingsRef.current = false
             setLocalMappings(data.entityMappings)
             setLocalHtml(data.sanitizedHtml)
             sessionQuery.refetch()
@@ -235,7 +229,7 @@ export function StepSanitizeReview({
       { sessionId, mappings: localMappings },
       {
         onSuccess: (data) => {
-          clientHtmlDirtyRef.current = false
+          pendingMappingsRef.current = false
           setLocalMappings(data.entityMappings)
           setLocalHtml(data.sanitizedHtml)
           sessionQuery.refetch()
