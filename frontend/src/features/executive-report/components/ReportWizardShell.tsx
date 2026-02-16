@@ -74,13 +74,13 @@ export function ReportWizardShell({
   // Infer the minimum step from what the session already has
   let inferredMinStep: ReportWizardStep = 'upload'
   if (sessionData) {
-    if (sessionData.sanitizedParagraphs?.length > 0) {
+    if (sessionData.sanitizedHtml || sessionData.sanitizedParagraphs?.length > 0) {
       inferredMinStep = 'sanitize-review'
     }
     if (sessionData.findingsJson) {
       inferredMinStep = 'generate'
     }
-    if (sessionData.reportPdfJobId || sessionData.reportPdfUrl) {
+    if (sessionData.generatedHtml) {
       inferredMinStep = 'review'
     }
     if (sessionData.currentStep === 'download') {
