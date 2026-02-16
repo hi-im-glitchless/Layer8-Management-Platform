@@ -36,6 +36,14 @@ import {
 
 const DOCUMENTS_DIR = path.join(process.cwd(), 'uploads', 'documents');
 
+/** Escape a string for safe use in HTML text content. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -228,11 +236,78 @@ export async function uploadReport(
     `[reportService] Converted DOCX to HTML: ${uploadedHtml.length} chars`,
   );
 
-  // Step 3: Detect language from HTML text content (~500 chars)
+  // Step 3: Extract supplementary text (headers/footers/text boxes)
+  // Done BEFORE sanitization so this content gets included in Presidio
+  // processing and appears in the HTML preview.
+  let supplementaryText = { headers: [] as string[], footers: [] as string[], textBoxes: [] as string[] };
+  try {
+    const suppRes = await fetch(`${sanitizerUrl}/report/extract-supplementary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_base64: base64Content }),
+    });
+
+    if (suppRes.ok) {
+      const suppData = await suppRes.json() as ExtractSupplementaryResponse;
+      supplementaryText = {
+        headers: suppData.headers || [],
+        footers: suppData.footers || [],
+        textBoxes: suppData.text_boxes || [],
+      };
+    }
+  } catch (err) {
+    console.warn('[reportService] Supplementary text extraction failed:', err);
+  }
+
+  // Step 3b: Merge supplementary text into HTML so it appears in the
+  // preview and gets sanitized by Presidio. Mammoth only converts the
+  // document body — headers, footers, and text boxes are missed.
+  const suppSections: string[] = [];
+  if (supplementaryText.headers.length > 0) {
+    suppSections.push(
+      '<div class="supplementary-section supplementary-header">' +
+      '<p class="supplementary-label"><em>Document Header</em></p>' +
+      supplementaryText.headers.map((h) => `<p>${escapeHtml(h)}</p>`).join('') +
+      '</div>',
+    );
+  }
+  if (supplementaryText.footers.length > 0) {
+    suppSections.push(
+      '<div class="supplementary-section supplementary-footer">' +
+      '<p class="supplementary-label"><em>Document Footer</em></p>' +
+      supplementaryText.footers.map((f) => `<p>${escapeHtml(f)}</p>`).join('') +
+      '</div>',
+    );
+  }
+  if (supplementaryText.textBoxes.length > 0) {
+    suppSections.push(
+      '<div class="supplementary-section supplementary-textbox">' +
+      '<p class="supplementary-label"><em>Text Box</em></p>' +
+      supplementaryText.textBoxes.map((t) => `<p>${escapeHtml(t)}</p>`).join('') +
+      '</div>',
+    );
+  }
+
+  let fullHtml = uploadedHtml;
+  if (suppSections.length > 0) {
+    const suppHtml =
+      '<hr class="supplementary-divider" />' +
+      '<div class="supplementary-content">' +
+      suppSections.join('') +
+      '</div>';
+    fullHtml = uploadedHtml + suppHtml;
+    console.log(
+      `[reportService] Appended supplementary text: ` +
+      `${supplementaryText.headers.length} headers, ` +
+      `${supplementaryText.footers.length} footers, ` +
+      `${supplementaryText.textBoxes.length} text boxes`,
+    );
+  }
+
+  // Step 4: Detect language from HTML text content (~500 chars)
   let detectedLanguage = 'en';
   try {
-    // Strip tags to get plain text for language detection
-    const plainText = uploadedHtml.replace(/<[^>]+>/g, ' ').trim();
+    const plainText = fullHtml.replace(/<[^>]+>/g, ' ').trim();
     const sampleText = plainText.substring(0, 1000);
 
     if (sampleText.trim()) {
@@ -257,10 +332,10 @@ export async function uploadReport(
     console.warn('[reportService] Language detection failed, defaulting to "en":', err);
   }
 
-  // Step 4: Sanitize HTML text nodes via Presidio
+  // Step 5: Sanitize HTML text nodes via Presidio
   const counterMap: Record<string, Record<string, number>> = {};
   const sanitizeResult = await sanitizeHtmlTextNodes(
-    uploadedHtml,
+    fullHtml,
     state.sessionId,
     counterMap,
     detectedLanguage,
@@ -270,27 +345,6 @@ export async function uploadReport(
     `[reportService] Sanitized HTML: ${sanitizeResult.entityMappings.length} entities, ` +
     `${sanitizeResult.sanitizedParagraphs.length} paragraphs`,
   );
-
-  // Step 5: Extract supplementary text (headers/footers/text boxes)
-  let supplementaryText = { headers: [] as string[], footers: [] as string[], textBoxes: [] as string[] };
-  try {
-    const suppRes = await fetch(`${sanitizerUrl}/report/extract-supplementary`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ template_base64: base64Content }),
-    });
-
-    if (suppRes.ok) {
-      const suppData = await suppRes.json() as ExtractSupplementaryResponse;
-      supplementaryText = {
-        headers: suppData.headers || [],
-        footers: suppData.footers || [],
-        textBoxes: suppData.text_boxes || [],
-      };
-    }
-  } catch (err) {
-    console.warn('[reportService] Supplementary text extraction failed:', err);
-  }
 
   // Step 6: Check for edge cases
   const warnings: string[] = [];
@@ -311,7 +365,7 @@ export async function uploadReport(
       uploadedAt: new Date().toISOString(),
     },
     detectedLanguage,
-    uploadedHtml,
+    uploadedHtml: fullHtml,
     sanitizedHtml: sanitizeResult.sanitizedHtml,
     entityMappings: sanitizeResult.entityMappings,
     entityCounterMap: sanitizeResult.updatedCounterMap,
