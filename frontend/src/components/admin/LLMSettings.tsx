@@ -165,7 +165,7 @@ export function LLMSettings() {
                 <div className="flex items-center gap-3">
                   <div
                     className={`h-3 w-3 rounded-full ${
-                      cliproxy?.available ? 'bg-green-500' : 'bg-red-500'
+                      cliproxy?.available ? 'bg-success' : 'bg-destructive'
                     }`}
                   />
                   <div>
@@ -195,7 +195,7 @@ export function LLMSettings() {
                       size="sm"
                       onClick={() => stopCliProxy.mutate()}
                       disabled={stopCliProxy.isPending}
-                      className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                      className="text-destructive hover:text-destructive/80 border-destructive/30 hover:border-destructive/50"
                     >
                       <Square className="h-4 w-4 mr-1" />
                       {stopCliProxy.isPending ? 'Stopping...' : 'Stop'}
@@ -214,7 +214,7 @@ export function LLMSettings() {
               <div className="flex items-center gap-3">
                 <div
                   className={`h-3 w-3 rounded-full ${
-                    anthropic ? 'bg-green-500' : 'bg-muted-foreground'
+                    anthropic ? 'bg-success' : 'bg-muted-foreground'
                   }`}
                 />
                 <div>
@@ -231,7 +231,7 @@ export function LLMSettings() {
               </div>
 
               {!cliproxy?.available && !settings?.anthropicApiKey && (
-                <div className="rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/50 p-3 text-sm text-orange-700 dark:text-orange-300">
+                <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
                   CLIProxyAPI is not running and no Anthropic API key is configured.
                   Configure an API key below to use as fallback.
                 </div>
