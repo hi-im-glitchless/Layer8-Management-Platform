@@ -190,11 +190,13 @@ interface ValidateExtractionResponse {
   error: string | null;
 }
 
-/** Python /adapter/extract-supplementary response. */
+/** Python /report/extract-supplementary response. */
 interface ExtractSupplementaryResponse {
   headers: string[];
   footers: string[];
   text_boxes: string[];
+  header_text_boxes: string[];
+  footer_text_boxes: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -239,7 +241,10 @@ export async function uploadReport(
   // Step 3: Extract supplementary text (headers/footers/text boxes)
   // Done BEFORE sanitization so this content gets included in Presidio
   // processing and appears in the HTML preview.
-  let supplementaryText = { headers: [] as string[], footers: [] as string[], textBoxes: [] as string[] };
+  let supplementaryText = {
+    headers: [] as string[], footers: [] as string[], textBoxes: [] as string[],
+    headerTextBoxes: [] as string[], footerTextBoxes: [] as string[],
+  };
   try {
     const suppRes = await fetch(`${sanitizerUrl}/report/extract-supplementary`, {
       method: 'POST',
@@ -253,6 +258,8 @@ export async function uploadReport(
         headers: suppData.headers || [],
         footers: suppData.footers || [],
         textBoxes: suppData.text_boxes || [],
+        headerTextBoxes: suppData.header_text_boxes || [],
+        footerTextBoxes: suppData.footer_text_boxes || [],
       };
     }
   } catch (err) {
@@ -262,23 +269,39 @@ export async function uploadReport(
   // Step 3b: Merge supplementary text into HTML so it appears in the
   // preview and gets sanitized by Presidio. Mammoth only converts the
   // document body — headers, footers, and text boxes are missed.
+  // Label each source so the LLM can infer metadata (e.g. project code
+  // from footer, company name from header).
   const suppSections: string[] = [];
-  if (supplementaryText.headers.length > 0) {
+
+  // Header paragraphs + header text boxes → "Document Header"
+  const headerItems = [
+    ...supplementaryText.headers,
+    ...supplementaryText.headerTextBoxes,
+  ];
+  if (headerItems.length > 0) {
     suppSections.push(
       '<div class="supplementary-section supplementary-header">' +
       '<p class="supplementary-label"><em>Document Header</em></p>' +
-      supplementaryText.headers.map((h) => `<p>${escapeHtml(h)}</p>`).join('') +
+      headerItems.map((h) => `<p>${escapeHtml(h)}</p>`).join('') +
       '</div>',
     );
   }
-  if (supplementaryText.footers.length > 0) {
+
+  // Footer paragraphs + footer text boxes → "Document Footer"
+  const footerItems = [
+    ...supplementaryText.footers,
+    ...supplementaryText.footerTextBoxes,
+  ];
+  if (footerItems.length > 0) {
     suppSections.push(
       '<div class="supplementary-section supplementary-footer">' +
       '<p class="supplementary-label"><em>Document Footer</em></p>' +
-      supplementaryText.footers.map((f) => `<p>${escapeHtml(f)}</p>`).join('') +
+      footerItems.map((f) => `<p>${escapeHtml(f)}</p>`).join('') +
       '</div>',
     );
   }
+
+  // Body text boxes (not from headers/footers)
   if (supplementaryText.textBoxes.length > 0) {
     suppSections.push(
       '<div class="supplementary-section supplementary-textbox">' +

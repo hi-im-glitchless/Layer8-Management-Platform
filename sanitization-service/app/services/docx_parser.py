@@ -487,6 +487,9 @@ def extract_supplementary_text(doc_bytes: bytes) -> dict:
             except Exception:
                 continue
 
+    header_text_boxes: list[str] = []
+    footer_text_boxes: list[str] = []
+
     # Extract text boxes from body
     for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
         for p_elem in txbx.findall(qn("w:p")):
@@ -498,12 +501,10 @@ def extract_supplementary_text(doc_bytes: bytes) -> dict:
             if combined:
                 text_boxes.append(combined)
 
-    # Extract text boxes from headers/footers
+    # Extract text boxes from headers/footers (tracked separately)
     for section in doc.sections:
         for accessor in (
-            "header", "footer",
-            "first_page_header", "first_page_footer",
-            "even_page_header", "even_page_footer",
+            "header", "first_page_header", "even_page_header",
         ):
             try:
                 hf = getattr(section, accessor, None)
@@ -518,7 +519,27 @@ def extract_supplementary_text(doc_bytes: bytes) -> dict:
                         ]
                         combined = "".join(texts).strip()
                         if combined:
-                            text_boxes.append(combined)
+                            header_text_boxes.append(combined)
+            except Exception:
+                continue
+
+        for accessor in (
+            "footer", "first_page_footer", "even_page_footer",
+        ):
+            try:
+                hf = getattr(section, accessor, None)
+                if hf is None:
+                    continue
+                hf_elem = hf._element
+                for txbx in hf_elem.findall(".//" + qn("w:txbxContent")):
+                    for p_elem in txbx.findall(qn("w:p")):
+                        texts = [
+                            t.text or ""
+                            for t in p_elem.findall(".//" + qn("w:t"))
+                        ]
+                        combined = "".join(texts).strip()
+                        if combined:
+                            footer_text_boxes.append(combined)
             except Exception:
                 continue
 
@@ -526,9 +547,13 @@ def extract_supplementary_text(doc_bytes: bytes) -> dict:
     headers = list(dict.fromkeys(headers))
     footers = list(dict.fromkeys(footers))
     text_boxes = list(dict.fromkeys(text_boxes))
+    header_text_boxes = list(dict.fromkeys(header_text_boxes))
+    footer_text_boxes = list(dict.fromkeys(footer_text_boxes))
 
     return {
         "headers": headers,
         "footers": footers,
         "text_boxes": text_boxes,
+        "header_text_boxes": header_text_boxes,
+        "footer_text_boxes": footer_text_boxes,
     }

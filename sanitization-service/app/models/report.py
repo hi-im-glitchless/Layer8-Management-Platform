@@ -306,5 +306,13 @@ class ExtractSupplementaryResponse(BaseModel):
     )
     text_boxes: list[str] = Field(
         default_factory=list,
-        description="Text content from inline text boxes (w:txbxContent)",
+        description="Text content from body text boxes (w:txbxContent)",
+    )
+    header_text_boxes: list[str] = Field(
+        default_factory=list,
+        description="Text content from text boxes inside document headers",
+    )
+    footer_text_boxes: list[str] = Field(
+        default_factory=list,
+        description="Text content from text boxes inside document footers",
     )

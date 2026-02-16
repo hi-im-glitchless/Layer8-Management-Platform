@@ -69,6 +69,8 @@ export interface SupplementaryText {
   headers: string[];
   footers: string[];
   textBoxes: string[];
+  headerTextBoxes: string[];
+  footerTextBoxes: string[];
 }
 
 export interface ReportWizardState {
@@ -154,7 +156,7 @@ export async function createReportSession(userId: string): Promise<ReportWizardS
     sanitizedHtml: '',
     entityMappings: [],
     entityCounterMap: {},
-    supplementaryText: { headers: [], footers: [], textBoxes: [] },
+    supplementaryText: { headers: [], footers: [], textBoxes: [], headerTextBoxes: [], footerTextBoxes: [] },
     // Sanitization (backward compat)
     sanitizedParagraphs: [],
     sanitizationMappings: {

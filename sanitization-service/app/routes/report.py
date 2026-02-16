@@ -556,14 +556,19 @@ async def extract_supplementary(
         )
 
     logger.info(
-        "Extracted supplementary text: %d headers, %d footers, %d text_boxes",
+        "Extracted supplementary text: %d headers, %d footers, "
+        "%d body text_boxes, %d header text_boxes, %d footer text_boxes",
         len(result["headers"]),
         len(result["footers"]),
         len(result["text_boxes"]),
+        len(result["header_text_boxes"]),
+        len(result["footer_text_boxes"]),
     )
 
     return ExtractSupplementaryResponse(
         headers=result["headers"],
         footers=result["footers"],
         text_boxes=result["text_boxes"],
+        header_text_boxes=result["header_text_boxes"],
+        footer_text_boxes=result["footer_text_boxes"],
     )
