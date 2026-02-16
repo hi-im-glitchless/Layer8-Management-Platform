@@ -9,9 +9,9 @@ import { useReportGeneration, useReportSession } from '../hooks'
 const GENERATION_STEPS: StepDef[] = [
   { step: 'extracting', message: 'Extracting findings from report...' },
   { step: 'computing', message: 'Computing risk metrics...' },
-  { step: 'generating_charts', message: 'Generating charts...' },
-  { step: 'narrative', message: 'Writing executive narrative...' },
-  { step: 'building_report', message: 'Building report document...' },
+  { step: 'chart_data', message: 'Preparing chart data...' },
+  { step: 'narrative', message: 'Generating HTML report sections...' },
+  { step: 'assembling_html', message: 'Assembling HTML report...' },
   { step: 'converting_pdf', message: 'Converting to PDF...' },
 ]
 
@@ -19,9 +19,9 @@ const GENERATION_STEPS: StepDef[] = [
 const STAGE_TO_INDEX: Record<string, number> = {
   extracting: 0,
   computing: 1,
-  generating_charts: 2,
+  chart_data: 2,
   narrative: 3,
-  building_report: 4,
+  assembling_html: 4,
   converting_pdf: 5,
 }
 
@@ -157,7 +157,7 @@ export function StepGenerate({ sessionId, onComplete, onGoBack }: StepGeneratePr
       <CardHeader>
         <CardTitle>Generating Executive Report</CardTitle>
         <CardDescription>
-          The system is extracting findings, computing metrics, generating charts, and writing the executive narrative.
+          The system is extracting findings, computing metrics, preparing chart data, and generating the HTML report.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
