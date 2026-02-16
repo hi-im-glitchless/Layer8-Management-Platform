@@ -64,9 +64,9 @@ export function PasswordChange({
     if (/[0-9]/.test(password)) strength++;
     if (/[^A-Za-z0-9]/.test(password)) strength++;
 
-    if (strength <= 2) return { level: 1, label: 'Weak', color: 'bg-red-500' };
-    if (strength <= 4) return { level: 2, label: 'Medium', color: 'bg-yellow-500' };
-    return { level: 3, label: 'Strong', color: 'bg-green-500' };
+    if (strength <= 2) return { level: 1, label: 'Weak', color: 'bg-destructive' };
+    if (strength <= 4) return { level: 2, label: 'Medium', color: 'bg-warning' };
+    return { level: 3, label: 'Strong', color: 'bg-success' };
   };
 
   const passwordStrength = getPasswordStrength(newPassword);
