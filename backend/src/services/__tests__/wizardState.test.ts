@@ -26,6 +26,7 @@ describe('wizardState service', () => {
     vi.clearAllMocks();
     mockRedisClient.set.mockResolvedValue('OK');
     mockRedisClient.del.mockResolvedValue(1);
+    mockRedisClient.scan.mockResolvedValue({ cursor: '0', keys: [] });
   });
 
   afterEach(() => {

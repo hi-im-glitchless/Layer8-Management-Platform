@@ -79,6 +79,14 @@ export interface WizardAnnotatedPreview {
     expectedFieldCount: number;
     coveragePercent: number;
   } | null;
+  /** Placeholder info from placeholder-preview pass (optional, not always present). */
+  placeholders?: Array<{
+    paragraphIndex: number;
+    placeholderText: string;
+    gwField: string;
+  }>;
+  /** Total placeholder count from placeholder-preview pass. */
+  placeholderCount?: number;
 }
 
 export interface WizardChatMessage {
@@ -307,7 +315,7 @@ export async function deleteWizardSession(
   const pattern = buildUserPattern(userId);
   let cursor = '0';
   do {
-    const result = await redisClient.scan(cursor as unknown as number, {
+    const result = await redisClient.scan(cursor, {
       MATCH: pattern,
       COUNT: 100,
     });
@@ -333,7 +341,7 @@ export async function getActiveWizardSession(
 
   // Use SCAN to iterate through matching keys without blocking
   do {
-    const result = await redisClient.scan(cursor as unknown as number, {
+    const result = await redisClient.scan(cursor, {
       MATCH: pattern,
       COUNT: 100,
     });

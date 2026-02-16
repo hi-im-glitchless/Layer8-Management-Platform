@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import fixture from './fixtures/gw-report-1.json';
+import fixture from './fixtures/gw-report-1.json' with { type: 'json' };
 
 // Mock config before importing the module under test
 vi.mock('@/config.js', () => ({

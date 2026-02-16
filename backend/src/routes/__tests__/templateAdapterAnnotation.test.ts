@@ -318,7 +318,7 @@ describe('annotated preview and mapping update endpoints', () => {
 
       expect(annotatedPreview.tooltipData).toHaveLength(2);
       expect(annotatedPreview.unmappedParagraphs).toHaveLength(2);
-      expect(annotatedPreview.gapSummary?.coveragePercent).toBe(60.0);
+      expect((annotatedPreview.gapSummary as any)?.coveragePercent).toBe(60.0);
       expect(jobStatus.status).toBe('completed');
       expect(jobStatus.pdfPath).toBe('annotated-preview.pdf');
     });
@@ -371,7 +371,7 @@ describe('annotated preview and mapping update endpoints', () => {
 
       const newEntry = {
         sectionIndex: added.paragraphIndex,
-        sectionText: unmapped?.text ?? '',
+        sectionText: (unmapped as any)?.text ?? '',
         gwField: added.gwField,
         placeholderTemplate: `{{ ${added.gwField} }}`,
         confidence: 1.0,

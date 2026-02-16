@@ -53,5 +53,9 @@ declare module 'mammoth' {
   const images: {
     inline(element: ImageElement): Promise<{ src: string }>;
     dataUri(element: ImageElement): Promise<{ src: string }>;
+    /** Create an image converter from a callback that returns img element attributes. */
+    imgElement(
+      callback: (element: ImageElement) => Promise<{ src: string; [key: string]: string }>
+    ): (element: ImageElement) => Promise<{ src: string; [key: string]: string }>;
   };
 }

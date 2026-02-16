@@ -947,7 +947,7 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
       const prevCount = mappingPlan.entries.length;
       mappingPlan.entries = updates.fullPlan as MappingEntry[];
       // Full plan import — clear rejected entries since user is starting fresh
-      state.analysis.rejectedSectionTexts = {} as unknown as Record<string, unknown>;
+      state.analysis.rejectedSectionTexts = {};
       console.log(
         `[update-mapping] Full plan replacement: ${prevCount} → ${mappingPlan.entries.length} entries`,
       );
@@ -969,7 +969,7 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
         (e) => !deleteSet.has(e.sectionIndex),
       );
       // Store rejected texts in wizard state (will be persisted as __skip__ on download)
-      state.analysis.rejectedSectionTexts = newRejected as unknown as Record<string, unknown>;
+      state.analysis.rejectedSectionTexts = newRejected;
       console.log(
         `[update-mapping] Deleted ${updates.deletedSectionIndices.length} entries: ${[...deleteSet].join(', ')}`,
       );

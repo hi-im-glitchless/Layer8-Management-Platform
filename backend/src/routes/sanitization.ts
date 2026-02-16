@@ -61,8 +61,6 @@ router.post('/sanitize', requireAuth, async (req, res) => {
     await logAuditEvent({
       userId,
       action: 'sanitize',
-      resourceType: 'text',
-      resourceId: null,
       details: {
         entityCounts: result.entityCounts,
         language: result.language,
@@ -131,8 +129,6 @@ router.post('/desanitize', requireAuth, async (req, res) => {
     await logAuditEvent({
       userId,
       action: 'desanitize',
-      resourceType: 'text',
-      resourceId: null,
       details: {
         complete: result.complete,
         unresolvedCount: result.unresolvedPlaceholders.length,

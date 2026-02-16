@@ -304,7 +304,7 @@ export async function deleteReportSession(
   const pattern = buildUserPattern(userId);
   let cursor = '0';
   do {
-    const result = await redisClient.scan(cursor as unknown as number, {
+    const result = await redisClient.scan(cursor, {
       MATCH: pattern,
       COUNT: 100,
     });
@@ -330,7 +330,7 @@ export async function getActiveReportSession(
 
   // Use SCAN to iterate through matching keys without blocking
   do {
-    const result = await redisClient.scan(cursor as unknown as number, {
+    const result = await redisClient.scan(cursor, {
       MATCH: pattern,
       COUNT: 100,
     });
