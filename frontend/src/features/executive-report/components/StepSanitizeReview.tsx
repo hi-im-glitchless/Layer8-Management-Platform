@@ -9,8 +9,10 @@ import {
   PanelRightClose,
   ChevronDown,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -209,6 +211,26 @@ export function StepSanitizeReview({
     setSelectedText(null)
   }, [])
 
+  // Re-sanitize: explicitly apply all mappings and refresh the preview
+  const handleResanitize = useCallback(() => {
+    entityMappingsMutation.mutate(
+      { sessionId, mappings: localMappings },
+      {
+        onSuccess: (data) => {
+          setLocalMappings(data.entityMappings)
+          setLocalHtml(data.sanitizedHtml)
+          sessionQuery.refetch()
+          toast.success(
+            `Document re-sanitized — ${data.entityMappings.length} entities applied`,
+          )
+        },
+        onError: () => {
+          toast.error('Failed to re-sanitize document')
+        },
+      },
+    )
+  }, [sessionId, localMappings, entityMappingsMutation, sessionQuery])
+
   // Approve sanitization
   const handleApprove = useCallback(() => {
     approveMutation.mutate(sessionId, {
@@ -260,6 +282,17 @@ export function StepSanitizeReview({
             </div>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResanitize}
+            disabled={isUpdatingMappings}
+            className="text-xs"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', isUpdatingMappings && 'animate-spin')} aria-hidden="true" />
+            Re-sanitize
+          </Button>
         <Button
           variant="outline"
           size="sm"
@@ -278,6 +311,7 @@ export function StepSanitizeReview({
             </>
           )}
         </Button>
+        </div>
       </div>
 
       {/* Main area: HTML preview + optional mapping table */}
