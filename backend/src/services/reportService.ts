@@ -1,18 +1,20 @@
 /**
  * Executive Report Service -- orchestrates the report generation pipeline.
  *
+ * Upload: DOCX -> mammoth HTML -> Presidio sanitize HTML text nodes -> extract supplementary
  * Pass 1 (Extract): Sanitized paragraphs -> LLM Opus 4.6 -> structured findings JSON
  * Python Compute: Risk score, severity distributions, compliance mapping, chart data
  * Pass 2 (Generate): Computed data + findings -> LLM -> narrative sections text
- * Build: python-docx fills skeleton DOCX with content + charts -> Gotenberg PDF
+ * Build: HTML assembly + Chart.js configs -> Gotenberg PDF
  * Chat: Targeted section regeneration for corrections
  */
 import fs from 'fs';
 import path from 'path';
-import { Response } from 'express';
 import { config } from '../config.js';
 import { createLLMClient } from './llm/client.js';
-import { sanitizeText, desanitizeText } from './sanitization.js';
+import { desanitizeText } from './sanitization.js';
+import { convertDocxToHtml } from './docxToHtml.js';
+import { sanitizeHtmlTextNodes } from './htmlSanitizer.js';
 import { addPdfConversionJob } from './pdfQueue.js';
 import type { LLMMessage } from '../types/llm.js';
 import {
@@ -22,7 +24,7 @@ import {
   type ReportWizardState,
   type SanitizedParagraph,
   type SanitizationMappings,
-  type SanitizedEntity,
+  type EntityMapping,
 } from './reportWizardState.js';
 
 // ---------------------------------------------------------------------------
@@ -35,21 +37,20 @@ const DOCUMENTS_DIR = path.join(process.cwd(), 'uploads', 'documents');
 // Types
 // ---------------------------------------------------------------------------
 
-/** Result from the upload step. */
+/** Result from the upload step (includes sanitization since pipeline auto-completes). */
 export interface UploadResult {
   sessionId: string;
   detectedLanguage: string;
+  sanitizedHtml: string;
+  entityMappings: EntityMapping[];
 }
 
-/** Result from the sanitization step. */
+/** Result from re-sanitization (when entity mappings change). */
 export interface SanitizeResult {
+  sanitizedHtml: string;
+  entityMappings: EntityMapping[];
   sanitizedParagraphs: SanitizedParagraph[];
   sanitizationMappings: SanitizationMappings;
-}
-
-/** Result from deny list update. */
-export interface DenyListUpdateResult {
-  updatedParagraphs: SanitizedParagraph[];
 }
 
 /** Result from findings extraction (Pass 1). */
@@ -67,7 +68,6 @@ export interface ExtractionResult {
 
 /** Result from full report generation. */
 export interface GenerationResult {
-  reportDocxPath: string;
   pdfJobId: string;
 }
 
@@ -164,15 +164,6 @@ function identifyTargetSection(
   return { sectionKey: defaultKey, confident: false };
 }
 
-/** Python /adapter/document-structure response shape. */
-interface DocStructureParagraph {
-  paragraph_index: number;
-  text: string;
-  heading_level: number | null;
-  is_empty: boolean;
-  style_name: string | null;
-}
-
 /** Python /report/build-extraction-prompt response. */
 interface ExtractionPromptResponse {
   system_prompt: string;
@@ -188,14 +179,25 @@ interface ValidateExtractionResponse {
   error: string | null;
 }
 
+/** Python /adapter/extract-supplementary response. */
+interface ExtractSupplementaryResponse {
+  headers: string[];
+  footers: string[];
+  text_boxes: string[];
+}
+
 // ---------------------------------------------------------------------------
-// Upload
+// Upload (DOCX -> HTML -> sanitize -> extract supplementary)
 // ---------------------------------------------------------------------------
 
 /**
- * Upload a technical report DOCX and create a new report wizard session.
- * Creates session, stores file as base64 in Redis, saves to disk,
- * and detects the report language.
+ * Upload a technical report DOCX and run the full pipeline:
+ * 1. Save DOCX to disk (for supplementary extraction)
+ * 2. Convert DOCX to HTML via mammoth
+ * 3. Detect language from HTML text
+ * 4. Sanitize HTML text nodes via Presidio
+ * 5. Extract supplementary text (headers/footers/text boxes)
+ * 6. Store all results in session
  */
 export async function uploadReport(
   file: Buffer,
@@ -207,59 +209,44 @@ export async function uploadReport(
 
   // Create a new report session
   const state = await createReportSession(userId);
+  const sanitizerUrl = config.SANITIZER_URL;
 
-  // Store file to disk
+  // Step 1: Save DOCX to disk (needed for supplementary extraction)
   const filename = `report_${state.sessionId}_${Date.now()}.docx`;
   const filePath = path.join(DOCUMENTS_DIR, filename);
   fs.writeFileSync(filePath, file);
 
-  // Encode as base64 for Redis state storage
   const base64Content = file.toString('base64');
 
-  // Parse DOCX to get first paragraphs for language detection
+  // Step 2: Convert DOCX to HTML via mammoth
+  const { html: uploadedHtml } = await convertDocxToHtml(file);
+
+  console.log(
+    `[reportService] Converted DOCX to HTML: ${uploadedHtml.length} chars`,
+  );
+
+  // Step 3: Detect language from HTML text content (~500 chars)
   let detectedLanguage = 'en';
   try {
-    const sanitizerUrl = config.SANITIZER_URL;
+    // Strip tags to get plain text for language detection
+    const plainText = uploadedHtml.replace(/<[^>]+>/g, ' ').trim();
+    const sampleText = plainText.substring(0, 1000);
 
-    // Get document structure to extract first ~500 chars
-    const structRes = await fetch(`${sanitizerUrl}/adapter/document-structure`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ template_base64: base64Content }),
-    });
+    if (sampleText.trim()) {
+      const langRes = await fetch(`${sanitizerUrl}/sanitize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: sampleText,
+          deny_list_terms: [],
+          session_id: state.sessionId,
+        }),
+      });
 
-    if (structRes.ok) {
-      const structData = await structRes.json() as {
-        paragraphs: DocStructureParagraph[];
-      };
-
-      // Concatenate first paragraphs to get ~500 chars for language detection
-      let sampleText = '';
-      for (const p of structData.paragraphs) {
-        if (p.text.trim()) {
-          sampleText += p.text + ' ';
-          if (sampleText.length >= 500) break;
-        }
-      }
-
-      // Use /sanitize with empty deny list to trigger language detection
-      if (sampleText.trim()) {
-        const sanitizeRes = await fetch(`${sanitizerUrl}/sanitize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: sampleText.substring(0, 1000),
-            deny_list_terms: [],
-            session_id: state.sessionId,
-          }),
-        });
-
-        if (sanitizeRes.ok) {
-          const sanitizeData = await sanitizeRes.json() as { language: string };
-          if (sanitizeData.language) {
-            // Map 'pt' to 'pt-pt' for skeleton selection
-            detectedLanguage = sanitizeData.language === 'pt' ? 'pt-pt' : sanitizeData.language;
-          }
+      if (langRes.ok) {
+        const langData = await langRes.json() as { language: string };
+        if (langData.language) {
+          detectedLanguage = langData.language === 'pt' ? 'pt-pt' : langData.language;
         }
       }
     }
@@ -267,8 +254,53 @@ export async function uploadReport(
     console.warn('[reportService] Language detection failed, defaulting to "en":', err);
   }
 
-  // Update session with upload data
+  // Step 4: Sanitize HTML text nodes via Presidio
+  const counterMap: Record<string, Record<string, number>> = {};
+  const sanitizeResult = await sanitizeHtmlTextNodes(
+    uploadedHtml,
+    state.sessionId,
+    counterMap,
+    detectedLanguage,
+  );
+
+  console.log(
+    `[reportService] Sanitized HTML: ${sanitizeResult.entityMappings.length} entities, ` +
+    `${sanitizeResult.sanitizedParagraphs.length} paragraphs`,
+  );
+
+  // Step 5: Extract supplementary text (headers/footers/text boxes)
+  let supplementaryText = { headers: [] as string[], footers: [] as string[], textBoxes: [] as string[] };
+  try {
+    const suppRes = await fetch(`${sanitizerUrl}/adapter/extract-supplementary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_base64: base64Content }),
+    });
+
+    if (suppRes.ok) {
+      const suppData = await suppRes.json() as ExtractSupplementaryResponse;
+      supplementaryText = {
+        headers: suppData.headers || [],
+        footers: suppData.footers || [],
+        textBoxes: suppData.text_boxes || [],
+      };
+    }
+  } catch (err) {
+    console.warn('[reportService] Supplementary text extraction failed:', err);
+  }
+
+  // Step 6: Check for edge cases
+  const warnings: string[] = [];
+  if (sanitizeResult.sanitizedParagraphs.length < 5) {
+    warnings.push(
+      `short_report: Only ${sanitizeResult.sanitizedParagraphs.length} paragraph(s) extracted from the report. ` +
+      `The report may be very short or poorly formatted. Results may be limited.`,
+    );
+  }
+
+  // Step 7: Update session with all pipeline results
   await updateReportSession(userId, state.sessionId, {
+    currentStep: 'sanitize-review',
     uploadedFile: {
       originalName,
       storagePath: filePath,
@@ -276,22 +308,34 @@ export async function uploadReport(
       uploadedAt: new Date().toISOString(),
     },
     detectedLanguage,
+    uploadedHtml,
+    sanitizedHtml: sanitizeResult.sanitizedHtml,
+    entityMappings: sanitizeResult.entityMappings,
+    entityCounterMap: sanitizeResult.updatedCounterMap,
+    supplementaryText,
+    sanitizedParagraphs: sanitizeResult.sanitizedParagraphs,
+    sanitizationMappings: {
+      forward: sanitizeResult.forwardMappings,
+      reverse: sanitizeResult.reverseMappings,
+    },
+    warnings,
   });
 
   return {
     sessionId: state.sessionId,
     detectedLanguage,
+    sanitizedHtml: sanitizeResult.sanitizedHtml,
+    entityMappings: sanitizeResult.entityMappings,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Sanitization
+// Re-sanitization (when entity mappings change)
 // ---------------------------------------------------------------------------
 
 /**
- * Sanitize the uploaded report paragraph-by-paragraph.
- * Calls the Python sanitization service for each extracted paragraph
- * and accumulates forward/reverse mappings.
+ * Re-sanitize the uploaded HTML with the current counter map.
+ * Called when user modifies entity mappings from the frontend.
  */
 export async function sanitizeReport(
   userId: string,
@@ -302,158 +346,43 @@ export async function sanitizeReport(
     throw new Error(`Report session not found: ${sessionId}`);
   }
 
-  if (!state.uploadedFile.base64) {
-    throw new Error('No uploaded file in session. Upload a DOCX first.');
+  if (!state.uploadedHtml) {
+    throw new Error('No uploaded HTML in session. Upload a DOCX first.');
   }
 
-  const sanitizerUrl = config.SANITIZER_URL;
+  // Re-run sanitization on the original uploaded HTML
+  const counterMap = { ...state.entityCounterMap };
+  const sanitizeResult = await sanitizeHtmlTextNodes(
+    state.uploadedHtml,
+    sessionId,
+    counterMap,
+    state.detectedLanguage,
+  );
 
-  // Step 1: Parse DOCX to get paragraphs
-  const structRes = await fetch(`${sanitizerUrl}/adapter/document-structure`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ template_base64: state.uploadedFile.base64 }),
-  });
-
-  if (!structRes.ok) {
-    const detail = await structRes.text();
-    throw new Error(`Failed to parse DOCX: ${detail}`);
-  }
-
-  const structData = await structRes.json() as {
-    paragraphs: DocStructureParagraph[];
-  };
-
-  // Step 2: Sanitize each non-empty paragraph
-  const sanitizedParagraphs: SanitizedParagraph[] = [];
-  const forwardMappings: Record<string, string> = {};
-  const reverseMappings: Record<string, string> = {};
-  const denyListTerms = state.denyListTerms || [];
-
-  for (const para of structData.paragraphs) {
-    if (para.is_empty || !para.text.trim()) {
-      continue;
-    }
-
-    try {
-      const result = await sanitizeText(
-        para.text,
-        sessionId,
-        denyListTerms,
-        { language: state.detectedLanguage === 'pt-pt' ? 'pt' : state.detectedLanguage },
-      );
-
-      // Accumulate mappings
-      // The sanitizeText function stores mappings in Redis; we also
-      // keep a local copy in the session for the de-sanitization step
-      if (result.entities.length > 0) {
-        for (const entity of result.entities) {
-          if (entity.text && entity.placeholder) {
-            forwardMappings[entity.text] = entity.placeholder;
-            reverseMappings[entity.placeholder] = entity.text;
-          }
-        }
-      }
-
-      const entities: SanitizedEntity[] = result.entities.map((e) => ({
-        type: e.entityType,
-        start: e.start,
-        end: e.end,
-        text: e.text,
-        placeholder: e.placeholder,
-      }));
-
-      sanitizedParagraphs.push({
-        index: para.paragraph_index,
-        original: para.text,
-        sanitized: result.sanitizedText,
-        entities,
-      });
-    } catch (err) {
-      console.warn(
-        `[reportService] Sanitization failed for paragraph ${para.paragraph_index}:`,
-        err,
-      );
-      // Include unsanitized paragraph as fallback
-      sanitizedParagraphs.push({
-        index: para.paragraph_index,
-        original: para.text,
-        sanitized: para.text,
-        entities: [],
-      });
-    }
-  }
-
-  const sanitizationMappings: SanitizationMappings = {
-    forward: forwardMappings,
-    reverse: reverseMappings,
-  };
-
-  // Step 3: Check for edge cases and generate warnings
-  const warnings: string[] = [...(state.warnings || [])];
-
-  if (sanitizedParagraphs.length < 5) {
-    warnings.push(
-      `short_report: Only ${sanitizedParagraphs.length} paragraph(s) extracted from the report. ` +
-      `The report may be very short or poorly formatted. Results may be limited.`,
-    );
-  }
-
-  // Step 4: Update session state
+  // Update session state
   await updateReportSession(userId, sessionId, {
-    currentStep: 'sanitize-review',
-    sanitizedParagraphs,
-    sanitizationMappings,
-    warnings,
+    sanitizedHtml: sanitizeResult.sanitizedHtml,
+    entityMappings: sanitizeResult.entityMappings,
+    entityCounterMap: sanitizeResult.updatedCounterMap,
+    sanitizedParagraphs: sanitizeResult.sanitizedParagraphs,
+    sanitizationMappings: {
+      forward: sanitizeResult.forwardMappings,
+      reverse: sanitizeResult.reverseMappings,
+    },
   });
 
   console.log(
-    `[reportService] Sanitized ${sanitizedParagraphs.length} paragraphs, ` +
-    `${Object.keys(forwardMappings).length} entity mappings`,
+    `[reportService] Re-sanitized HTML: ${sanitizeResult.entityMappings.length} entities`,
   );
 
   return {
-    sanitizedParagraphs,
-    sanitizationMappings,
-  };
-}
-
-/**
- * Update the session deny list and re-sanitize affected paragraphs.
- */
-export async function updateDenyList(
-  userId: string,
-  sessionId: string,
-  terms: string[],
-  action: 'add' | 'remove',
-): Promise<DenyListUpdateResult> {
-  const state = await getReportSession(userId, sessionId);
-  if (!state) {
-    throw new Error(`Report session not found: ${sessionId}`);
-  }
-
-  // Update deny list terms
-  let updatedTerms = [...(state.denyListTerms || [])];
-  if (action === 'add') {
-    for (const term of terms) {
-      if (!updatedTerms.includes(term)) {
-        updatedTerms.push(term);
-      }
-    }
-  } else {
-    updatedTerms = updatedTerms.filter((t) => !terms.includes(t));
-  }
-
-  // Update session with new deny list
-  await updateReportSession(userId, sessionId, {
-    denyListTerms: updatedTerms,
-  });
-
-  // Re-sanitize all paragraphs with updated deny list
-  const result = await sanitizeReport(userId, sessionId);
-
-  return {
-    updatedParagraphs: result.sanitizedParagraphs,
+    sanitizedHtml: sanitizeResult.sanitizedHtml,
+    entityMappings: sanitizeResult.entityMappings,
+    sanitizedParagraphs: sanitizeResult.sanitizedParagraphs,
+    sanitizationMappings: {
+      forward: sanitizeResult.forwardMappings,
+      reverse: sanitizeResult.reverseMappings,
+    },
   };
 }
 
@@ -913,14 +842,12 @@ export async function generateReport(
     currentStep: 'review',
     riskScore: metrics.risk_score,
     complianceScores: metrics.compliance_scores,
-    chartData: chartsData.charts as unknown as Record<string, unknown>,
+    chartConfigs: chartsData.charts as unknown as Record<string, object>,
     narrativeSections: desanitizedSections,
-    reportDocxPath: docxPath,
     reportPdfJobId: pdfJobId,
   });
 
   return {
-    reportDocxPath: docxPath,
     pdfJobId,
   };
 }
@@ -1138,7 +1065,7 @@ export async function processReportChat(
         start_date: state.metadata.startDate || '',
         end_date: state.metadata.endDate || '',
       },
-      chart_images: (state.chartData || {}) as Record<string, string>,
+      chart_images: (state.chartConfigs || {}) as Record<string, string>,
       risk_score: state.riskScore || 0,
       risk_level: '',
     }),
@@ -1181,7 +1108,6 @@ export async function processReportChat(
 
   await updateReportSession(userId, sessionId, {
     narrativeSections: updatedNarrativeSections,
-    reportDocxPath: docxPath,
     reportPdfJobId: pdfJobId,
     reportPdfUrl: null, // Reset so preview re-polls
     chatHistory: [...state.chatHistory, chatMsg, assistantMsg],
@@ -1195,7 +1121,7 @@ export async function processReportChat(
 }
 
 /**
- * Resolve the DOCX download path for a completed report.
+ * Resolve the PDF download path for a completed report.
  */
 export async function getReportDownloadPath(
   userId: string,
@@ -1206,13 +1132,18 @@ export async function getReportDownloadPath(
     throw new Error(`Report session not found: ${sessionId}`);
   }
 
-  if (!state.reportDocxPath) {
-    throw new Error('No report DOCX available. Run generation first.');
+  if (!state.reportPdfUrl) {
+    throw new Error('No report PDF available. Run generation first.');
   }
 
-  if (!fs.existsSync(state.reportDocxPath)) {
-    throw new Error('Report DOCX file not found on disk.');
+  // reportPdfUrl is a relative URL like /uploads/documents/filename.pdf
+  const pdfPath = state.reportPdfUrl.startsWith('/')
+    ? path.join(process.cwd(), state.reportPdfUrl)
+    : state.reportPdfUrl;
+
+  if (!fs.existsSync(pdfPath)) {
+    throw new Error('Report PDF file not found on disk.');
   }
 
-  return state.reportDocxPath;
+  return pdfPath;
 }
