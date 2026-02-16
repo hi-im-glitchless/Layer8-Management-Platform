@@ -1,5 +1,7 @@
+import { useState, useCallback } from 'react'
 import { Trash2, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -30,22 +32,45 @@ interface EntityMappingTableProps {
   mappings: EntityMapping[]
   onEditType: (index: number, newType: string) => void
   onDelete: (index: number) => void
+  onDeleteMany: (indices: number[]) => void
   isUpdating: boolean
 }
 
 /** Maximum characters to display for original value before truncation. */
 const MAX_VALUE_LENGTH = 40
 
-/**
- * 4-column entity mapping table replacing both SanitizationDiffView and DenyListEditor.
- * Columns: Original Value | Placeholder | Entity Type | Actions
- */
 export function EntityMappingTable({
   mappings,
   onEditType,
   onDelete,
+  onDeleteMany,
   isUpdating,
 }: EntityMappingTableProps) {
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+
+  const toggleOne = useCallback((index: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }, [])
+
+  const toggleAll = useCallback(() => {
+    setSelected((prev) =>
+      prev.size === mappings.length
+        ? new Set()
+        : new Set(mappings.map((_, i) => i)),
+    )
+  }, [mappings.length])
+
+  const handleDeleteSelected = useCallback(() => {
+    const indices = Array.from(selected).sort((a, b) => b - a)
+    onDeleteMany(indices)
+    setSelected(new Set())
+  }, [selected, onDeleteMany])
+
   if (mappings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
@@ -58,12 +83,39 @@ export function EntityMappingTable({
     )
   }
 
+  const allChecked = selected.size === mappings.length
+
   return (
     <TooltipProvider>
+      {/* Bulk actions bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between px-2 py-1.5 mb-1 rounded-md bg-muted/50 text-xs">
+          <span className="text-muted-foreground">
+            {selected.size} selected
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs text-destructive hover:text-destructive"
+            onClick={handleDeleteSelected}
+          >
+            <Trash2 className="h-3 w-3 mr-1" aria-hidden="true" />
+            Delete selected
+          </Button>
+        </div>
+      )}
+
       <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
+              <TableHead className="w-8 px-1">
+                <Checkbox
+                  checked={allChecked}
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all mappings"
+                />
+              </TableHead>
               <TableHead className="text-xs">Value</TableHead>
               <TableHead className="text-xs">Type</TableHead>
               <TableHead className="text-xs w-10"></TableHead>
@@ -75,6 +127,8 @@ export function EntityMappingTable({
                 key={`${mapping.originalValue}-${mapping.placeholder}`}
                 mapping={mapping}
                 index={index}
+                checked={selected.has(index)}
+                onToggle={toggleOne}
                 onEditType={onEditType}
                 onDelete={onDelete}
                 isUpdating={isUpdating}
@@ -90,12 +144,16 @@ export function EntityMappingTable({
 function EntityRow({
   mapping,
   index,
+  checked,
+  onToggle,
   onEditType,
   onDelete,
   isUpdating,
 }: {
   mapping: EntityMapping
   index: number
+  checked: boolean
+  onToggle: (index: number) => void
   onEditType: (index: number, newType: string) => void
   onDelete: (index: number) => void
   isUpdating: boolean
@@ -106,7 +164,16 @@ function EntityRow({
     : mapping.originalValue
 
   return (
-    <TableRow className={cn(isUpdating && 'opacity-60 pointer-events-none')}>
+    <TableRow className={cn(isUpdating && 'opacity-60 pointer-events-none', checked && 'bg-muted/30')}>
+      {/* Checkbox */}
+      <TableCell className="w-8 px-1">
+        <Checkbox
+          checked={checked}
+          onCheckedChange={() => onToggle(index)}
+          aria-label={`Select mapping for "${mapping.originalValue}"`}
+        />
+      </TableCell>
+
       {/* Value: original + placeholder as secondary text */}
       <TableCell className="text-xs max-w-0">
         <div className="truncate font-mono" title={mapping.originalValue}>

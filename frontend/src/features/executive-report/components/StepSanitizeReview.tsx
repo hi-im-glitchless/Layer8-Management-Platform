@@ -188,6 +188,16 @@ export function StepSanitizeReview({
     [],
   )
 
+  // Bulk delete — local only, applied on Re-sanitize
+  const handleDeleteMany = useCallback(
+    (indices: number[]) => {
+      const toRemove = new Set(indices)
+      setLocalMappings((prev) => prev.filter((_, i) => !toRemove.has(i)))
+      pendingMappingsRef.current = true
+    },
+    [],
+  )
+
   // Dismiss popover
   const handleDismissPopover = useCallback(() => {
     setSelectedText(null)
@@ -311,6 +321,7 @@ export function StepSanitizeReview({
               mappings={localMappings}
               onEditType={handleEditType}
               onDelete={handleDelete}
+              onDeleteMany={handleDeleteMany}
               isUpdating={isUpdatingMappings}
             />
           </CardContent>
