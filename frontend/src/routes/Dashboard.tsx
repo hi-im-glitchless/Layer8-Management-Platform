@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { FileCode, FileText } from 'lucide-react'
+import { FileCode, FileText, Inbox } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -39,8 +39,8 @@ export function Dashboard() {
   const adapterQuery = useActiveSession()
   const reportQuery = useActiveReportSession()
 
-  const adapterSession = adapterQuery.data?.session ?? null
-  const reportSession = reportQuery.data?.session ?? null
+  const adapterSession = adapterQuery.error ? null : (adapterQuery.data?.session ?? null)
+  const reportSession = reportQuery.error ? null : (reportQuery.data?.session ?? null)
   const isLoading = adapterQuery.isLoading || reportQuery.isLoading
   const hasAnySessions = adapterSession !== null || reportSession !== null
 
@@ -158,6 +158,7 @@ export function Dashboard() {
         ) : (
           <Card className="border bg-card">
             <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+              <Inbox className="mb-3 h-10 w-10 text-muted-foreground/50" />
               <p className="text-lg font-medium text-muted-foreground">No active sessions</p>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                 Start a new template adaptation or executive report to see your activity here.
