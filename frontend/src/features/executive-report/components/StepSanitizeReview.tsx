@@ -1,18 +1,30 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { Loader2, AlertTriangle, CheckCircle, Info, AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { SanitizationDiffView } from './SanitizationDiffView'
-import { MetadataEditor } from './MetadataEditor'
-import { DenyListEditor } from './DenyListEditor'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
-  useUpdateDenyList,
+  Loader2,
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  AlertCircle,
+  PanelRightOpen,
+  PanelRightClose,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { HtmlReportPreview } from './HtmlReportPreview'
+import { EntityMappingTable } from './EntityMappingTable'
+import { EntityPopover } from './EntityPopover'
+import { MetadataEditor } from './MetadataEditor'
+import {
+  useUpdateEntityMappings,
   useApproveSanitization,
   useUpdateMetadata,
   useReportSession,
 } from '../hooks'
-import type { ReportWizardState, ReportMetadata, SanitizedParagraph } from '../types'
+import type { ReportWizardState, ReportMetadata, EntityMapping } from '../types'
 
 interface StepSanitizeReviewProps {
   sessionId: string
@@ -25,21 +37,27 @@ export function StepSanitizeReview({
   wizardState: initialState,
   onApprove,
 }: StepSanitizeReviewProps) {
-  // Refetch session to get latest state (may have updated deny list)
+  // Refetch session to get latest state
   const sessionQuery = useReportSession(sessionId)
   const state = sessionQuery.data ?? initialState
 
-  const denyListMutation = useUpdateDenyList()
+  const entityMappingsMutation = useUpdateEntityMappings()
   const approveMutation = useApproveSanitization()
   const metadataMutation = useUpdateMetadata()
 
-  // Local overrides for paragraphs and deny list (updated optimistically)
-  const [localParagraphs, setLocalParagraphs] = useState<SanitizedParagraph[]>(
-    state?.sanitizedParagraphs ?? [],
+  // Layout state
+  const [showMappingTable, setShowMappingTable] = useState(false)
+  const [showMetadata, setShowMetadata] = useState(false)
+
+  // Entity popover state
+  const [selectedText, setSelectedText] = useState<string | null>(null)
+  const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Local state for optimistic updates
+  const [localMappings, setLocalMappings] = useState<EntityMapping[]>(
+    state?.entityMappings ?? [],
   )
-  const [localDenyTerms, setLocalDenyTerms] = useState<string[]>(
-    state?.denyListTerms ?? [],
-  )
+  const [localHtml, setLocalHtml] = useState<string>(state?.sanitizedHtml ?? '')
   const [localMetadata, setLocalMetadata] = useState<ReportMetadata>(
     state?.metadata ?? {
       clientName: '',
@@ -55,20 +73,25 @@ export function StepSanitizeReview({
 
   // Sync from server when session query updates
   useEffect(() => {
-    if (state?.sanitizedParagraphs) {
-      setLocalParagraphs(state.sanitizedParagraphs)
+    if (state?.entityMappings) {
+      setLocalMappings(state.entityMappings)
     }
-    if (state?.denyListTerms) {
-      setLocalDenyTerms(state.denyListTerms)
+    if (state?.sanitizedHtml) {
+      setLocalHtml(state.sanitizedHtml)
     }
     if (state?.metadata) {
       setLocalMetadata(state.metadata)
-      // Only set extracted ref once (first load)
       if (!extractedMetadataRef.current.clientName && state.metadata.clientName) {
         extractedMetadataRef.current = { ...state.metadata }
       }
     }
   }, [state])
+
+  // Existing mapped values for duplicate check
+  const existingValues = useMemo(
+    () => localMappings.map((m) => m.originalValue),
+    [localMappings],
+  )
 
   // Metadata debounce timer
   const metadataTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -76,8 +99,6 @@ export function StepSanitizeReview({
   const handleMetadataChange = useCallback(
     (metadata: ReportMetadata) => {
       setLocalMetadata(metadata)
-
-      // Debounce server update
       if (metadataTimerRef.current) {
         clearTimeout(metadataTimerRef.current)
       }
@@ -88,48 +109,107 @@ export function StepSanitizeReview({
     [sessionId, metadataMutation],
   )
 
-  const handleAddDenyTerm = useCallback(
-    (term: string) => {
-      // Optimistic update
-      setLocalDenyTerms((prev) => [...prev, term])
+  // Text selection from iframe
+  const handleTextSelection = useCallback(
+    (selection: { text: string; position: { x: number; y: number } }) => {
+      setSelectedText(selection.text)
+      setPopoverPosition(selection.position)
+    },
+    [],
+  )
 
-      denyListMutation.mutate(
-        { sessionId, terms: [term], action: 'add' },
+  // Add mapping from popover
+  const handleAddMapping = useCallback(
+    (text: string, entityType: string) => {
+      // Optimistic: add to local mappings
+      const newMapping: EntityMapping = {
+        originalValue: text,
+        placeholder: `[${entityType}_NEW]`,
+        entityType,
+        isManual: true,
+      }
+      const updatedMappings = [...localMappings, newMapping]
+      setLocalMappings(updatedMappings)
+      setSelectedText(null)
+
+      // Server update: send full mappings array
+      entityMappingsMutation.mutate(
+        { sessionId, mappings: updatedMappings },
         {
-          onSuccess: () => {
+          onSuccess: (data) => {
+            setLocalMappings(data.entityMappings)
+            setLocalHtml(data.sanitizedHtml)
             sessionQuery.refetch()
           },
           onError: () => {
             // Rollback
-            setLocalDenyTerms((prev) => prev.filter((t) => t !== term))
+            setLocalMappings(localMappings)
           },
         },
       )
+
+      // Auto-show mapping table when first mapping is added manually
+      if (!showMappingTable) {
+        setShowMappingTable(true)
+      }
     },
-    [sessionId, denyListMutation, sessionQuery],
+    [sessionId, localMappings, entityMappingsMutation, sessionQuery, showMappingTable],
   )
 
-  const handleRemoveDenyTerm = useCallback(
-    (term: string) => {
-      // Optimistic update
-      setLocalDenyTerms((prev) => prev.filter((t) => t !== term))
+  // Edit entity type in table
+  const handleEditType = useCallback(
+    (index: number, newType: string) => {
+      const updatedMappings = localMappings.map((m, i) =>
+        i === index ? { ...m, entityType: newType } : m,
+      )
+      setLocalMappings(updatedMappings)
 
-      denyListMutation.mutate(
-        { sessionId, terms: [term], action: 'remove' },
+      entityMappingsMutation.mutate(
+        { sessionId, mappings: updatedMappings },
         {
-          onSuccess: () => {
+          onSuccess: (data) => {
+            setLocalMappings(data.entityMappings)
+            setLocalHtml(data.sanitizedHtml)
             sessionQuery.refetch()
           },
           onError: () => {
-            // Rollback
-            setLocalDenyTerms((prev) => [...prev, term])
+            setLocalMappings(localMappings)
           },
         },
       )
     },
-    [sessionId, denyListMutation, sessionQuery],
+    [sessionId, localMappings, entityMappingsMutation, sessionQuery],
   )
 
+  // Delete mapping from table
+  const handleDelete = useCallback(
+    (index: number) => {
+      const updatedMappings = localMappings.filter((_, i) => i !== index)
+      setLocalMappings(updatedMappings)
+
+      entityMappingsMutation.mutate(
+        { sessionId, mappings: updatedMappings },
+        {
+          onSuccess: (data) => {
+            setLocalMappings(data.entityMappings)
+            setLocalHtml(data.sanitizedHtml)
+            sessionQuery.refetch()
+          },
+          onError: () => {
+            setLocalMappings(localMappings)
+          },
+        },
+      )
+    },
+    [sessionId, localMappings, entityMappingsMutation, sessionQuery],
+  )
+
+  // Dismiss popover
+  const handleDismissPopover = useCallback(() => {
+    setSelectedText(null)
+  }, [])
+
+  // Approve sanitization
   const handleApprove = useCallback(() => {
     approveMutation.mutate(sessionId, {
       onSuccess: () => {
@@ -150,7 +230,7 @@ export function StepSanitizeReview({
 
   const isLoading = sessionQuery.isLoading && !initialState
   const isApproving = approveMutation.isPending
-  const isDenyListUpdating = denyListMutation.isPending
+  const isUpdatingMappings = entityMappingsMutation.isPending
 
   if (isLoading) {
     return (
@@ -163,66 +243,123 @@ export function StepSanitizeReview({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Sanitization diff view */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sanitization Review</CardTitle>
-          <CardDescription>
-            Review the sanitized version of your report. Entity replacements are highlighted.
-            Add deny list terms to catch additional sensitive data.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <SanitizationDiffView paragraphs={localParagraphs} />
+    <div className="space-y-4">
+      {/* Top bar: toggle + entity count */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">Sanitization Review</h2>
+          {localMappings.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {localMappings.length} {localMappings.length === 1 ? 'entity' : 'entities'}
+            </Badge>
+          )}
+          {isUpdatingMappings && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              Updating...
+            </div>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowMappingTable(!showMappingTable)}
+          className="text-xs"
+        >
+          {showMappingTable ? (
+            <>
+              <PanelRightClose className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Hide Mapping Table
+            </>
+          ) : (
+            <>
+              <PanelRightOpen className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Show Mapping Table
+            </>
+          )}
+        </Button>
+      </div>
 
-          {/* Deny list editor */}
-          <div className="border-t pt-4">
-            <DenyListEditor
-              terms={localDenyTerms}
-              onAdd={handleAddDenyTerm}
-              onRemove={handleRemoveDenyTerm}
-              isLoading={isDenyListUpdating}
+      {/* Main area: HTML preview + optional mapping table */}
+      <div className={showMappingTable ? 'flex gap-4' : ''}>
+        {/* HTML preview */}
+        <div className={showMappingTable ? 'w-[60%] min-w-0' : 'w-full'}>
+          <HtmlReportPreview
+            html={localHtml}
+            onTextSelection={handleTextSelection}
+          />
+        </div>
+
+        {/* Mapping table (right panel) */}
+        {showMappingTable && (
+          <div className="w-[40%] min-w-0">
+            <Card className="h-full">
+              <CardContent className="p-3">
+                <EntityMappingTable
+                  mappings={localMappings}
+                  onEditType={handleEditType}
+                  onDelete={handleDelete}
+                  isUpdating={isUpdatingMappings}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Entity popover for text selection */}
+      {selectedText && (
+        <EntityPopover
+          selectedText={selectedText}
+          position={popoverPosition}
+          onAddMapping={handleAddMapping}
+          onDismiss={handleDismissPopover}
+          existingValues={existingValues}
+        />
+      )}
+
+      {/* Collapsible metadata accordion */}
+      <div className="border rounded-lg">
+        <button
+          type="button"
+          onClick={() => setShowMetadata(!showMetadata)}
+          className="flex items-center justify-between w-full px-4 py-3 text-left hover:bg-muted/30 transition-colors rounded-lg"
+        >
+          <span className="text-sm font-semibold">Report Metadata</span>
+          {showMetadata ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          )}
+        </button>
+        {showMetadata && (
+          <div className="px-4 pb-4 border-t">
+            <p className="text-xs text-muted-foreground mt-3 mb-3">
+              Confirm or correct the metadata extracted from your report.
+              Sanitized placeholders (e.g., [PERSON_1]) should be replaced with real values.
+            </p>
+            <MetadataEditor
+              extractedMetadata={extractedMetadataRef.current}
+              metadata={localMetadata}
+              onMetadataChange={handleMetadataChange}
+              disabled={isApproving}
             />
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
-      {/* Metadata editor */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Report Metadata</CardTitle>
-          <CardDescription>
-            Confirm or correct the metadata extracted from your report.
-            Sanitized placeholders (e.g., [PERSON_1]) should be replaced with real values.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MetadataEditor
-            extractedMetadata={extractedMetadataRef.current}
-            metadata={localMetadata}
-            onMetadataChange={handleMetadataChange}
-            disabled={isApproving}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Warnings banner -- categorized by severity */}
+      {/* Warnings banner */}
       {state?.warnings && state.warnings.length > 0 && (
         <div className="space-y-3">
           {state.warnings.map((warning, i) => {
-            // Categorize warning: error (few_findings, short_report), caution (missing_cvss, unclear_severity), info (incomplete_metadata)
             const isError = warning.includes('few_findings') || warning.includes('short_report')
             const isInfo = warning.includes('incomplete_metadata')
-            // Default to caution (yellow) for missing_cvss, unclear_severity, and others
 
             if (isError) {
               return (
                 <div key={i} className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-900/10 p-3">
                   <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-                  <div>
-                    <span className="text-sm text-red-700 dark:text-red-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
-                  </div>
+                  <span className="text-sm text-red-700 dark:text-red-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
                 </div>
               )
             }
@@ -231,20 +368,15 @@ export function StepSanitizeReview({
               return (
                 <div key={i} className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/10 p-3">
                   <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-                  <div>
-                    <span className="text-sm text-blue-700 dark:text-blue-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
-                  </div>
+                  <span className="text-sm text-blue-700 dark:text-blue-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
                 </div>
               )
             }
 
-            // Caution (default)
             return (
               <div key={i} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/10 p-3">
                 <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-                <div>
-                  <span className="text-sm text-amber-700 dark:text-amber-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
-                </div>
+                <span className="text-sm text-amber-700 dark:text-amber-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
               </div>
             )
           })}
