@@ -43,6 +43,12 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
 }
 
 :root {
@@ -80,6 +86,12 @@
   --sidebar-accent-foreground: oklch(0.145 0 0);
   --sidebar-border: oklch(0.92 0 0);
   --sidebar-ring: oklch(0.55 0.16 250);
+  --success: oklch(0.55 0.16 145); /* green */
+  --success-foreground: oklch(1 0 0); /* white */
+  --warning: oklch(0.75 0.15 85); /* amber/yellow */
+  --warning-foreground: oklch(0.25 0.05 85); /* dark amber */
+  --info: oklch(0.55 0.16 250); /* blue, matches primary */
+  --info-foreground: oklch(1 0 0); /* white */
 }
 
 .dark {
@@ -115,6 +127,12 @@
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.65 0.16 250);
+  --success: oklch(0.65 0.16 145); /* brighter green for dark bg */
+  --success-foreground: oklch(0.98 0 0);
+  --warning: oklch(0.75 0.15 85); /* amber */
+  --warning-foreground: oklch(0.98 0 0);
+  --info: oklch(0.65 0.16 250); /* brighter blue, matches dark accent */
+  --info-foreground: oklch(0.98 0 0);
 }
 
 @layer base {
