@@ -72,9 +72,9 @@ export function ChatPanel({
       <CardContent className="flex-1 flex flex-col min-h-0">
         {/* Soft warning */}
         {showWarning && (
-          <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 p-3 text-xs mb-3">
-            <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-            <span className="text-yellow-800 dark:text-yellow-200">
+          <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs mb-3">
+            <AlertTriangle className="h-3.5 w-3.5 text-warning mt-0.5 flex-shrink-0" aria-hidden="true" />
+            <span className="text-warning">
               You have used {localIterations} iterations. Consider accepting the current result or restarting.
             </span>
           </div>

@@ -50,15 +50,15 @@ interface TaggedEntry extends MappingEntry {
 }
 
 function confidenceColor(confidence: number): string {
-  if (confidence >= 0.8) return 'text-green-600 dark:text-green-400'
-  if (confidence >= 0.5) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-red-600 dark:text-red-400'
+  if (confidence >= 0.8) return 'text-success'
+  if (confidence >= 0.5) return 'text-warning'
+  return 'text-destructive'
 }
 
 function confidenceBg(confidence: number): string {
-  if (confidence >= 0.8) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-  if (confidence >= 0.5) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-  return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+  if (confidence >= 0.8) return 'bg-success/15 text-success'
+  if (confidence >= 0.5) return 'bg-warning/15 text-warning'
+  return 'bg-destructive/15 text-destructive'
 }
 
 function truncateText(text: string, maxLength: number): string {
@@ -232,11 +232,11 @@ export function MappingTable({
           {mappingPlan.warnings.map((warning, index) => (
             <div
               key={index}
-              className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 p-2 text-xs"
+              className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-2 text-xs"
               role="alert"
             >
-              <AlertCircle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-              <span className="text-yellow-800 dark:text-yellow-200">{warning}</span>
+              <AlertCircle className="h-3.5 w-3.5 text-warning mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <span className="text-warning">{warning}</span>
             </div>
           ))}
         </div>
@@ -376,7 +376,7 @@ export function MappingTable({
                       {entry.source === 'kb' && (
                         <Badge
                           variant="outline"
-                          className="text-[8px] uppercase tracking-wider border-slate-300 text-slate-500 dark:border-slate-600 dark:text-slate-400 px-1 py-0"
+                          className="text-[8px] uppercase tracking-wider border-border text-muted-foreground px-1 py-0"
                         >
                           KB
                         </Badge>

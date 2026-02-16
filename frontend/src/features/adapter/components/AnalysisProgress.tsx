@@ -101,7 +101,7 @@ export function AnalysisProgressDisplay({
             key={step.step}
             className={cn(
               'flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors',
-              step.status === 'complete' && 'border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-900/10',
+              step.status === 'complete' && 'border-success/30 bg-success/5',
               step.status === 'active' && 'border-primary bg-primary/5',
               step.status === 'error' && 'border-destructive bg-destructive/5',
               step.status === 'pending' && 'border-muted bg-muted/20 opacity-60',
@@ -110,7 +110,7 @@ export function AnalysisProgressDisplay({
             {/* Status icon */}
             <div className="flex-shrink-0">
               {step.status === 'complete' && (
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-600 text-white">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-success text-success-foreground">
                   <Check className="h-3.5 w-3.5" aria-hidden="true" />
                 </div>
               )}
@@ -135,7 +135,7 @@ export function AnalysisProgressDisplay({
             <span
               className={cn(
                 'flex-1 text-sm',
-                step.status === 'complete' && 'text-green-700 dark:text-green-300',
+                step.status === 'complete' && 'text-success',
                 step.status === 'active' && 'text-foreground font-medium',
                 step.status === 'error' && 'text-destructive font-medium',
                 step.status === 'pending' && 'text-muted-foreground',
@@ -151,7 +151,7 @@ export function AnalysisProgressDisplay({
               </span>
             )}
             {step.status === 'complete' && activePhase !== 'complete' && (
-              <span className="text-xs text-green-600 dark:text-green-400 tabular-nums">
+              <span className="text-xs text-success tabular-nums">
                 done
               </span>
             )}
