@@ -91,7 +91,7 @@ router.post('/', auditMiddleware('admin.user.create'), async (req, res) => {
     res.status(201).json(user);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     console.error('[users routes] Error creating user:', error);
     res.status(500).json({ error: 'Failed to create user' });
@@ -104,7 +104,7 @@ router.post('/', auditMiddleware('admin.user.create'), async (req, res) => {
  */
 router.put('/:id', auditMiddleware('admin.user.update'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const session = req.session as any;
 
     const updateUserSchema = z.object({
@@ -157,7 +157,7 @@ router.put('/:id', auditMiddleware('admin.user.update'), async (req, res) => {
     res.json(user);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     console.error('[users routes] Error updating user:', error);
     res.status(500).json({ error: 'Failed to update user' });
@@ -170,7 +170,7 @@ router.put('/:id', auditMiddleware('admin.user.update'), async (req, res) => {
  */
 router.post('/:id/reset-password', auditMiddleware('admin.user.password-reset'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const resetPasswordSchema = z.object({
       password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -193,7 +193,7 @@ router.post('/:id/reset-password', auditMiddleware('admin.user.password-reset'),
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     console.error('[users routes] Error resetting password:', error);
     res.status(500).json({ error: 'Failed to reset password' });
@@ -206,7 +206,7 @@ router.post('/:id/reset-password', auditMiddleware('admin.user.password-reset'),
  */
 router.post('/:id/reset-totp', auditMiddleware('admin.user.totp-reset'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     // Reset TOTP and delete trusted devices
     await prisma.$transaction([
@@ -235,7 +235,7 @@ router.post('/:id/reset-totp', auditMiddleware('admin.user.totp-reset'), async (
  */
 router.delete('/:id', auditMiddleware('admin.user.delete'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const session = req.session as any;
 
     // Prevent self-deletion

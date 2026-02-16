@@ -38,7 +38,7 @@ router.post('/sanitize', requireAuth, async (req, res) => {
     if (!validation.success) {
       return res.status(400).json({
         error: 'Invalid request',
-        details: validation.error.errors,
+        details: validation.error.issues,
       });
     }
 
@@ -68,7 +68,7 @@ router.post('/sanitize', requireAuth, async (req, res) => {
         language: result.language,
         textLength: text.length,
       },
-      ipAddress: req.ip || req.socket.remoteAddress || null,
+      ipAddress: req.ip || req.socket.remoteAddress || '',
     });
 
     // Return result (do NOT include mappings - server-side only)
@@ -118,7 +118,7 @@ router.post('/desanitize', requireAuth, async (req, res) => {
     if (!validation.success) {
       return res.status(400).json({
         error: 'Invalid request',
-        details: validation.error.errors,
+        details: validation.error.issues,
       });
     }
 
@@ -138,7 +138,7 @@ router.post('/desanitize', requireAuth, async (req, res) => {
         unresolvedCount: result.unresolvedPlaceholders.length,
         textLength: text.length,
       },
-      ipAddress: req.ip || req.socket.remoteAddress || null,
+      ipAddress: req.ip || req.socket.remoteAddress || '',
     });
 
     res.json({
