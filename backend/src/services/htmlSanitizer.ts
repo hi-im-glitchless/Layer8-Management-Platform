@@ -259,7 +259,9 @@ export async function sanitizeHtmlTextNodes(
   // manipulation, because set_content() invalidates child nodes and makes
   // subsequent indexOf-based text node replacement unreliable.
 
-  // Register manual mappings in tracking structures
+  // Register manual mappings in tracking structures.
+  // If Presidio already detected the same value, mark the existing entry
+  // as isManual so it survives round-trips through the frontend.
   for (const mapping of manualMappings) {
     const { originalValue, entityType } = mapping;
     if (!originalValue || !entityType) continue;
@@ -268,6 +270,7 @@ export async function sanitizeHtmlTextNodes(
     const placeholder = buildPlaceholder(entityType, index);
 
     if (!forwardMappings[originalValue]) {
+      // New value not seen by Presidio — add it
       forwardMappings[originalValue] = placeholder;
       reverseMappings[placeholder] = originalValue;
       entityMappings.push({
@@ -276,6 +279,15 @@ export async function sanitizeHtmlTextNodes(
         entityType,
         isManual: true,
       });
+    } else {
+      // Presidio already detected this value — mark existing entry as manual
+      // so the frontend preserves it across re-sanitize round-trips
+      const existing = entityMappings.find(
+        (m) => m.originalValue === originalValue,
+      );
+      if (existing) {
+        existing.isManual = true;
+      }
     }
   }
 
