@@ -344,6 +344,7 @@ export async function uploadReport(
 export async function sanitizeReport(
   userId: string,
   sessionId: string,
+  manualMappings: EntityMapping[] = [],
 ): Promise<SanitizeResult> {
   const state = await getReportSession(userId, sessionId);
   if (!state) {
@@ -354,9 +355,8 @@ export async function sanitizeReport(
     throw new Error('No uploaded HTML in session. Upload a DOCX first.');
   }
 
-  // Extract manual mappings so they survive Presidio re-detection
-  const manualMappings = (state.entityMappings ?? []).filter(
-    (m) => m.isManual,
+  console.log(
+    `[reportService] sanitizeReport called with ${manualMappings.length} manual mappings passed directly`,
   );
 
   // Re-run sanitization on the original uploaded HTML
