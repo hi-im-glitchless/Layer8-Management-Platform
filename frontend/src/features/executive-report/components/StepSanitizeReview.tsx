@@ -350,26 +350,26 @@ export function StepSanitizeReview({
 
             if (isError) {
               return (
-                <div key={i} className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-900/10 p-3">
-                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-                  <span className="text-sm text-red-700 dark:text-red-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
+                <div key={i} className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  <span className="text-sm text-destructive">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
                 </div>
               )
             }
 
             if (isInfo) {
               return (
-                <div key={i} className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/10 p-3">
-                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-                  <span className="text-sm text-blue-700 dark:text-blue-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
+                <div key={i} className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3">
+                  <Info className="h-4 w-4 text-info mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  <span className="text-sm text-info">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
                 </div>
               )
             }
 
             return (
-              <div key={i} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/10 p-3">
-                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-                <span className="text-sm text-amber-700 dark:text-amber-300">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
+              <div key={i} className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
+                <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" aria-hidden="true" />
+                <span className="text-sm text-warning">{warning.replace(/^[a-z_]+:\s*/, '')}</span>
               </div>
             )
           })}

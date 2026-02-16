@@ -75,8 +75,8 @@ export function StepDownload({ sessionId, wizardState, onStartNew }: StepDownloa
       <Card>
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mx-auto">
-              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" aria-hidden="true" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/15 mx-auto">
+              <CheckCircle className="h-8 w-8 text-success" aria-hidden="true" />
             </div>
           </div>
           <CardTitle className="text-2xl">Executive Report Ready</CardTitle>
