@@ -540,13 +540,13 @@ export function StepVerify({
               <TooltipTrigger asChild>
                 <div
                   className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground transition-transform ${
-                    kbAnimating ? 'scale-125 text-green-600' : ''
+                    kbAnimating ? 'scale-125 text-success' : ''
                   }`}
                 >
                   <Brain className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>KB</span>
                   {kbPersisted && (
-                    <span className="text-green-600 font-medium">+1</span>
+                    <span className="text-success font-medium">+1</span>
                   )}
                 </div>
               </TooltipTrigger>
@@ -632,9 +632,9 @@ export function StepVerify({
           <CardContent className="flex-1 overflow-y-auto min-h-0 pt-0">
             {/* KB Summary Banner */}
             {kbLockedCount != null && kbLockedCount > 0 && (
-              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 px-3 py-2 text-xs mb-3">
-                <Brain className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                <span className="text-blue-800 dark:text-blue-200">
+              <div className="flex items-center gap-2 rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-xs mb-3">
+                <Brain className="h-3.5 w-3.5 text-info flex-shrink-0" />
+                <span className="text-info">
                   <strong>{kbLockedCount}</strong> section{kbLockedCount !== 1 ? 's' : ''} resolved from Knowledge Base
                   {llmAnalyzedCount != null && llmAnalyzedCount > 0 && (
                     <>, <strong>{llmAnalyzedCount}</strong> analysed by LLM</>

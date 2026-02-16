@@ -173,7 +173,7 @@ export function PlaceholderNavigator({
                 {/* Content area */}
                 <div className="flex-1 min-w-0">
                   {/* Placeholder expression */}
-                  <span className="font-mono text-[11px] text-blue-600 dark:text-blue-400 block truncate">
+                  <span className="font-mono text-[11px] text-info block truncate">
                     {placeholder.placeholderText}
                   </span>
 

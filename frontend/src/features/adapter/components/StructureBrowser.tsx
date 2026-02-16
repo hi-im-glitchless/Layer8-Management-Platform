@@ -214,7 +214,7 @@ export function StructureBrowser({
                     <div className="flex items-center gap-1.5">
                       {/* Heading level indicator */}
                       {paragraph.headingLevel !== null && (
-                        <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 shrink-0">
+                        <span className="text-[10px] font-semibold text-info shrink-0">
                           H{paragraph.headingLevel}
                         </span>
                       )}

@@ -125,7 +125,7 @@ export function EntityPopover({
 
       {/* Validation messages */}
       {isDuplicate && (
-        <p className="text-xs text-amber-600 mb-2">
+        <p className="text-xs text-warning mb-2">
           Already mapped — adding will re-sanitize to tag all instances.
         </p>
       )}
