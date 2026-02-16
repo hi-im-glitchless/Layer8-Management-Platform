@@ -101,7 +101,7 @@ export function Sidebar() {
         {!collapsed && (
           <img
             src={logoSrc}
-            alt="Layer8"
+            alt="AI Template Regenerator"
             className="h-8 w-auto object-contain"
           />
         )}

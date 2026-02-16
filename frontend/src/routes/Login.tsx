@@ -87,7 +87,7 @@ export function Login() {
         <div className="relative z-10 text-center">
           <img
             src="/layer8_logo_dark.png"
-            alt="Layer8"
+            alt="AI Template Regenerator"
             className="w-72 h-auto mx-auto object-contain"
           />
           <p className="text-slate-400 text-lg max-w-md mt-8">
@@ -102,7 +102,7 @@ export function Login() {
           {/* Mobile-only logo (shown when left side is hidden) */}
           <img
             src="/layer8_logo_dark.png"
-            alt="Layer8"
+            alt="AI Template Regenerator"
             className="h-10 w-auto mx-auto mb-6 object-contain lg:hidden"
           />
 
