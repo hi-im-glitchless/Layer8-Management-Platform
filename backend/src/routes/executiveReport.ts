@@ -34,7 +34,6 @@ import {
   extractFindings,
   generateReport,
   processReportChat,
-  getReportDownloadPath,
 } from '@/services/reportService.js';
 import { getPdfJobStatus, convertHtmlToPdf } from '@/services/pdfQueue.js';
 import { logAuditEvent } from '@/services/audit.js';
@@ -849,7 +848,18 @@ router.get('/download/:sessionId', requireAuth, async (req: Request, res: Respon
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    const filePath = await getReportDownloadPath(userId, sessionId);
+    if (!state.reportPdfUrl) {
+      return res.status(400).json({ error: 'No report PDF available. Use POST /download-pdf instead.' });
+    }
+
+    const filePath = state.reportPdfUrl.startsWith('/')
+      ? `${process.cwd()}${state.reportPdfUrl}`
+      : state.reportPdfUrl;
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Report PDF file not found on disk.' });
+    }
+
     const filename = state.metadata.clientName
       ? `executive_report_${state.metadata.clientName.replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
       : `executive_report_${sessionId}.pdf`;

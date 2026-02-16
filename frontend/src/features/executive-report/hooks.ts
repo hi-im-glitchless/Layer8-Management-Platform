@@ -132,25 +132,6 @@ export function useActiveReportSession() {
   })
 }
 
-/**
- * Poll PDF preview status with 2s interval.
- * Stops polling when status is completed or failed.
- */
-export function useReportPreviewStatus(sessionId: string | null) {
-  return useQuery({
-    queryKey: ['report', 'preview-status', sessionId],
-    queryFn: () => reportApi.getPreviewStatus(sessionId!),
-    enabled: !!sessionId,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status
-      if (status === 'completed' || status === 'failed' || status === 'no_job') {
-        return false
-      }
-      return 2000
-    },
-  })
-}
-
 // ---------------------------------------------------------------------------
 // SSE Generation Hook
 // ---------------------------------------------------------------------------

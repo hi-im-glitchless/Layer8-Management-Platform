@@ -1056,30 +1056,3 @@ export async function processReportChat(
   return { sectionKey, pdfJobId };
 }
 
-/**
- * Resolve the PDF download path for a completed report.
- */
-export async function getReportDownloadPath(
-  userId: string,
-  sessionId: string,
-): Promise<string> {
-  const state = await getReportSession(userId, sessionId);
-  if (!state) {
-    throw new Error(`Report session not found: ${sessionId}`);
-  }
-
-  if (!state.reportPdfUrl) {
-    throw new Error('No report PDF available. Run generation first.');
-  }
-
-  // reportPdfUrl is a relative URL like /uploads/documents/filename.pdf
-  const pdfPath = state.reportPdfUrl.startsWith('/')
-    ? path.join(process.cwd(), state.reportPdfUrl)
-    : state.reportPdfUrl;
-
-  if (!fs.existsSync(pdfPath)) {
-    throw new Error('Report PDF file not found on disk.');
-  }
-
-  return pdfPath;
-}

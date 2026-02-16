@@ -4,7 +4,6 @@ import type {
   ReportUpdateEntityMappingsResponse,
   ReportExtractResponse,
   ReportMetadataResponse,
-  ReportPreviewResponse,
   ReportWizardState,
   ReportActiveSessionResponse,
   ReportMetadata,
@@ -151,14 +150,6 @@ export const reportApi = {
     return apiClient<{ success: boolean }>(`/api/report/session/${sessionId}`, {
       method: 'DELETE',
     })
-  },
-
-  /**
-   * Poll PDF preview status for a report.
-   * GET /api/report/preview/:sessionId
-   */
-  async getPreviewStatus(sessionId: string): Promise<ReportPreviewResponse> {
-    return apiClient<ReportPreviewResponse>(`/api/report/preview/${sessionId}`)
   },
 
   /**
