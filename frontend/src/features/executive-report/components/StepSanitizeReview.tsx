@@ -327,32 +327,25 @@ export function StepSanitizeReview({
         </div>
       </div>
 
-      {/* Main area: HTML preview + optional mapping table */}
-      <div className={showMappingTable ? 'flex gap-4' : ''}>
-        {/* HTML preview */}
-        <div className={showMappingTable ? 'w-1/2 min-w-0' : 'w-full'}>
-          <HtmlReportPreview
-            html={localHtml}
-            onTextSelection={handleTextSelection}
-          />
-        </div>
+      {/* HTML preview (always full width) */}
+      <HtmlReportPreview
+        html={localHtml}
+        onTextSelection={handleTextSelection}
+      />
 
-        {/* Mapping table (right panel) */}
-        {showMappingTable && (
-          <div className="w-1/2 min-w-0">
-            <Card className="h-full">
-              <CardContent className="p-3">
-                <EntityMappingTable
-                  mappings={localMappings}
-                  onEditType={handleEditType}
-                  onDelete={handleDelete}
-                  isUpdating={isUpdatingMappings}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
+      {/* Mapping table (below preview, collapsible) */}
+      {showMappingTable && (
+        <Card>
+          <CardContent className="p-3">
+            <EntityMappingTable
+              mappings={localMappings}
+              onEditType={handleEditType}
+              onDelete={handleDelete}
+              isUpdating={isUpdatingMappings}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Entity popover for text selection */}
       {selectedText && (
