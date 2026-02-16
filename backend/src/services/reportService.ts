@@ -355,10 +355,6 @@ export async function sanitizeReport(
     throw new Error('No uploaded HTML in session. Upload a DOCX first.');
   }
 
-  console.log(
-    `[reportService] sanitizeReport called with ${manualMappings.length} manual mappings passed directly`,
-  );
-
   // Re-run sanitization on the original uploaded HTML
   const counterMap = { ...state.entityCounterMap };
   const sanitizeResult = await sanitizeHtmlTextNodes(

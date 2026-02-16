@@ -305,22 +305,9 @@ export async function sanitizeHtmlTextNodes(
   // Serialize the DOM after the Presidio first pass, then do global
   // text-content-only replacement (skip inside HTML tags/attributes)
   let finalHtml = root.toString();
-  const htmlLenBefore = finalHtml.length;
-
-  console.log(
-    `[htmlSanitizer] Global pass: ${manualMappings.length} manual, ${entityMappings.length} total mappings, ${replacements.length} replacements to apply`,
-  );
 
   if (replacements.length > 0) {
     finalHtml = replaceInTextSegments(finalHtml, replacements);
-  }
-
-  if (finalHtml.length !== htmlLenBefore) {
-    console.log(
-      `[htmlSanitizer] Global pass changed HTML: ${htmlLenBefore} -> ${finalHtml.length} chars (+${finalHtml.length - htmlLenBefore})`,
-    );
-  } else {
-    console.log(`[htmlSanitizer] Global pass: no changes to HTML`);
   }
 
   return {

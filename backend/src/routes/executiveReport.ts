@@ -73,7 +73,7 @@ const entityMappingSchema = z.object({
   originalValue: z.string().min(1).max(500),
   placeholder: z.string().min(1).max(200),
   entityType: z.string().min(1).max(100),
-  isManual: z.boolean(),
+  isManual: z.boolean().default(false),
 });
 
 const updateEntityMappingsBodySchema = z.object({

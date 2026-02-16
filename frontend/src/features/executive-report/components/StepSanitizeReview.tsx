@@ -28,6 +28,58 @@ import {
 } from '../hooks'
 import type { ReportWizardState, ReportMetadata, EntityMapping } from '../types'
 
+// ---------------------------------------------------------------------------
+// Client-side HTML entity replacement helpers
+// ---------------------------------------------------------------------------
+
+/** Escape a string for use inside an HTML attribute value. */
+function escapeHtmlAttr(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+/** Build an entity <span> tag matching the backend format. */
+function buildEntitySpan(
+  entityType: string,
+  placeholder: string,
+  originalValue: string,
+): string {
+  const cssClass = entityType.toLowerCase().replace(/_/g, '-')
+  const escaped = escapeHtmlAttr(originalValue)
+  return (
+    `<span class="entity entity-${cssClass}" ` +
+    `data-entity-type="${entityType}" ` +
+    `data-placeholder="${placeholder}" ` +
+    `data-original="${escaped}">` +
+    `${placeholder}</span>`
+  )
+}
+
+/**
+ * Replace all occurrences of `value` in HTML text segments only.
+ * Splits HTML by tags so replacements never touch attributes like data-original.
+ */
+function replaceInHtmlTextSegments(
+  html: string,
+  value: string,
+  replacement: string,
+): string {
+  const parts = html.split(/(<[^>]+>)/)
+  for (let i = 0; i < parts.length; i += 2) {
+    if (parts[i] && parts[i].includes(value)) {
+      parts[i] = parts[i].split(value).join(replacement)
+    }
+  }
+  return parts.join('')
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 interface StepSanitizeReviewProps {
   sessionId: string
   wizardState: ReportWizardState | null
@@ -73,12 +125,15 @@ export function StepSanitizeReview({
   // Track the LLM-extracted metadata (read-only reference)
   const extractedMetadataRef = useRef<ReportMetadata>(localMetadata)
 
+  // When true, client-side HTML edits are authoritative — skip server sync for HTML
+  const clientHtmlDirtyRef = useRef(false)
+
   // Sync from server when session query updates
   useEffect(() => {
-    if (state?.entityMappings) {
+    if (state?.entityMappings && !clientHtmlDirtyRef.current) {
       setLocalMappings(state.entityMappings)
     }
-    if (state?.sanitizedHtml) {
+    if (state?.sanitizedHtml && !clientHtmlDirtyRef.current) {
       setLocalHtml(state.sanitizedHtml)
     }
     if (state?.metadata) {
@@ -120,32 +175,57 @@ export function StepSanitizeReview({
     [],
   )
 
-  // Add mapping from popover
+  // Add mapping from popover — client-side replacement for instant preview update
   const handleAddMapping = useCallback(
     (text: string, entityType: string) => {
-      // Optimistic: add to local mappings
+      // Check if this value is already mapped (reuse existing placeholder)
+      const existing = localMappings.find((m) => m.originalValue === text)
+      let placeholder: string
+      if (existing) {
+        placeholder = existing.placeholder
+      } else {
+        // Compute next placeholder index: count unique values for this entity type
+        const uniqueOfType = new Set(
+          localMappings.filter((m) => m.entityType === entityType).map((m) => m.originalValue),
+        ).size
+        placeholder = `[${entityType}_${uniqueOfType + 1}]`
+      }
+
       const newMapping: EntityMapping = {
         originalValue: text,
-        placeholder: `[${entityType}_NEW]`,
+        placeholder,
         entityType,
         isManual: true,
       }
-      const updatedMappings = [...localMappings, newMapping]
+
+      // Only add to mappings if not already present
+      const updatedMappings = existing ? localMappings : [...localMappings, newMapping]
       setLocalMappings(updatedMappings)
       setSelectedText(null)
 
-      // Server update: send full mappings array
+      // Client-side replacement: update HTML immediately (all instances)
+      const span = buildEntitySpan(entityType, placeholder, text)
+      const updatedHtml = replaceInHtmlTextSegments(localHtml, text, span)
+      const replacedCount =
+        updatedHtml !== localHtml
+          ? Math.round((updatedHtml.length - localHtml.length) / (span.length - text.length)) || 1
+          : 0
+      setLocalHtml(updatedHtml)
+      clientHtmlDirtyRef.current = true
+
+      if (replacedCount > 0) {
+        toast.success(`Mapped "${text}" → ${placeholder} (${replacedCount} instance${replacedCount > 1 ? 's' : ''})`)
+      }
+
+      // Persist to backend in background — don't overwrite client HTML from response
       entityMappingsMutation.mutate(
         { sessionId, mappings: updatedMappings },
         {
-          onSuccess: (data) => {
-            setLocalMappings(data.entityMappings)
-            setLocalHtml(data.sanitizedHtml)
-            sessionQuery.refetch()
-          },
           onError: () => {
-            // Rollback
+            // Rollback both mappings and HTML
             setLocalMappings(localMappings)
+            setLocalHtml(localHtml)
+            clientHtmlDirtyRef.current = false
           },
         },
       )
@@ -155,10 +235,10 @@ export function StepSanitizeReview({
         setShowMappingTable(true)
       }
     },
-    [sessionId, localMappings, entityMappingsMutation, sessionQuery, showMappingTable],
+    [sessionId, localMappings, localHtml, entityMappingsMutation, showMappingTable],
   )
 
-  // Edit entity type in table
+  // Edit entity type in table — full server re-sanitize to update spans
   const handleEditType = useCallback(
     (index: number, newType: string) => {
       const updatedMappings = localMappings.map((m, i) =>
@@ -170,6 +250,7 @@ export function StepSanitizeReview({
         { sessionId, mappings: updatedMappings },
         {
           onSuccess: (data) => {
+            clientHtmlDirtyRef.current = false
             setLocalMappings(data.entityMappings)
             setLocalHtml(data.sanitizedHtml)
             sessionQuery.refetch()
@@ -183,7 +264,7 @@ export function StepSanitizeReview({
     [sessionId, localMappings, entityMappingsMutation, sessionQuery],
   )
 
-  // Delete mapping from table
+  // Delete mapping from table — full server re-sanitize
   const handleDelete = useCallback(
     (index: number) => {
       const updatedMappings = localMappings.filter((_, i) => i !== index)
@@ -193,6 +274,7 @@ export function StepSanitizeReview({
         { sessionId, mappings: updatedMappings },
         {
           onSuccess: (data) => {
+            clientHtmlDirtyRef.current = false
             setLocalMappings(data.entityMappings)
             setLocalHtml(data.sanitizedHtml)
             sessionQuery.refetch()
@@ -211,12 +293,13 @@ export function StepSanitizeReview({
     setSelectedText(null)
   }, [])
 
-  // Re-sanitize: explicitly apply all mappings and refresh the preview
+  // Re-sanitize: full server pipeline — re-runs Presidio + applies all mappings
   const handleResanitize = useCallback(() => {
     entityMappingsMutation.mutate(
       { sessionId, mappings: localMappings },
       {
         onSuccess: (data) => {
+          clientHtmlDirtyRef.current = false
           setLocalMappings(data.entityMappings)
           setLocalHtml(data.sanitizedHtml)
           sessionQuery.refetch()
