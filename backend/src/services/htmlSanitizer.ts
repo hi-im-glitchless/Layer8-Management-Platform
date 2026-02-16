@@ -254,11 +254,12 @@ export async function sanitizeHtmlTextNodes(
   // If "CompanyX" appears 10 times and Presidio catches 3, the other 7 are
   // silently missed. This pass finds and replaces ALL remaining occurrences
   // of every known entity value (both Presidio-detected and manual mappings).
+  //
+  // We use string-level replacement on the serialized HTML rather than DOM
+  // manipulation, because set_content() invalidates child nodes and makes
+  // subsequent indexOf-based text node replacement unreliable.
 
-  // Build the full set of values to replace globally
-  const globalValues: Map<string, { entityType: string; placeholder: string; span: string; isManual: boolean }> = new Map();
-
-  // Add manual mappings first (these may not be in forwardMappings yet)
+  // Register manual mappings in tracking structures
   for (const mapping of manualMappings) {
     const { originalValue, entityType } = mapping;
     if (!originalValue || !entityType) continue;
@@ -266,7 +267,6 @@ export async function sanitizeHtmlTextNodes(
     const index = getOrAssignIndex(counterMap, entityType, originalValue);
     const placeholder = buildPlaceholder(entityType, index);
 
-    // Track the mapping if not already tracked
     if (!forwardMappings[originalValue]) {
       forwardMappings[originalValue] = placeholder;
       reverseMappings[placeholder] = originalValue;
@@ -277,57 +277,29 @@ export async function sanitizeHtmlTextNodes(
         isManual: true,
       });
     }
-
-    globalValues.set(originalValue, {
-      entityType,
-      placeholder,
-      span: buildEntitySpan(entityType, placeholder, originalValue),
-      isManual: true,
-    });
   }
 
-  // Add Presidio-detected entities for global coverage
+  // Build replacement list: all known entity values (manual + Presidio)
+  // sorted by length descending so longer matches take priority
+  const replacements: { value: string; span: string }[] = [];
   for (const mapping of entityMappings) {
-    if (globalValues.has(mapping.originalValue)) continue;
-    globalValues.set(mapping.originalValue, {
-      entityType: mapping.entityType,
-      placeholder: mapping.placeholder,
+    replacements.push({
+      value: mapping.originalValue,
       span: buildEntitySpan(mapping.entityType, mapping.placeholder, mapping.originalValue),
-      isManual: false,
     });
   }
+  replacements.sort((a, b) => b.value.length - a.value.length);
 
-  // Sort by value length descending so longer matches take priority
-  const sortedValues = [...globalValues.entries()].sort(
-    (a, b) => b[0].length - a[0].length,
-  );
+  // Serialize the DOM after the Presidio first pass, then do global
+  // text-content-only replacement (skip inside HTML tags/attributes)
+  let finalHtml = root.toString();
 
-  if (sortedValues.length > 0) {
-    // Loop until no more replacements are made (set_content invalidates child nodes)
-    let moreReplacements = true;
-    let safetyLimit = 500;
-    while (moreReplacements && safetyLimit-- > 0) {
-      moreReplacements = false;
-      const freshNodes: { node: TextNode; parent: HTMLElement }[] = [];
-      collectTextNodes(root, freshNodes);
-
-      for (const { node, parent } of freshNodes) {
-        const text = node.rawText;
-        for (const [value, { span }] of sortedValues) {
-          if (text.includes(value)) {
-            const replaced = text.split(value).join(span);
-            replaceTextNodeWithHtml(parent, node, replaced);
-            moreReplacements = true;
-            break; // This node is invalidated, need to re-collect
-          }
-        }
-        if (moreReplacements) break; // Re-collect from root
-      }
-    }
+  if (replacements.length > 0) {
+    finalHtml = replaceInTextSegments(finalHtml, replacements);
   }
 
   return {
-    sanitizedHtml: root.toString(),
+    sanitizedHtml: finalHtml,
     entityMappings,
     updatedCounterMap: counterMap,
     sanitizedParagraphs,
@@ -388,4 +360,30 @@ function replaceTextNodeWithHtml(
       parentHtml.substring(idx + originalText.length);
     parent.set_content(newHtml);
   }
+}
+
+/**
+ * Replace entity values in text segments of HTML only.
+ * Splits HTML into alternating [text, tag, text, tag, ...] segments,
+ * applies replacements only on text segments, and leaves HTML tags
+ * (including attributes like data-original) untouched.
+ */
+function replaceInTextSegments(
+  html: string,
+  replacements: { value: string; span: string }[],
+): string {
+  // Split by HTML tags — odd indices are tags, even indices are text
+  const parts = html.split(/(<[^>]+>)/);
+  for (let i = 0; i < parts.length; i += 2) {
+    // Only process text segments (even indices)
+    let segment = parts[i];
+    if (!segment) continue;
+    for (const { value, span } of replacements) {
+      if (segment.includes(value)) {
+        segment = segment.split(value).join(span);
+      }
+    }
+    parts[i] = segment;
+  }
+  return parts.join('');
 }
