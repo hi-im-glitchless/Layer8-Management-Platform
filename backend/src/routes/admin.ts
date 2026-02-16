@@ -68,7 +68,7 @@ router.get('/sessions', async (req, res) => {
  */
 router.delete('/sessions/:sessionId', auditMiddleware('admin.session.terminate'), async (req, res) => {
   try {
-    const { sessionId } = req.params;
+    const sessionId = req.params.sessionId as string;
     const currentSession = req.session as any;
 
     // Prevent self-termination

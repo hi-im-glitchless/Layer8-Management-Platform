@@ -100,7 +100,7 @@ router.put('/:id', requireAdmin, auditMiddleware('deny_list.update'), async (req
     });
 
     const validated = updateSchema.parse(req.body);
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const term = await updateTerm(id, validated);
 
@@ -129,7 +129,7 @@ router.put('/:id', requireAdmin, auditMiddleware('deny_list.update'), async (req
  */
 router.delete('/:id', requireAdmin, auditMiddleware('deny_list.delete'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const success = await deleteTerm(id);
 
     if (!success) {
