@@ -52,7 +52,9 @@ export function StepSanitizeReview({
   const metadataMutation = useUpdateMetadata()
 
   // Layout state
-  const [showMappingTable, setShowMappingTable] = useState(false)
+  const [showMappingTable, setShowMappingTable] = useState(
+    () => (state?.entityMappings?.length ?? 0) > 0,
+  )
   const [showMetadata, setShowMetadata] = useState(false)
 
   // Entity popover state
