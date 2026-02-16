@@ -56,6 +56,21 @@ export interface ReportChatMessage {
   timestamp: string;
 }
 
+/** Entity mapping for the HTML-centric sanitization pipeline. */
+export interface EntityMapping {
+  originalValue: string;
+  placeholder: string;
+  entityType: string;
+  isManual: boolean; // true if added by user via text selection
+}
+
+/** Supplementary text extracted from DOCX headers, footers, and text boxes. */
+export interface SupplementaryText {
+  headers: string[];
+  footers: string[];
+  textBoxes: string[];
+}
+
 export interface ReportWizardState {
   sessionId: string;
   userId: string;
@@ -63,9 +78,14 @@ export interface ReportWizardState {
   // Upload
   uploadedFile: ReportUploadedFile;
   detectedLanguage: string; // 'en' | 'pt'
-  // Sanitization
+  // HTML pipeline
+  uploadedHtml: string;
+  sanitizedHtml: string;
+  entityMappings: EntityMapping[];
+  entityCounterMap: Record<string, Record<string, number>>;
+  supplementaryText: SupplementaryText;
+  // Sanitization (backward compat for extraction)
   sanitizedParagraphs: SanitizedParagraph[];
-  denyListTerms: string[];
   sanitizationMappings: SanitizationMappings;
   // Extraction (Pass 1)
   findingsJson: Record<string, unknown> | null;
@@ -74,10 +94,10 @@ export interface ReportWizardState {
   // Generation (Pass 2)
   riskScore: number | null;
   complianceScores: Record<string, number> | null;
-  chartData: Record<string, unknown> | null;
+  chartConfigs: Record<string, object> | null;
   narrativeSections: Record<string, string> | null;
   // Report
-  reportDocxPath: string | null;
+  generatedHtml: string | null;
   reportPdfJobId: string | null;
   reportPdfUrl: string | null;
   // Chat
@@ -129,9 +149,14 @@ export async function createReportSession(userId: string): Promise<ReportWizardS
       uploadedAt: '',
     },
     detectedLanguage: '',
-    // Sanitization
+    // HTML pipeline
+    uploadedHtml: '',
+    sanitizedHtml: '',
+    entityMappings: [],
+    entityCounterMap: {},
+    supplementaryText: { headers: [], footers: [], textBoxes: [] },
+    // Sanitization (backward compat)
     sanitizedParagraphs: [],
-    denyListTerms: [],
     sanitizationMappings: {
       forward: {},
       reverse: {},
@@ -149,10 +174,10 @@ export async function createReportSession(userId: string): Promise<ReportWizardS
     // Generation (Pass 2)
     riskScore: null,
     complianceScores: null,
-    chartData: null,
+    chartConfigs: null,
     narrativeSections: null,
     // Report
-    reportDocxPath: null,
+    generatedHtml: null,
     reportPdfJobId: null,
     reportPdfUrl: null,
     // Chat
@@ -228,9 +253,23 @@ export async function updateReportSession(
       ...existing.sanitizationMappings,
       ...(updates.sanitizationMappings ?? {}),
     },
+    supplementaryText: {
+      ...existing.supplementaryText,
+      ...(updates.supplementaryText ?? {}),
+    },
+    // Deep merge counter map: merge per-entity-type sub-maps
+    entityCounterMap: updates.entityCounterMap
+      ? Object.entries(updates.entityCounterMap).reduce(
+          (acc, [entityType, valueMap]) => {
+            acc[entityType] = { ...(acc[entityType] ?? {}), ...valueMap };
+            return acc;
+          },
+          { ...existing.entityCounterMap },
+        )
+      : existing.entityCounterMap,
     // Array fields: replace entirely when provided
     sanitizedParagraphs: updates.sanitizedParagraphs ?? existing.sanitizedParagraphs,
-    denyListTerms: updates.denyListTerms ?? existing.denyListTerms,
+    entityMappings: updates.entityMappings ?? existing.entityMappings,
     warnings: updates.warnings ?? existing.warnings,
     chatHistory: updates.chatHistory ?? existing.chatHistory,
     // Preserve immutable fields
