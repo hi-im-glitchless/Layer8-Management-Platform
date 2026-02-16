@@ -1,13 +1,26 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/features/auth/hooks'
+
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
 
 export function Dashboard() {
+  const { user } = useAuth()
+  const name = user?.displayName || user?.username || ''
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {name ? `${getGreeting()}, ${name}` : getGreeting()}
+        </h1>
         <p className="text-muted-foreground mt-2">
-          Welcome to AI Template Regenerator
+          Your AI-powered security reporting hub
         </p>
       </div>
 
