@@ -12,6 +12,7 @@ export const ENTITY_TYPES: EntityTypeOption[] = [
   { value: 'PERSON', label: 'Person' },
   { value: 'ORGANIZATION', label: 'Organization' },
   { value: 'LOCATION', label: 'Location' },
+  { value: 'PROJECT_CODE', label: 'Project Code' },
   { value: 'EMAIL_ADDRESS', label: 'Email Address' },
   { value: 'PHONE_NUMBER', label: 'Phone Number' },
   { value: 'IP_ADDRESS', label: 'IP Address' },
