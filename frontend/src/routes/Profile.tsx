@@ -196,7 +196,7 @@ export function Profile() {
               <div className="relative">
                 <Avatar className="h-24 w-24">
                   <AvatarImage src={user?.avatarUrl || undefined} alt={user?.displayName || user?.username || 'User'} />
-                  <AvatarFallback className="bg-[oklch(0.6_0.15_250)] text-white text-2xl">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                     {getInitials()}
                   </AvatarFallback>
                 </Avatar>
@@ -312,7 +312,7 @@ export function Profile() {
               <div className="flex items-center gap-2 mt-1">
                 {user?.totpEnabled && (
                   <>
-                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                    <div className="h-2 w-2 rounded-full bg-success" />
                     <p className="text-sm text-muted-foreground">Enabled</p>
                   </>
                 )}
@@ -363,9 +363,9 @@ export function Profile() {
           </DialogHeader>
           {showTotpWarning ? (
             <div className="space-y-4">
-              <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-4">
+              <div className="rounded-lg bg-warning/10 border border-warning/20 p-4">
                 <div className="flex items-start gap-3">
-                  <Shield className="h-5 w-5 text-yellow-500 mt-0.5" />
+                  <Shield className="h-5 w-5 text-warning mt-0.5" />
                   <div className="space-y-1">
                     <p className="font-medium text-sm">Warning</p>
                     <p className="text-sm text-muted-foreground">
