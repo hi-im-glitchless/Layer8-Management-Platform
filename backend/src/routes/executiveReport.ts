@@ -30,7 +30,7 @@ import {
 } from '@/services/reportWizardState.js';
 import {
   uploadReport,
-  sanitizeReport,
+  applyMappingsOnly,
   extractFindings,
   generateReport,
   processReportChat,
@@ -218,19 +218,9 @@ router.post('/update-entity-mappings', requireAuth, async (req: Request, res: Re
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // Extract manual mappings directly from the request payload
-    // (don't rely on session round-trip which can lose the isManual flag)
-    const manualMappings = (mappings as EntityMapping[]).filter(
-      (m) => m.isManual,
-    );
-
-    // Store the updated mappings in the session
-    await updateReportSession(userId, sessionId, {
-      entityMappings: mappings as EntityMapping[],
-    });
-
-    // Re-sanitize HTML, passing manual mappings directly
-    const result = await sanitizeReport(userId, sessionId, manualMappings);
+    // Apply ONLY the user's current mapping table to the original HTML.
+    // No Presidio re-run — deleted mappings stay deleted.
+    const result = await applyMappingsOnly(userId, sessionId, mappings as EntityMapping[]);
 
     // Audit log
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';

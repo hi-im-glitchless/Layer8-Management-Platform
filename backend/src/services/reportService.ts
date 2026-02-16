@@ -18,7 +18,7 @@ import path from 'path';
 import { config } from '../config.js';
 import { createLLMClient } from './llm/client.js';
 import { convertDocxToHtml } from './docxToHtml.js';
-import { sanitizeHtmlTextNodes } from './htmlSanitizer.js';
+import { sanitizeHtmlTextNodes, applyMappingsToHtml } from './htmlSanitizer.js';
 import { addPdfConversionJob } from './pdfQueue.js';
 import type { LLMMessage } from '../types/llm.js';
 import {
@@ -388,6 +388,57 @@ export async function sanitizeReport(
     sanitizationMappings: {
       forward: sanitizeResult.forwardMappings,
       reverse: sanitizeResult.reverseMappings,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Apply mappings only (no Presidio re-run)
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply the user's current mapping table to the original uploaded HTML
+ * without re-running Presidio. Deleted mappings stay deleted.
+ */
+export async function applyMappingsOnly(
+  userId: string,
+  sessionId: string,
+  mappings: EntityMapping[],
+): Promise<SanitizeResult> {
+  const state = await getReportSession(userId, sessionId);
+  if (!state) {
+    throw new Error(`Report session not found: ${sessionId}`);
+  }
+  if (!state.uploadedHtml) {
+    throw new Error('No uploaded HTML in session. Upload a DOCX first.');
+  }
+
+  const { sanitizedHtml, forwardMappings, reverseMappings } =
+    applyMappingsToHtml(state.uploadedHtml, mappings);
+
+  // Build backward-compat sanitized paragraphs (text-only placeholders)
+  const sanitizedParagraphs = state.sanitizedParagraphs ?? [];
+
+  await updateReportSession(userId, sessionId, {
+    sanitizedHtml,
+    entityMappings: mappings,
+    sanitizationMappings: {
+      forward: forwardMappings,
+      reverse: reverseMappings,
+    },
+  });
+
+  console.log(
+    `[reportService] Applied ${mappings.length} mappings (no Presidio re-run)`,
+  );
+
+  return {
+    sanitizedHtml,
+    entityMappings: mappings,
+    sanitizedParagraphs,
+    sanitizationMappings: {
+      forward: forwardMappings,
+      reverse: reverseMappings,
     },
   };
 }

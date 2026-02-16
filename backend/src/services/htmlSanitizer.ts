@@ -321,6 +321,41 @@ export async function sanitizeHtmlTextNodes(
 }
 
 // ---------------------------------------------------------------------------
+// Apply-only (no Presidio) — used when user edits/deletes mappings
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply a provided set of entity mappings to raw HTML without running Presidio.
+ * This is used when the user edits/deletes mappings and clicks Re-sanitize:
+ * only the current mapping table is applied, so deleted entries stay deleted.
+ */
+export function applyMappingsToHtml(
+  html: string,
+  mappings: EntityMapping[],
+): { sanitizedHtml: string; forwardMappings: Record<string, string>; reverseMappings: Record<string, string> } {
+  const forwardMappings: Record<string, string> = {};
+  const reverseMappings: Record<string, string> = {};
+
+  // Build replacement list sorted by length descending (longer matches first)
+  const replacements: { value: string; span: string }[] = [];
+  for (const mapping of mappings) {
+    forwardMappings[mapping.originalValue] = mapping.placeholder;
+    reverseMappings[mapping.placeholder] = mapping.originalValue;
+    replacements.push({
+      value: mapping.originalValue,
+      span: buildEntitySpan(mapping.entityType, mapping.placeholder, mapping.originalValue),
+    });
+  }
+  replacements.sort((a, b) => b.value.length - a.value.length);
+
+  const sanitizedHtml = replacements.length > 0
+    ? replaceInTextSegments(html, replacements)
+    : html;
+
+  return { sanitizedHtml, forwardMappings, reverseMappings };
+}
+
+// ---------------------------------------------------------------------------
 // DOM walking helpers
 // ---------------------------------------------------------------------------
 
