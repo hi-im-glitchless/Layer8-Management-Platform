@@ -3,16 +3,20 @@
  *
  * Upload: DOCX -> mammoth HTML -> Presidio sanitize HTML text nodes -> extract supplementary
  * Pass 1 (Extract): Sanitized paragraphs -> LLM Opus 4.6 -> structured findings JSON
- * Python Compute: Risk score, severity distributions, compliance mapping, chart data
- * Pass 2 (Generate): Computed data + findings -> LLM -> narrative sections text
- * Build: HTML assembly + Chart.js configs -> Gotenberg PDF
- * Chat: Targeted section regeneration for corrections
+ * Compute: Risk score, severity distributions, compliance mapping
+ * Chart Data: Compute Chart.js JSON configs (no server-side rendering)
+ * Pass 2 (Generate): Computed data + findings -> LLM -> HTML narrative sections with CSS classes
+ * Build: HTML skeleton + narrative HTML + Chart.js configs -> complete HTML document
+ * PDF: Gotenberg Chromium HTML->PDF (with waitDelay for Chart.js rendering)
+ * Chat: Targeted section regeneration updates HTML section and re-converts PDF
+ *
+ * De-sanitization is NOT done before HTML assembly. The generated HTML stays
+ * sanitized; de-sanitization is a frontend-only toggle in the Review step.
  */
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config.js';
 import { createLLMClient } from './llm/client.js';
-import { desanitizeText } from './sanitization.js';
 import { convertDocxToHtml } from './docxToHtml.js';
 import { sanitizeHtmlTextNodes } from './htmlSanitizer.js';
 import { addPdfConversionJob } from './pdfQueue.js';
@@ -520,9 +524,9 @@ interface ComputeMetricsResponse {
   category_counts: Record<string, number>;
 }
 
-/** Python /report/render-charts response. */
-interface RenderChartsResponse {
-  charts: Record<string, string>; // chart name -> base64 PNG
+/** Python /report/compute-chart-data response. */
+interface ComputeChartDataResponse {
+  chart_configs: Record<string, object>; // chart ID -> Chart.js config
 }
 
 /** Python /report/build-narrative-prompt response. */
@@ -538,10 +542,9 @@ interface ValidateNarrativeResponse {
   error: string | null;
 }
 
-/** Python /report/build-report response. */
+/** Python /report/build-report response (HTML). */
 interface BuildReportResponse {
-  docx_base64: string;
-  filename: string;
+  html_content: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -550,13 +553,16 @@ interface BuildReportResponse {
 
 /**
  * Run the full report generation pipeline:
- * Python compute (metrics/charts) -> LLM Pass 2 (narrative) -> DOCX build -> PDF conversion.
+ * compute-metrics -> compute-chart-data (JSON) -> LLM Pass 2 (HTML) -> build-html-report -> Gotenberg (HTML->PDF).
+ *
+ * De-sanitization is NOT done before HTML assembly -- the LLM works with
+ * sanitized text and de-sanitization is a frontend-only toggle in Review.
  *
  * @param userId - Authenticated user ID
  * @param sessionId - Report wizard session ID
  * @param sendStageEvent - Optional SSE callback for progress reporting
  * @param sendDelta - Optional SSE callback for LLM token streaming
- * @returns Path to generated DOCX and PDF job ID
+ * @returns PDF job ID
  */
 export async function generateReport(
   userId: string,
@@ -603,9 +609,9 @@ export async function generateReport(
   );
 
   // -----------------------------------------------------------------------
-  // Stage 2: Render charts
+  // Stage 2: Compute chart data (Chart.js JSON configs)
   // -----------------------------------------------------------------------
-  sendStageEvent?.('generating_charts', 0);
+  sendStageEvent?.('chart_data', 0);
 
   // Build stacked data: category -> { severity: count }
   const stackedData: Record<string, Record<string, number>> = {};
@@ -618,7 +624,7 @@ export async function generateReport(
     stackedData[category][severity] = (stackedData[category][severity] || 0) + 1;
   }
 
-  const chartsRes = await fetch(`${sanitizerUrl}/report/render-charts`, {
+  const chartsRes = await fetch(`${sanitizerUrl}/report/compute-chart-data`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -632,35 +638,28 @@ export async function generateReport(
 
   if (!chartsRes.ok) {
     const detail = await chartsRes.text();
-    throw new Error(`Render charts failed: ${detail}`);
+    throw new Error(`Compute chart data failed: ${detail}`);
   }
 
-  const chartsData = await chartsRes.json() as RenderChartsResponse;
-  sendStageEvent?.('generating_charts', 100);
+  const chartsData = await chartsRes.json() as ComputeChartDataResponse;
+  sendStageEvent?.('chart_data', 100);
 
-  console.log(`[reportService] Rendered ${Object.keys(chartsData.charts).length} charts`);
+  console.log(`[reportService] Computed ${Object.keys(chartsData.chart_configs).length} chart configs`);
 
   // -----------------------------------------------------------------------
-  // Stage 3: Build narrative prompt + LLM Pass 2
+  // Stage 3: Build narrative prompt + LLM Pass 2 (HTML output)
   // -----------------------------------------------------------------------
   sendStageEvent?.('narrative', 0);
 
-  // Build chart descriptions for the narrative prompt
-  const chartDescriptions: Record<string, string> = {};
-  for (const [chartName] of Object.entries(chartsData.charts)) {
-    // Provide textual descriptions of chart data for the LLM
-    if (chartName === 'Severity Distribution') {
-      chartDescriptions[chartName] = `Severity breakdown: ${JSON.stringify(metrics.severity_counts)}`;
-    } else if (chartName === 'Category Bar') {
-      chartDescriptions[chartName] = `Categories: ${JSON.stringify(metrics.category_counts)}`;
-    } else if (chartName === 'Compliance Radar') {
-      chartDescriptions[chartName] = `Compliance scores: ${JSON.stringify(metrics.compliance_scores)}`;
-    } else if (chartName === 'Risk Score Card') {
-      chartDescriptions[chartName] = `Risk score: ${metrics.risk_score}/100 (${metrics.risk_level})`;
-    } else {
-      chartDescriptions[chartName] = `Chart data available`;
-    }
-  }
+  // Build chart descriptions for the narrative prompt (data summaries, not chart HTML)
+  const chartDescriptions: Record<string, string> = {
+    severity_pie: `Severity breakdown: ${JSON.stringify(metrics.severity_counts)}`,
+    category_bar: `Categories: ${JSON.stringify(metrics.category_counts)}`,
+    compliance_radar: `Compliance scores: ${JSON.stringify(metrics.compliance_scores)}`,
+    risk_score: `Risk score: ${metrics.risk_score}/100 (${metrics.risk_level})`,
+    stacked_severity: `Severity by category: ${Object.keys(stackedData).length} categories`,
+    top_vulnerabilities: `Top vulnerabilities by severity count`,
+  };
 
   const narrativePromptRes = await fetch(`${sanitizerUrl}/report/build-narrative-prompt`, {
     method: 'POST',
@@ -688,7 +687,7 @@ export async function generateReport(
 
   sendStageEvent?.('narrative', 20);
 
-  // LLM Pass 2: Generate narrative text
+  // LLM Pass 2: Generate HTML narrative sections
   const client = await createLLMClient();
   const narrativeMessages: LLMMessage[] = [
     { role: 'system', content: narrativePromptData.system_prompt },
@@ -739,66 +738,29 @@ export async function generateReport(
   );
 
   // -----------------------------------------------------------------------
-  // Stage 4: De-sanitize narratives + metadata
+  // Stage 4: Assemble HTML report (no de-sanitization -- frontend-only)
   // -----------------------------------------------------------------------
-  sendStageEvent?.('building_report', 0);
+  sendStageEvent?.('assembling_html', 0);
 
-  const desanitizedSections: Record<string, string> = {};
-
-  for (const [sectionKey, sectionText] of Object.entries(narrativeData.sections)) {
-    try {
-      const result = await desanitizeText(sectionText, sessionId);
-      desanitizedSections[sectionKey] = result.text;
-
-      if (result.unresolvedPlaceholders.length > 0) {
-        console.warn(
-          `[reportService] Unresolved placeholders in section ${sectionKey}:`,
-          result.unresolvedPlaceholders,
-        );
-      }
-    } catch (err) {
-      console.warn(
-        `[reportService] De-sanitization failed for section ${sectionKey}, using sanitized text:`,
-        err,
-      );
-      desanitizedSections[sectionKey] = sectionText;
-    }
-  }
-
-  // De-sanitize metadata fields
-  const desanitizedMetadata: Record<string, string> = {};
-  for (const [key, value] of Object.entries(state.metadata)) {
-    if (value) {
-      try {
-        const result = await desanitizeText(value, sessionId);
-        desanitizedMetadata[key] = result.text;
-      } catch {
-        desanitizedMetadata[key] = value;
-      }
-    } else {
-      desanitizedMetadata[key] = value || '';
-    }
-  }
-
-  sendStageEvent?.('building_report', 30);
-
-  // -----------------------------------------------------------------------
-  // Stage 5: Build DOCX report via Python
-  // -----------------------------------------------------------------------
   const buildRes = await fetch(`${sanitizerUrl}/report/build-report`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       language: state.detectedLanguage || 'en',
-      narrative_sections: desanitizedSections,
+      narrative_sections: narrativeData.sections,
       metadata: {
-        client_name: desanitizedMetadata.clientName || '',
-        project_code: desanitizedMetadata.projectCode || '',
+        client_name: state.metadata.clientName || '',
+        project_code: state.metadata.projectCode || '',
         report_date: new Date().toISOString().split('T')[0],
-        start_date: desanitizedMetadata.startDate || '',
-        end_date: desanitizedMetadata.endDate || '',
+        start_date: state.metadata.startDate || '',
+        end_date: state.metadata.endDate || '',
       },
-      chart_images: chartsData.charts,
+      chart_configs: chartsData.chart_configs,
+      metrics: {
+        severity_counts: metrics.severity_counts,
+        category_counts: metrics.category_counts,
+        total: findings.length,
+      },
       risk_score: metrics.risk_score,
       risk_level: metrics.risk_level,
     }),
@@ -811,25 +773,22 @@ export async function generateReport(
 
   const buildData = await buildRes.json() as BuildReportResponse;
 
-  sendStageEvent?.('building_report', 80);
+  sendStageEvent?.('assembling_html', 100);
 
-  // Save DOCX to disk
-  const docxBuffer = Buffer.from(buildData.docx_base64, 'base64');
-  const docxFilename = buildData.filename || `executive_report_${sessionId}.docx`;
-  const docxPath = path.join(DOCUMENTS_DIR, docxFilename);
-  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
-  fs.writeFileSync(docxPath, docxBuffer);
-
-  sendStageEvent?.('building_report', 100);
-
-  console.log(`[reportService] Saved report DOCX: ${docxPath} (${docxBuffer.length} bytes)`);
+  console.log(`[reportService] Assembled HTML report: ${buildData.html_content.length} chars`);
 
   // -----------------------------------------------------------------------
-  // Stage 6: Queue PDF conversion via Gotenberg
+  // Stage 5: Convert HTML to PDF via Gotenberg Chromium
   // -----------------------------------------------------------------------
   sendStageEvent?.('converting_pdf', 0);
 
-  const pdfJobId = await addPdfConversionJob(docxPath, docxFilename);
+  // Save HTML to a temp file for Gotenberg
+  fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+  const htmlFilename = `executive_report_${sessionId}.html`;
+  const htmlPath = path.join(DOCUMENTS_DIR, htmlFilename);
+  fs.writeFileSync(htmlPath, buildData.html_content, 'utf-8');
+
+  const pdfJobId = await addPdfConversionJob(htmlPath, htmlFilename);
 
   sendStageEvent?.('converting_pdf', 100);
 
@@ -842,8 +801,9 @@ export async function generateReport(
     currentStep: 'review',
     riskScore: metrics.risk_score,
     complianceScores: metrics.compliance_scores,
-    chartConfigs: chartsData.charts as unknown as Record<string, object>,
-    narrativeSections: desanitizedSections,
+    chartConfigs: chartsData.chart_configs as Record<string, object>,
+    narrativeSections: narrativeData.sections,
+    generatedHtml: buildData.html_content,
     reportPdfJobId: pdfJobId,
   });
 
@@ -1017,33 +977,8 @@ export async function processReportChat(
     throw new Error(`Section correction validation failed: ${validateData.error || 'Unknown error'}`);
   }
 
-  // Step 7: De-sanitize revised text
-  let revisedText = validateData.revised_text;
-  try {
-    const desanResult = await desanitizeText(revisedText, sessionId);
-    revisedText = desanResult.text;
-
-    if (desanResult.unresolvedPlaceholders.length > 0) {
-      console.warn(
-        `[reportService] Unresolved placeholders in corrected section ${sectionKey}:`,
-        desanResult.unresolvedPlaceholders,
-      );
-    }
-  } catch (err) {
-    console.warn(
-      `[reportService] De-sanitization failed for corrected section ${sectionKey}, ` +
-      `falling back to local reverse mapping:`,
-      err,
-    );
-    // Fallback: apply reverse mappings locally
-    if (state.sanitizationMappings?.reverse) {
-      for (const [placeholder, realText] of Object.entries(state.sanitizationMappings.reverse)) {
-        if (revisedText.includes(placeholder)) {
-          revisedText = revisedText.split(placeholder).join(realText);
-        }
-      }
-    }
-  }
+  // Step 7: Use revised HTML as-is (de-sanitization is frontend-only)
+  const revisedText = validateData.revised_text;
 
   // Step 8: Update session with new section text
   const updatedNarrativeSections = {
@@ -1051,7 +986,7 @@ export async function processReportChat(
     [sectionKey]: revisedText,
   };
 
-  // Step 9: Rebuild DOCX with updated sections
+  // Step 9: Rebuild HTML report with updated sections
   const buildRes = await fetch(`${sanitizerUrl}/report/build-report`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1065,7 +1000,8 @@ export async function processReportChat(
         start_date: state.metadata.startDate || '',
         end_date: state.metadata.endDate || '',
       },
-      chart_images: (state.chartConfigs || {}) as Record<string, string>,
+      chart_configs: (state.chartConfigs || {}) as Record<string, object>,
+      metrics: {},
       risk_score: state.riskScore || 0,
       risk_level: '',
     }),
@@ -1078,18 +1014,17 @@ export async function processReportChat(
 
   const buildData = await buildRes.json() as BuildReportResponse;
 
-  // Save updated DOCX to disk
-  const docxBuffer = Buffer.from(buildData.docx_base64, 'base64');
-  const docxFilename = buildData.filename || `executive_report_${sessionId}.docx`;
-  const docxPath = path.join(DOCUMENTS_DIR, docxFilename);
+  // Save updated HTML and queue PDF conversion
   fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
-  fs.writeFileSync(docxPath, docxBuffer);
+  const htmlFilename = `executive_report_${sessionId}.html`;
+  const htmlPath = path.join(DOCUMENTS_DIR, htmlFilename);
+  fs.writeFileSync(htmlPath, buildData.html_content, 'utf-8');
 
-  // Step 10: Queue new PDF conversion
-  const pdfJobId = await addPdfConversionJob(docxPath, docxFilename);
+  // Step 10: Queue new PDF conversion via Gotenberg Chromium
+  const pdfJobId = await addPdfConversionJob(htmlPath, htmlFilename);
 
   console.log(
-    `[reportService] Corrected section "${sectionKey}", rebuilt DOCX, ` +
+    `[reportService] Corrected section "${sectionKey}", rebuilt HTML, ` +
     `queued PDF job ${pdfJobId}`,
   );
 
@@ -1108,6 +1043,7 @@ export async function processReportChat(
 
   await updateReportSession(userId, sessionId, {
     narrativeSections: updatedNarrativeSections,
+    generatedHtml: buildData.html_content,
     reportPdfJobId: pdfJobId,
     reportPdfUrl: null, // Reset so preview re-polls
     chatHistory: [...state.chatHistory, chatMsg, assistantMsg],

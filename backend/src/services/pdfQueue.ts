@@ -25,7 +25,7 @@ const DOCUMENTS_DIR = path.join(process.cwd(), 'uploads', 'documents');
 
 /** Job data shape for PDF conversion */
 export interface PdfConversionJobData {
-  docxPath: string;
+  docxPath: string; // path to DOCX or HTML file
   originalName: string;
 }
 
@@ -48,30 +48,44 @@ export const pdfConversionQueue = new Queue<PdfConversionJobData>('pdf-conversio
 
 /**
  * Worker that processes PDF conversion jobs.
- * Sends DOCX files to Gotenberg for LibreOffice-based conversion.
- * Concurrency = 1 because LibreOffice is not thread-safe.
+ * Sends HTML files to Gotenberg Chromium endpoint, or DOCX files to LibreOffice.
+ * Concurrency = 1 to avoid overwhelming Gotenberg.
  */
 export const pdfConversionWorker = new Worker<PdfConversionJobData>(
   'pdf-conversion',
   async (job: Job<PdfConversionJobData>) => {
     const { docxPath, originalName } = job.data;
 
-    // Validate the DOCX file exists
+    // Validate the source file exists
     if (!fs.existsSync(docxPath)) {
-      throw new Error(`DOCX file not found: ${docxPath}`);
+      throw new Error(`Source file not found: ${docxPath}`);
     }
 
     await job.updateProgress(10);
 
+    const isHtml = originalName.endsWith('.html') || docxPath.endsWith('.html');
+
     // Build multipart form data for Gotenberg
     const fileBuffer = fs.readFileSync(docxPath);
     const formData = new FormData();
-    formData.append('files', new Blob([fileBuffer]), originalName);
+
+    let gotenbergUrl: string;
+
+    if (isHtml) {
+      // HTML -> PDF via Gotenberg Chromium endpoint
+      // Gotenberg expects the HTML file to be named "index.html"
+      formData.append('files', new Blob([fileBuffer], { type: 'text/html' }), 'index.html');
+      // Wait for Chart.js to render before capturing PDF
+      formData.append('waitDelay', '2s');
+      gotenbergUrl = `${config.GOTENBERG_URL}/forms/chromium/convert/html`;
+    } else {
+      // DOCX -> PDF via Gotenberg LibreOffice endpoint
+      formData.append('files', new Blob([fileBuffer]), originalName);
+      gotenbergUrl = `${config.GOTENBERG_URL}/forms/libreoffice/convert`;
+    }
 
     await job.updateProgress(20);
 
-    // POST to Gotenberg LibreOffice conversion endpoint
-    const gotenbergUrl = `${config.GOTENBERG_URL}/forms/libreoffice/convert`;
     const response = await fetch(gotenbergUrl, {
       method: 'POST',
       body: formData,
@@ -112,9 +126,9 @@ pdfConversionWorker.on('failed', (job, err) => {
 });
 
 /**
- * Add a DOCX file to the PDF conversion queue.
- * @param docxPath Absolute path to the uploaded DOCX file
- * @param originalName Original filename (used in Gotenberg request)
+ * Add a file to the PDF conversion queue (HTML or DOCX).
+ * @param docxPath Absolute path to the source file (HTML or DOCX)
+ * @param originalName Original filename (used to detect format and in Gotenberg request)
  * @returns The BullMQ job ID
  */
 export async function addPdfConversionJob(
@@ -122,7 +136,7 @@ export async function addPdfConversionJob(
   originalName: string,
 ): Promise<string> {
   if (!docxPath || !fs.existsSync(docxPath)) {
-    throw new Error(`Invalid DOCX path: ${docxPath}`);
+    throw new Error(`Invalid source file path: ${docxPath}`);
   }
 
   const job = await pdfConversionQueue.add('convert', {
