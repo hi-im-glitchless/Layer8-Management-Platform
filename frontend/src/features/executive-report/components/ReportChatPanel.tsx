@@ -80,7 +80,7 @@ export function ReportChatPanel({
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4 min-h-[180px]">
+        <div className="overflow-y-auto space-y-3 mb-4 min-h-[180px] max-h-[500px]">
           {chat.messages.length === 0 && (
             <div className="text-center py-8">
               <p className="text-xs text-muted-foreground">
@@ -134,7 +134,7 @@ export function ReportChatPanel({
           <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20 p-2 text-xs mb-3">
             <RefreshCw className="h-3 w-3 text-emerald-600 dark:text-emerald-400 flex-shrink-0" aria-hidden="true" />
             <span className="text-emerald-700 dark:text-emerald-300">
-              Updated: {chat.latestSectionUpdate.sectionKey.replace(/_/g, ' ')} -- rebuilding PDF...
+              Updated: {chat.latestSectionUpdate.sectionKey.replace(/_/g, ' ')}
             </span>
           </div>
         )}

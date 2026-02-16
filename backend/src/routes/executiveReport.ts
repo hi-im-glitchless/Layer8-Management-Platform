@@ -499,7 +499,6 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
     sendChatDone({
       iterationCount: state.chatIterationCount + 1,
       sectionKey: result.sectionKey,
-      pdfJobId: result.pdfJobId,
     });
 
     // Audit log

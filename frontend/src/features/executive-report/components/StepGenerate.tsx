@@ -11,8 +11,7 @@ const GENERATION_STEPS: StepDef[] = [
   { step: 'computing', message: 'Computing risk metrics...' },
   { step: 'chart_data', message: 'Preparing chart data...' },
   { step: 'narrative', message: 'Generating HTML report sections...' },
-  { step: 'assembling_html', message: 'Assembling HTML report...' },
-  { step: 'converting_pdf', message: 'Converting to PDF...' },
+  { step: 'assembling_html', message: 'Assembling final report...' },
 ]
 
 /** SSE stage name to step index mapping */
@@ -22,7 +21,6 @@ const STAGE_TO_INDEX: Record<string, number> = {
   chart_data: 2,
   narrative: 3,
   assembling_html: 4,
-  converting_pdf: 5,
 }
 
 /** Estimated percentage for each generation step */
@@ -31,8 +29,7 @@ const GENERATION_PERCENT: Record<number, number> = {
   1: 30,
   2: 45,
   3: 70,
-  4: 85,
-  5: 95,
+  4: 90,
 }
 
 interface StepGenerateProps {

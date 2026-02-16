@@ -19,7 +19,6 @@ import { config } from '../config.js';
 import { createLLMClient } from './llm/client.js';
 import { convertDocxToHtml } from './docxToHtml.js';
 import { sanitizeHtmlTextNodes, applyMappingsToHtml } from './htmlSanitizer.js';
-import { addPdfConversionJob } from './pdfQueue.js';
 import type { LLMMessage } from '../types/llm.js';
 import {
   createReportSession,
@@ -72,7 +71,7 @@ export interface ExtractionResult {
 
 /** Result from full report generation. */
 export interface GenerationResult {
-  pdfJobId: string;
+  pdfJobId?: string;
 }
 
 /** Python /report/build-section-correction-prompt response. */
@@ -416,12 +415,23 @@ export async function applyMappingsOnly(
   const { sanitizedHtml, forwardMappings, reverseMappings } =
     applyMappingsToHtml(state.uploadedHtml, mappings);
 
-  // Build backward-compat sanitized paragraphs (text-only placeholders)
-  const sanitizedParagraphs = state.sanitizedParagraphs ?? [];
+  // Rebuild sanitizedParagraphs: apply forward mappings as plain text
+  // replacements on the original paragraph text so extractFindings sees
+  // the updated mappings (not stale Presidio-only ones).
+  const sortedReplacements = Object.entries(forwardMappings)
+    .sort(([a], [b]) => b.length - a.length);
+  const sanitizedParagraphs = (state.sanitizedParagraphs ?? []).map((p) => {
+    let sanitized = p.original;
+    for (const [original, placeholder] of sortedReplacements) {
+      sanitized = sanitized.split(original).join(placeholder);
+    }
+    return { ...p, sanitized };
+  });
 
   await updateReportSession(userId, sessionId, {
     sanitizedHtml,
     entityMappings: mappings,
+    sanitizedParagraphs,
     sanitizationMappings: {
       forward: forwardMappings,
       reverse: reverseMappings,
@@ -496,7 +506,7 @@ export async function extractFindings(
 
   let llmResponse = '';
   const stream = client.generateStream(messages, {
-    maxTokens: 8192,
+    maxTokens: 16384,
     feature: 'executive-report',
   });
 
@@ -831,21 +841,14 @@ export async function generateReport(
   console.log(`[reportService] Assembled HTML report: ${buildData.html_content.length} chars`);
 
   // -----------------------------------------------------------------------
-  // Stage 5: Convert HTML to PDF via Gotenberg Chromium
+  // Stage 5: Save generated HTML (PDF conversion deferred to download)
   // -----------------------------------------------------------------------
-  sendStageEvent?.('converting_pdf', 0);
-
-  // Save HTML to a temp file for Gotenberg
   fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
   const htmlFilename = `executive_report_${sessionId}.html`;
   const htmlPath = path.join(DOCUMENTS_DIR, htmlFilename);
   fs.writeFileSync(htmlPath, buildData.html_content, 'utf-8');
 
-  const pdfJobId = await addPdfConversionJob(htmlPath, htmlFilename);
-
-  sendStageEvent?.('converting_pdf', 100);
-
-  console.log(`[reportService] Queued PDF conversion job: ${pdfJobId}`);
+  console.log(`[reportService] Saved HTML report: ${htmlPath}`);
 
   // -----------------------------------------------------------------------
   // Update session state with all generation results
@@ -857,12 +860,9 @@ export async function generateReport(
     chartConfigs: chartsData.chart_configs as Record<string, object>,
     narrativeSections: narrativeData.sections,
     generatedHtml: buildData.html_content,
-    reportPdfJobId: pdfJobId,
   });
 
-  return {
-    pdfJobId,
-  };
+  return {};
 }
 
 /**
@@ -891,7 +891,7 @@ export async function processReportChat(
   message: string,
   sendDelta: (text: string) => void,
   sendSectionUpdate: (sectionKey: string, text: string) => void,
-): Promise<{ sectionKey: string; pdfJobId: string }> {
+): Promise<{ sectionKey: string }> {
   // Step 1: Load and validate session
   const state = await getReportSession(userId, sessionId);
   if (!state) {
@@ -1067,21 +1067,17 @@ export async function processReportChat(
 
   const buildData = await buildRes.json() as BuildReportResponse;
 
-  // Save updated HTML and queue PDF conversion
+  // Save updated HTML (PDF conversion deferred to download)
   fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
   const htmlFilename = `executive_report_${sessionId}.html`;
   const htmlPath = path.join(DOCUMENTS_DIR, htmlFilename);
   fs.writeFileSync(htmlPath, buildData.html_content, 'utf-8');
 
-  // Step 10: Queue new PDF conversion via Gotenberg Chromium
-  const pdfJobId = await addPdfConversionJob(htmlPath, htmlFilename);
-
   console.log(
-    `[reportService] Corrected section "${sectionKey}", rebuilt HTML, ` +
-    `queued PDF job ${pdfJobId}`,
+    `[reportService] Corrected section "${sectionKey}", rebuilt HTML`,
   );
 
-  // Step 11: Update session state
+  // Step 10: Update session state
   const chatMsg: import('./reportWizardState.js').ReportChatMessage = {
     role: 'user',
     content: message,
@@ -1097,15 +1093,13 @@ export async function processReportChat(
   await updateReportSession(userId, sessionId, {
     narrativeSections: updatedNarrativeSections,
     generatedHtml: buildData.html_content,
-    reportPdfJobId: pdfJobId,
-    reportPdfUrl: null, // Reset so preview re-polls
     chatHistory: [...state.chatHistory, chatMsg, assistantMsg],
     chatIterationCount: state.chatIterationCount + 1,
   });
 
-  // Step 12: Emit section_update event
+  // Step 11: Emit section_update event
   sendSectionUpdate(sectionKey, revisedText);
 
-  return { sectionKey, pdfJobId };
+  return { sectionKey };
 }
 
