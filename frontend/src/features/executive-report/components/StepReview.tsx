@@ -1,12 +1,12 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Loader2, CheckCircle, RefreshCw } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import { CheckCircle, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { PdfPreview } from '@/components/ui/pdf-preview'
-import { useReportPreviewStatus, useReportSession } from '../hooks'
-import { reportApi } from '../api'
+import { Badge } from '@/components/ui/badge'
+import { HtmlReportPreview } from './HtmlReportPreview'
+import { useReportSession } from '../hooks'
 import { ReportChatPanel } from './ReportChatPanel'
+import type { EntityMapping } from '../types'
 
 interface StepReviewProps {
   sessionId: string
@@ -14,41 +14,68 @@ interface StepReviewProps {
   onRegenerate: () => void
 }
 
+/**
+ * Build a placeholder -> originalValue lookup from entity mappings
+ * for frontend-only de-sanitization.
+ */
+function buildDesanitizeMap(mappings: EntityMapping[]): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const m of mappings) {
+    if (m.placeholder && m.originalValue) {
+      map[m.placeholder] = m.originalValue
+    }
+  }
+  return map
+}
+
+/**
+ * Apply de-sanitization: replace all [ENTITY_TYPE_N] placeholders
+ * with their original values using simple string replacement.
+ */
+function desanitizeHtml(html: string, desanitizeMap: Record<string, string>): string {
+  let result = html
+  for (const [placeholder, originalValue] of Object.entries(desanitizeMap)) {
+    result = result.replaceAll(placeholder, originalValue)
+  }
+  return result
+}
+
 export function StepReview({ sessionId, onSatisfied, onRegenerate }: StepReviewProps) {
-  const previewQuery = useReportPreviewStatus(sessionId)
   const sessionQuery = useReportSession(sessionId)
-  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [showRealValues, setShowRealValues] = useState(false)
 
-  const status = previewQuery.data?.status
-  const pdfUrl = previewQuery.data?.pdfUrl
-  const previewError = previewQuery.data?.error
-
-  const fullPdfUrl = pdfUrl ? reportApi.pdfDownloadUrl(pdfUrl) : null
-  const isConverting = status === 'queued' || status === 'active'
-  const isCompleted = status === 'completed' && !!pdfUrl
-  const isFailed = status === 'failed'
-
+  const generatedHtml = sessionQuery.data?.generatedHtml ?? ''
+  const entityMappings = sessionQuery.data?.entityMappings ?? []
   const chatIterationCount = sessionQuery.data?.chatIterationCount ?? 0
+  const hasHtml = !!generatedHtml
 
-  // When a section_update arrives, trigger PDF re-poll by showing
-  // regenerating state and invalidating the preview query
-  const handleSectionUpdate = useCallback(
-    (_sectionKey: string, _text: string) => {
-      setIsRegenerating(true)
-      // Refetch session to get the new pdfJobId
-      sessionQuery.refetch()
-      // Refetch preview status to start polling the new PDF job
-      previewQuery.refetch()
-    },
-    [sessionQuery, previewQuery],
+  // Build de-sanitization map from entity mappings
+  const desanitizeMap = useMemo(
+    () => buildDesanitizeMap(entityMappings),
+    [entityMappings],
   )
 
-  // Clear regenerating overlay once PDF is completed
-  useEffect(() => {
-    if (isRegenerating && isCompleted) {
-      setIsRegenerating(false)
+  // Compute the HTML to display based on toggle state
+  const displayHtml = useMemo(() => {
+    if (!generatedHtml) return ''
+    if (showRealValues) {
+      return desanitizeHtml(generatedHtml, desanitizeMap)
     }
-  }, [isRegenerating, isCompleted])
+    return generatedHtml
+  }, [generatedHtml, showRealValues, desanitizeMap])
+
+  // When a section_update arrives via chat, refetch session to get updated generatedHtml
+  const handleSectionUpdate = useCallback(
+    (_sectionKey: string, _text: string) => {
+      sessionQuery.refetch()
+    },
+    [sessionQuery],
+  )
+
+  // Toggle de-sanitization
+  const toggleDesanitize = useCallback(() => {
+    setShowRealValues((prev) => !prev)
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -61,75 +88,34 @@ export function StepReview({ sessionId, onSatisfied, onRegenerate }: StepReviewP
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Split layout: PDF (left/top 60%) + Chat (right/bottom 40%) */}
+          {/* Toolbar */}
+          <div className="flex items-center gap-3 mb-4">
+            <Button
+              variant={showRealValues ? 'default' : 'outline'}
+              size="sm"
+              onClick={toggleDesanitize}
+              disabled={!hasHtml}
+            >
+              {showRealValues ? (
+                <EyeOff className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              ) : (
+                <Eye className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              )}
+              {showRealValues ? 'Show Sanitized' : 'Show Real Values'}
+            </Button>
+            <Badge variant={showRealValues ? 'destructive' : 'secondary'} className="text-xs">
+              {showRealValues ? 'De-sanitized' : 'Sanitized'}
+            </Badge>
+          </div>
+
+          {/* Split layout: HTML preview (left/top 60%) + Chat (right/bottom 40%) */}
           <div className="flex flex-col lg:flex-row gap-6">
-            {/* PDF Preview Panel */}
+            {/* HTML Preview Panel */}
             <div className="flex-[3] min-w-0">
-              {/* PDF conversion in progress */}
-              {(isConverting || isRegenerating) && (
-                <div className="relative">
-                  {isRegenerating && isCompleted && fullPdfUrl && (
-                    <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-sm flex items-center justify-center rounded-lg">
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                        <p className="text-sm font-medium text-muted-foreground">Regenerating PDF...</p>
-                      </div>
-                    </div>
-                  )}
-                  {isRegenerating && isCompleted && fullPdfUrl ? (
-                    <PdfPreview
-                      url={fullPdfUrl}
-                      className="min-h-[600px]"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center gap-4 py-12">
-                      <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                      <div className="text-center">
-                        <p className="text-sm font-medium">Converting report to PDF...</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          This may take 30-60 seconds for large reports.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* PDF conversion failed */}
-              {isFailed && !isRegenerating && (
-                <div className="flex flex-col items-center gap-4 py-12">
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center">
-                    <p className="text-sm text-destructive font-medium">PDF conversion failed</p>
-                    {previewError && (
-                      <p className="text-xs text-muted-foreground mt-2">{previewError}</p>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-4"
-                      onClick={() => previewQuery.refetch()}
-                    >
-                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-                      Retry
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* No PDF yet (waiting for initial data) */}
-              {!pdfUrl && !isConverting && !isFailed && !isRegenerating && previewQuery.isLoading && (
-                <div className="space-y-4">
-                  <Skeleton className="h-[500px] w-full rounded-lg" />
-                </div>
-              )}
-
-              {/* PDF Preview */}
-              {isCompleted && !isRegenerating && fullPdfUrl && (
-                <PdfPreview
-                  url={fullPdfUrl}
-                  className="min-h-[600px]"
-                />
-              )}
+              <HtmlReportPreview
+                html={displayHtml}
+                className="min-h-[600px]"
+              />
             </div>
 
             {/* Chat Panel */}
@@ -156,7 +142,7 @@ export function StepReview({ sessionId, onSatisfied, onRegenerate }: StepReviewP
         <Button
           variant="gradient"
           onClick={onSatisfied}
-          disabled={!isCompleted || isRegenerating}
+          disabled={!hasHtml}
           className="min-w-[180px]"
         >
           <CheckCircle className="h-4 w-4 mr-2" aria-hidden="true" />
