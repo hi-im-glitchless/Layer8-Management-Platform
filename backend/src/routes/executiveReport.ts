@@ -1,18 +1,17 @@
 /**
  * Executive Report routes -- report wizard pipeline endpoints.
  *
- * POST /api/report/upload               -- Upload DOCX + create report session
- * POST /api/report/sanitize             -- Trigger paragraph-by-paragraph sanitization
- * POST /api/report/update-deny-list     -- Add/remove deny list terms, re-sanitize
- * POST /api/report/approve-sanitization -- Lock sanitization, trigger Pass 1 extraction
- * POST /api/report/update-metadata      -- Edit metadata fields before generation
- * POST /api/report/generate             -- Full generation pipeline (SSE streaming)
- * POST /api/report/chat                 -- Chat corrections (SSE streaming)
- * GET  /api/report/session/:sessionId   -- Get full report wizard state
- * GET  /api/report/session              -- Get user's active report session
- * DELETE /api/report/session/:sessionId -- Delete report session
- * GET  /api/report/preview/:sessionId   -- Get PDF status/URL
- * GET  /api/report/download/:sessionId  -- Download DOCX file
+ * POST /api/report/upload                  -- Upload DOCX, auto-sanitize HTML, return entity mappings
+ * POST /api/report/update-entity-mappings  -- Update entity mappings, re-sanitize HTML
+ * POST /api/report/approve-sanitization    -- Lock sanitization, trigger Pass 1 extraction
+ * POST /api/report/update-metadata         -- Edit metadata fields before generation
+ * POST /api/report/generate                -- Full generation pipeline (SSE streaming)
+ * POST /api/report/chat                    -- Chat corrections (SSE streaming)
+ * GET  /api/report/session/:sessionId      -- Get full report wizard state (HTML fields)
+ * GET  /api/report/session                 -- Get user's active report session
+ * DELETE /api/report/session/:sessionId    -- Delete report session
+ * GET  /api/report/preview/:sessionId      -- Get PDF status/URL
+ * GET  /api/report/download/:sessionId     -- Download PDF file
  *
  * All endpoints require authentication and validate session ownership.
  */
@@ -26,11 +25,11 @@ import {
   getActiveReportSession,
   updateReportSession,
   deleteReportSession,
+  type EntityMapping,
 } from '@/services/reportWizardState.js';
 import {
   uploadReport,
   sanitizeReport,
-  updateDenyList,
   extractFindings,
   generateReport,
   processReportChat,
@@ -62,26 +61,24 @@ const upload = multer({
 // Zod schemas
 // ---------------------------------------------------------------------------
 
-const sessionIdSchema = z.object({
-  sessionId: z.string().uuid('sessionId must be a valid UUID'),
-});
-
 const sessionIdParamSchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
 });
 
-const sanitizeBodySchema = z.object({
-  sessionId: z.string().uuid('sessionId must be a valid UUID'),
-});
-
-const denyListBodySchema = z.object({
-  sessionId: z.string().uuid('sessionId must be a valid UUID'),
-  terms: z.array(z.string().min(1).max(200)).min(1).max(100),
-  action: z.enum(['add', 'remove']),
-});
-
 const approveSanitizationBodySchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
+});
+
+const entityMappingSchema = z.object({
+  originalValue: z.string().min(1).max(500),
+  placeholder: z.string().min(1).max(200),
+  entityType: z.string().min(1).max(100),
+  isManual: z.boolean(),
+});
+
+const updateEntityMappingsBodySchema = z.object({
+  sessionId: z.string().uuid('sessionId must be a valid UUID'),
+  mappings: z.array(entityMappingSchema).max(1000),
 });
 
 const updateMetadataBodySchema = z.object({
@@ -136,9 +133,9 @@ function handleReportError(res: Response, error: unknown, context: string): void
 // ---------------------------------------------------------------------------
 
 /**
- * Upload a DOCX technical report and create a new report wizard session.
+ * Upload a DOCX technical report, auto-sanitize to HTML, and create a report session.
  * Multipart form: file (DOCX)
- * Returns { sessionId, detectedLanguage, currentStep: "upload" }
+ * Returns { sessionId, detectedLanguage, sanitizedHtml, entityMappings, currentStep }
  */
 router.post(
   '/upload',
@@ -183,7 +180,9 @@ router.post(
       res.json({
         sessionId: result.sessionId,
         detectedLanguage: result.detectedLanguage,
-        currentStep: 'upload',
+        sanitizedHtml: result.sanitizedHtml,
+        entityMappings: result.entityMappings,
+        currentStep: 'sanitize-review',
       });
     } catch (error) {
       handleReportError(res, error, 'Report upload');
@@ -192,88 +191,55 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
-// POST /api/report/sanitize
+// POST /api/report/update-entity-mappings
 // ---------------------------------------------------------------------------
 
 /**
- * Trigger paragraph-by-paragraph sanitization for the uploaded report.
- * Body: { sessionId }
- * Returns { sanitizedParagraphs, sanitizationMappings }
+ * Update entity mappings and re-sanitize HTML with the updated mappings.
+ * Body: { sessionId, mappings: EntityMapping[] }
+ * Returns { sanitizedHtml, entityMappings }
  */
-router.post('/sanitize', requireAuth, async (req: Request, res: Response) => {
+router.post('/update-entity-mappings', requireAuth, async (req: Request, res: Response) => {
   try {
-    const body = sanitizeBodySchema.safeParse(req.body);
+    const body = updateEntityMappingsBodySchema.safeParse(req.body);
     if (!body.success) {
       return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
     }
 
     const userId = req.session.userId!;
-    const { sessionId } = body.data;
+    const { sessionId, mappings } = body.data;
 
     const state = await getReportSession(userId, sessionId);
     if (!state) {
       return res.status(404).json({ error: 'Report session not found' });
     }
 
+    // Store the updated mappings in the session
+    await updateReportSession(userId, sessionId, {
+      entityMappings: mappings as EntityMapping[],
+    });
+
+    // Re-sanitize HTML with the current counter map
     const result = await sanitizeReport(userId, sessionId);
 
     // Audit log
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     await logAuditEvent({
       userId,
-      action: 'report.sanitize',
+      action: 'report.update_entity_mappings',
       details: {
         sessionId,
-        paragraphCount: result.sanitizedParagraphs.length,
-        mappingCount: Object.keys(result.sanitizationMappings.forward).length,
+        mappingCount: mappings.length,
       },
       ipAddress,
     });
 
-    res.json(result);
-  } catch (error) {
-    handleReportError(res, error, 'Report sanitization');
-  }
-});
-
-// ---------------------------------------------------------------------------
-// POST /api/report/update-deny-list
-// ---------------------------------------------------------------------------
-
-/**
- * Add or remove deny list terms and re-sanitize affected paragraphs.
- * Body: { sessionId, terms: string[], action: 'add' | 'remove' }
- * Returns { updatedParagraphs }
- */
-router.post('/update-deny-list', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const body = denyListBodySchema.safeParse(req.body);
-    if (!body.success) {
-      return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
-    }
-
-    const userId = req.session.userId!;
-    const { sessionId, terms, action } = body.data;
-
-    const state = await getReportSession(userId, sessionId);
-    if (!state) {
-      return res.status(404).json({ error: 'Report session not found' });
-    }
-
-    const result = await updateDenyList(userId, sessionId, terms, action);
-
-    // Audit log
-    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
-    await logAuditEvent({
-      userId,
-      action: 'report.update_deny_list',
-      details: { sessionId, terms, denyListAction: action },
-      ipAddress,
+    res.json({
+      sanitizedHtml: result.sanitizedHtml,
+      entityMappings: result.entityMappings,
     });
-
-    res.json(result);
   } catch (error) {
-    handleReportError(res, error, 'Deny list update');
+    handleReportError(res, error, 'Entity mappings update');
   }
 });
 
@@ -430,7 +396,6 @@ router.post('/generate', requireAuth, async (req: Request, res: Response) => {
 
     // Send completion event
     sendDone({
-      reportDocxPath: result.reportDocxPath,
       pdfJobId: result.pdfJobId,
     });
 
@@ -573,7 +538,8 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
 
 /**
  * Get full report wizard state for page reload / navigation restoration.
- * Returns the complete ReportWizardState (excluding base64 for payload size).
+ * Returns the complete ReportWizardState including HTML fields.
+ * Excludes base64 file content to keep payload manageable.
  */
 router.get('/session/:sessionId', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -590,13 +556,15 @@ router.get('/session/:sessionId', requireAuth, async (req: Request, res: Respons
       return res.status(404).json({ error: 'Report session not found' });
     }
 
-    // Exclude large fields from the response to keep payload manageable
+    // Exclude base64 file content from response (large payload)
     const safeState = {
       ...state,
       uploadedFile: {
         ...state.uploadedFile,
         base64: state.uploadedFile.base64 ? '[present]' : '',
       },
+      // HTML fields are included for frontend rendering:
+      // uploadedHtml, sanitizedHtml, entityMappings, generatedHtml, chartConfigs
     };
 
     res.json(safeState);
@@ -673,26 +641,9 @@ router.delete('/session/:sessionId', requireAuth, async (req: Request, res: Resp
       }
     }
 
-    // Clean up generated report DOCX
-    if (state?.reportDocxPath) {
-      try {
-        if (fs.existsSync(state.reportDocxPath)) {
-          fs.unlinkSync(state.reportDocxPath);
-        }
-        // Also clean up the PDF (same name with .pdf extension)
-        const pdfPath = state.reportDocxPath.replace(/\.docx$/i, '.pdf');
-        if (fs.existsSync(pdfPath)) {
-          fs.unlinkSync(pdfPath);
-        }
-      } catch (cleanupErr) {
-        console.warn('[executiveReport route] Failed to clean up report files:', cleanupErr);
-      }
-    }
-
-    // Clean up PDF file referenced by URL if different from derived path
+    // Clean up PDF file
     if (state?.reportPdfUrl) {
       try {
-        // reportPdfUrl is a relative URL like /uploads/documents/filename.pdf
         const pdfFilePath = state.reportPdfUrl.startsWith('/')
           ? `${process.cwd()}${state.reportPdfUrl}`
           : state.reportPdfUrl;
@@ -748,7 +699,6 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
         status: state.reportPdfUrl ? 'completed' : 'no_job',
         progress: state.reportPdfUrl ? 100 : 0,
         pdfUrl: state.reportPdfUrl,
-        reportDocxPath: state.reportDocxPath,
       });
     }
 
@@ -757,7 +707,6 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
     const response: Record<string, unknown> = {
       status: jobStatus.status,
       progress: jobStatus.progress ?? 0,
-      reportDocxPath: state.reportDocxPath,
     };
 
     if (jobStatus.status === 'completed' && jobStatus.pdfPath) {
@@ -796,7 +745,7 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
 // ---------------------------------------------------------------------------
 
 /**
- * Download the generated executive report DOCX file.
+ * Download the generated executive report as PDF.
  */
 router.get('/download/:sessionId', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -815,8 +764,8 @@ router.get('/download/:sessionId', requireAuth, async (req: Request, res: Respon
 
     const filePath = await getReportDownloadPath(userId, sessionId);
     const filename = state.metadata.clientName
-      ? `executive_report_${state.metadata.clientName.replace(/[^a-zA-Z0-9-_]/g, '_')}.docx`
-      : `executive_report_${sessionId}.docx`;
+      ? `executive_report_${state.metadata.clientName.replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
+      : `executive_report_${sessionId}.pdf`;
 
     // Audit log
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
@@ -831,10 +780,7 @@ router.get('/download/:sessionId', requireAuth, async (req: Request, res: Respon
       ipAddress,
     });
 
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    );
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     const fileStream = fs.createReadStream(filePath);
