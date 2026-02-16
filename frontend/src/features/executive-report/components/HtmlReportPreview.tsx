@@ -158,14 +158,85 @@ document.addEventListener('mouseup', function(e) {
     return html.replace(/<html([^>]*)>/, `<html$1><head>${selectionScript}</head>`)
   }
 
-  // Wrap bare HTML in a document
+  // Wrap bare HTML in a document with comprehensive styling for mammoth output
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; line-height: 1.6; color: #1a1a1a; }
-    [data-entity] { background: #fef3c7; border-radius: 2px; padding: 0 2px; }
+    body {
+      font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+      padding: 32px 40px;
+      line-height: 1.7;
+      color: #1a1a1a;
+      max-width: 900px;
+      margin: 0 auto;
+      font-size: 14px;
+    }
+
+    /* Headings */
+    h1 { font-size: 1.8em; font-weight: 700; margin: 1.4em 0 0.6em; color: #111; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.3em; }
+    h2 { font-size: 1.45em; font-weight: 600; margin: 1.3em 0 0.5em; color: #1a1a1a; }
+    h3 { font-size: 1.2em; font-weight: 600; margin: 1.2em 0 0.4em; color: #333; }
+    h4 { font-size: 1.05em; font-weight: 600; margin: 1em 0 0.3em; color: #444; }
+    h5, h6 { font-size: 1em; font-weight: 600; margin: 0.8em 0 0.3em; color: #555; }
+
+    /* Title / subtitle from DOCX */
+    h1.doc-title { font-size: 2em; text-align: center; border-bottom: none; margin-bottom: 0.2em; }
+    h2.doc-subtitle { font-size: 1.3em; text-align: center; color: #666; font-weight: 400; margin-top: 0; }
+
+    /* Paragraphs */
+    p { margin: 0.5em 0; }
+
+    /* Tables */
+    table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.92em; }
+    th, td { border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; font-weight: 600; color: #374151; }
+    tr:nth-child(even) { background: #f9fafb; }
+    tr:hover { background: #f0f1f3; }
+
+    /* Lists */
+    ul, ol { margin: 0.5em 0 0.5em 1.5em; padding: 0; }
+    li { margin: 0.25em 0; }
+    ul > li { list-style-type: disc; }
+    ol > li { list-style-type: decimal; }
+
+    /* Blockquotes */
+    blockquote { border-left: 4px solid #d1d5db; margin: 1em 0; padding: 0.5em 1em; color: #4b5563; background: #f9fafb; }
+    blockquote.intense { border-left-color: #3b82f6; background: #eff6ff; }
+
+    /* Inline styles */
+    strong, b { font-weight: 600; }
+    em, i { font-style: italic; }
+
+    /* TOC entries */
+    .toc-heading { color: #374151; }
+    .toc-entry { color: #6b7280; padding-left: 0.5em; }
+    .toc-level-2 { padding-left: 1.5em; }
+    .toc-level-3 { padding-left: 2.5em; }
+
+    /* Images placeholder text */
+    p:has(> img), img { display: none; }
+
+    /* Entity highlights */
+    .entity { background: #fef3c7; border-radius: 2px; padding: 0 2px; cursor: default; }
+    .entity-person { background: #dbeafe; }
+    .entity-ip-address, .entity-ip { background: #fce7f3; }
+    .entity-location { background: #d1fae5; }
+    .entity-organization, .entity-org { background: #ede9fe; }
+    .entity-date-time, .entity-date { background: #fef9c3; }
+    .entity-phone-number, .entity-phone { background: #ffedd5; }
+    .entity-email-address, .entity-email { background: #cffafe; }
+    .entity-url { background: #e0e7ff; }
+    [data-entity] { border-radius: 2px; padding: 0 2px; }
+
+    /* Horizontal rules */
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5em 0; }
+
+    /* Code blocks (rare in DOCX but possible) */
+    pre, code { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.9em; background: #f3f4f6; border-radius: 3px; }
+    pre { padding: 12px 16px; overflow-x: auto; }
+    code { padding: 1px 4px; }
   </style>
   ${selectionScript}
 </head>

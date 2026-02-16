@@ -115,6 +115,7 @@ function buildPlaceholder(entityType: string, index: number): string {
  * @param sessionId - Session ID for Presidio mapping storage
  * @param counterMap - Session-scoped counter map (mutated in place and returned)
  * @param language - Detected language for Presidio (default 'en')
+ * @param manualMappings - User-added manual entity mappings to apply after Presidio detection
  * @returns Sanitized HTML with entity spans, mappings, and backward-compat paragraphs
  */
 export async function sanitizeHtmlTextNodes(
@@ -122,6 +123,7 @@ export async function sanitizeHtmlTextNodes(
   sessionId: string,
   counterMap: Record<string, Record<string, number>>,
   language: string = 'en',
+  manualMappings: EntityMapping[] = [],
 ): Promise<SanitizeHtmlResult> {
   const root = parse(html, {
     comment: true,
@@ -244,6 +246,51 @@ export async function sanitizeHtmlTextNodes(
         sanitized: originalText,
         entities: [],
       });
+    }
+  }
+
+  // Second pass: apply manual mappings that Presidio didn't detect.
+  // For each manual mapping, find all remaining occurrences in text nodes
+  // and wrap them in entity spans.
+  if (manualMappings.length > 0) {
+    const manualTextNodes: { node: TextNode; parent: HTMLElement }[] = [];
+    collectTextNodes(root, manualTextNodes);
+
+    for (const mapping of manualMappings) {
+      const { originalValue, entityType } = mapping;
+      if (!originalValue || !entityType) continue;
+
+      // Get or assign index for this manual entity
+      const index = getOrAssignIndex(counterMap, entityType, originalValue);
+      const placeholder = buildPlaceholder(entityType, index);
+
+      // Track the mapping if not already tracked
+      if (!forwardMappings[originalValue]) {
+        forwardMappings[originalValue] = placeholder;
+        reverseMappings[placeholder] = originalValue;
+        entityMappings.push({
+          originalValue,
+          placeholder,
+          entityType,
+          isManual: true,
+        });
+      }
+
+      // Find and replace all occurrences in text nodes
+      const span = buildEntitySpan(entityType, placeholder, originalValue);
+      const freshNodes: { node: TextNode; parent: HTMLElement }[] = [];
+      collectTextNodes(root, freshNodes);
+
+      for (const { node, parent } of freshNodes) {
+        const text = node.rawText;
+        if (!text.includes(originalValue)) continue;
+
+        // Replace all occurrences in this text node
+        const replaced = text.split(originalValue).join(span);
+        if (replaced !== text) {
+          replaceTextNodeWithHtml(parent, node, replaced);
+        }
+      }
     }
   }
 
