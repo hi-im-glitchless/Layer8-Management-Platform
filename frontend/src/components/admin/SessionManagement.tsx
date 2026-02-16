@@ -117,7 +117,7 @@ export function SessionManagement() {
                 <TableRow key={session.sessionId} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      <Activity className="h-4 w-4 text-green-600" />
+                      <Activity className="h-4 w-4 text-success" />
                       {session.username}
                     </div>
                   </TableCell>

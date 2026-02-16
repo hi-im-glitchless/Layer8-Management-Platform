@@ -124,7 +124,7 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     {user.isActive ? (
-                      <Badge variant="default" className="gap-1 bg-green-600">
+                      <Badge variant="default" className="gap-1 bg-success">
                         <Check className="h-3 w-3" />
                         Active
                       </Badge>
@@ -137,7 +137,7 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     {user.totpEnabled ? (
-                      <Badge variant="default" className="gap-1 bg-blue-600">
+                      <Badge variant="default" className="gap-1 bg-info">
                         Enabled
                       </Badge>
                     ) : (

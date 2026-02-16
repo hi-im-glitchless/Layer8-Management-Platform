@@ -106,7 +106,7 @@ export function Sidebar() {
           />
         )}
         {collapsed && (
-          <div className="text-blue-500 text-xl font-bold">8</div>
+          <div className="text-accent text-xl font-bold">8</div>
         )}
       </div>
 
@@ -131,7 +131,7 @@ export function Sidebar() {
                     cn(
                       'flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200',
                       isActive
-                        ? 'bg-sidebar-accent text-sidebar-accent-foreground border-l-[3px] border-blue-500 pl-[13px]'
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground border-l-[3px] border-accent pl-[13px]'
                         : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
                       collapsed && 'justify-center'
                     )
