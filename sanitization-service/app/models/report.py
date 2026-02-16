@@ -86,12 +86,12 @@ class ComputeMetricsResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# POST /report/render-charts
+# POST /report/compute-chart-data
 # ---------------------------------------------------------------------------
 
 
-class RenderChartsRequest(BaseModel):
-    """Request body for rendering report charts."""
+class ComputeChartDataRequest(BaseModel):
+    """Request body for computing Chart.js chart configurations."""
 
     severity_counts: dict = Field(
         ..., description="Severity label -> count"
@@ -110,12 +110,12 @@ class RenderChartsRequest(BaseModel):
     )
 
 
-class RenderChartsResponse(BaseModel):
-    """Response with base64-encoded chart PNG images."""
+class ComputeChartDataResponse(BaseModel):
+    """Response with Chart.js JSON config objects."""
 
-    charts: dict[str, str] = Field(
+    chart_configs: dict[str, dict] = Field(
         default_factory=dict,
-        description="Chart name -> base64-encoded PNG image",
+        description="Chart ID -> Chart.js config object",
     )
 
 

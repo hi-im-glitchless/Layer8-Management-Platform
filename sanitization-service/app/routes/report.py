@@ -3,10 +3,10 @@
 POST /report/build-extraction-prompt  -- Build Pass 1 LLM prompt from sanitized paragraphs
 POST /report/validate-extraction      -- Validate LLM extraction JSON response
 POST /report/compute-metrics          -- Compute risk score, severity, compliance scores
-POST /report/render-charts            -- Render charts as base64 PNG images
+POST /report/compute-chart-data       -- Compute Chart.js JSON configs for all charts
 POST /report/build-narrative-prompt   -- Build Pass 2 LLM prompt from computed data
 POST /report/validate-narrative       -- Validate LLM narrative JSON response
-POST /report/build-report             -- Build DOCX report from skeleton + data + charts
+POST /report/build-report             -- Build HTML report from skeleton + narrative + charts
 POST /report/extract-supplementary   -- Extract headers, footers, text boxes from DOCX
 """
 
@@ -23,12 +23,12 @@ from app.models.report import (
     BuildNarrativePromptResponse,
     BuildReportRequest,
     BuildReportResponse,
+    ComputeChartDataRequest,
+    ComputeChartDataResponse,
     ComputeMetricsRequest,
     ComputeMetricsResponse,
     ExtractSupplementaryRequest,
     ExtractSupplementaryResponse,
-    RenderChartsRequest,
-    RenderChartsResponse,
     SectionCorrectionPromptRequest,
     SectionCorrectionPromptResponse,
     ValidateExtractionRequest,
@@ -38,7 +38,7 @@ from app.models.report import (
     ValidateSectionCorrectionRequest,
     ValidateSectionCorrectionResponse,
 )
-from app.services.chart_renderer import ChartRenderer
+from app.services.chart_data import compute_chart_configs
 from app.services.compliance_matrix import (
     compute_compliance_scores,
     compute_risk_score,
@@ -63,9 +63,6 @@ from app.services.report_narrative_prompt import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Shared chart renderer instance
-_chart_renderer = ChartRenderer()
 
 
 # ---------------------------------------------------------------------------
@@ -217,62 +214,41 @@ async def compute_metrics(
 
 
 # ---------------------------------------------------------------------------
-# POST /report/render-charts
+# POST /report/compute-chart-data
 # ---------------------------------------------------------------------------
 
 
 @router.post(
-    "/render-charts",
-    response_model=RenderChartsResponse,
+    "/compute-chart-data",
+    response_model=ComputeChartDataResponse,
 )
-async def render_charts(
-    body: RenderChartsRequest,
-) -> RenderChartsResponse:
-    """Render all report charts as base64-encoded PNG images.
+async def compute_chart_data(
+    body: ComputeChartDataRequest,
+) -> ComputeChartDataResponse:
+    """Compute Chart.js JSON config objects for all report charts.
 
-    Returns 5-6 chart images: severity pie, category bar, stacked severity,
-    compliance radar, risk score card, and optionally a top vulnerabilities bar.
+    Returns 6 chart configs: severity_pie, category_bar, stacked_severity,
+    compliance_radar, risk_score, and top_vulnerabilities. Each config is
+    a valid Chart.js constructor argument rendered client-side by Chart.js.
     """
-    charts: dict[str, str] = {}
-
     try:
-        # 1. Risk Score Card (donut gauge)
-        risk_png = _chart_renderer.render_risk_score_card(
-            body.risk_score, "Global Risk Score"
+        chart_configs = compute_chart_configs(
+            severity_counts=body.severity_counts,
+            category_counts=body.category_counts,
+            stacked_data=body.stacked_data,
+            compliance_scores=body.compliance_scores,
+            risk_score=body.risk_score,
         )
-        charts["Risk Score Card"] = base64.b64encode(risk_png).decode("ascii")
-
-        # 2. Severity Distribution (pie chart)
-        severity_png = _chart_renderer.render_severity_pie(body.severity_counts)
-        charts["Severity Distribution"] = base64.b64encode(severity_png).decode("ascii")
-
-        # 3. Category Bar (horizontal bar chart)
-        category_png = _chart_renderer.render_category_bar(body.category_counts)
-        charts["Category Bar"] = base64.b64encode(category_png).decode("ascii")
-
-        # 4. Stacked Severity (stacked bar chart)
-        stacked_png = _chart_renderer.render_stacked_severity_bar(body.stacked_data)
-        charts["Stacked Severity"] = base64.b64encode(stacked_png).decode("ascii")
-
-        # 5. Compliance Radar
-        radar_png = _chart_renderer.render_compliance_radar(body.compliance_scores)
-        charts["Compliance Radar"] = base64.b64encode(radar_png).decode("ascii")
-
-        # 6. Top Vulnerabilities (reuse category bar for top-N)
-        # Use severity counts as a simple top vulnerabilities chart
-        top_vuln_png = _chart_renderer.render_category_bar(body.severity_counts)
-        charts["Top Vulnerabilities"] = base64.b64encode(top_vuln_png).decode("ascii")
-
     except Exception as exc:
-        logger.error("Chart rendering failed: %s", exc, exc_info=True)
+        logger.error("Chart data computation failed: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Chart rendering failed: {exc}",
+            detail=f"Chart data computation failed: {exc}",
         )
 
-    logger.info("Rendered %d charts", len(charts))
+    logger.info("Computed %d chart configs", len(chart_configs))
 
-    return RenderChartsResponse(charts=charts)
+    return ComputeChartDataResponse(chart_configs=chart_configs)
 
 
 # ---------------------------------------------------------------------------
