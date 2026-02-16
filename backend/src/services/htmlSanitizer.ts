@@ -249,47 +249,79 @@ export async function sanitizeHtmlTextNodes(
     }
   }
 
-  // Second pass: apply manual mappings that Presidio didn't detect.
-  // For each manual mapping, find all remaining occurrences in text nodes
-  // and wrap them in entity spans.
-  if (manualMappings.length > 0) {
-    const manualTextNodes: { node: TextNode; parent: HTMLElement }[] = [];
-    collectTextNodes(root, manualTextNodes);
+  // Second pass: global coverage for ALL known entity values.
+  // Presidio first pass only tags entities at the specific offsets it detected.
+  // If "CompanyX" appears 10 times and Presidio catches 3, the other 7 are
+  // silently missed. This pass finds and replaces ALL remaining occurrences
+  // of every known entity value (both Presidio-detected and manual mappings).
 
-    for (const mapping of manualMappings) {
-      const { originalValue, entityType } = mapping;
-      if (!originalValue || !entityType) continue;
+  // Build the full set of values to replace globally
+  const globalValues: Map<string, { entityType: string; placeholder: string; span: string; isManual: boolean }> = new Map();
 
-      // Get or assign index for this manual entity
-      const index = getOrAssignIndex(counterMap, entityType, originalValue);
-      const placeholder = buildPlaceholder(entityType, index);
+  // Add manual mappings first (these may not be in forwardMappings yet)
+  for (const mapping of manualMappings) {
+    const { originalValue, entityType } = mapping;
+    if (!originalValue || !entityType) continue;
 
-      // Track the mapping if not already tracked
-      if (!forwardMappings[originalValue]) {
-        forwardMappings[originalValue] = placeholder;
-        reverseMappings[placeholder] = originalValue;
-        entityMappings.push({
-          originalValue,
-          placeholder,
-          entityType,
-          isManual: true,
-        });
-      }
+    const index = getOrAssignIndex(counterMap, entityType, originalValue);
+    const placeholder = buildPlaceholder(entityType, index);
 
-      // Find and replace all occurrences in text nodes
-      const span = buildEntitySpan(entityType, placeholder, originalValue);
+    // Track the mapping if not already tracked
+    if (!forwardMappings[originalValue]) {
+      forwardMappings[originalValue] = placeholder;
+      reverseMappings[placeholder] = originalValue;
+      entityMappings.push({
+        originalValue,
+        placeholder,
+        entityType,
+        isManual: true,
+      });
+    }
+
+    globalValues.set(originalValue, {
+      entityType,
+      placeholder,
+      span: buildEntitySpan(entityType, placeholder, originalValue),
+      isManual: true,
+    });
+  }
+
+  // Add Presidio-detected entities for global coverage
+  for (const mapping of entityMappings) {
+    if (globalValues.has(mapping.originalValue)) continue;
+    globalValues.set(mapping.originalValue, {
+      entityType: mapping.entityType,
+      placeholder: mapping.placeholder,
+      span: buildEntitySpan(mapping.entityType, mapping.placeholder, mapping.originalValue),
+      isManual: false,
+    });
+  }
+
+  // Sort by value length descending so longer matches take priority
+  const sortedValues = [...globalValues.entries()].sort(
+    (a, b) => b[0].length - a[0].length,
+  );
+
+  if (sortedValues.length > 0) {
+    // Loop until no more replacements are made (set_content invalidates child nodes)
+    let moreReplacements = true;
+    let safetyLimit = 500;
+    while (moreReplacements && safetyLimit-- > 0) {
+      moreReplacements = false;
       const freshNodes: { node: TextNode; parent: HTMLElement }[] = [];
       collectTextNodes(root, freshNodes);
 
       for (const { node, parent } of freshNodes) {
         const text = node.rawText;
-        if (!text.includes(originalValue)) continue;
-
-        // Replace all occurrences in this text node
-        const replaced = text.split(originalValue).join(span);
-        if (replaced !== text) {
-          replaceTextNodeWithHtml(parent, node, replaced);
+        for (const [value, { span }] of sortedValues) {
+          if (text.includes(value)) {
+            const replaced = text.split(value).join(span);
+            replaceTextNodeWithHtml(parent, node, replaced);
+            moreReplacements = true;
+            break; // This node is invalidated, need to re-collect
+          }
         }
+        if (moreReplacements) break; // Re-collect from root
       }
     }
   }

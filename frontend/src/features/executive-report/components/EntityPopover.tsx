@@ -42,7 +42,7 @@ export function EntityPopover({
   )
   const isTooLong = selectedText.length > 200
   const isTooShort = selectedText.length < 1
-  const isInvalid = isDuplicate || isTooLong || isTooShort
+  const isInvalid = isTooLong || isTooShort
 
   const displayText =
     selectedText.length > MAX_DISPLAY_LENGTH
@@ -117,8 +117,8 @@ export function EntityPopover({
 
       {/* Validation messages */}
       {isDuplicate && (
-        <p className="text-xs text-destructive mb-2">
-          This text is already mapped.
+        <p className="text-xs text-amber-600 mb-2">
+          Already mapped — adding will re-sanitize to tag all instances.
         </p>
       )}
       {isTooLong && (
