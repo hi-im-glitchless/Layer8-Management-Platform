@@ -168,54 +168,24 @@ export function StepSanitizeReview({
     [localMappings, showMappingTable],
   )
 
-  // Edit entity type in table — full server re-sanitize to update spans
+  // Edit entity type in table — local only, applied on Re-sanitize
   const handleEditType = useCallback(
     (index: number, newType: string) => {
-      const updatedMappings = localMappings.map((m, i) =>
-        i === index ? { ...m, entityType: newType } : m,
+      setLocalMappings((prev) =>
+        prev.map((m, i) => (i === index ? { ...m, entityType: newType } : m)),
       )
-      setLocalMappings(updatedMappings)
-
-      entityMappingsMutation.mutate(
-        { sessionId, mappings: updatedMappings },
-        {
-          onSuccess: (data) => {
-            pendingMappingsRef.current = false
-            setLocalMappings(data.entityMappings)
-            setLocalHtml(data.sanitizedHtml)
-            sessionQuery.refetch()
-          },
-          onError: () => {
-            setLocalMappings(localMappings)
-          },
-        },
-      )
+      pendingMappingsRef.current = true
     },
-    [sessionId, localMappings, entityMappingsMutation, sessionQuery],
+    [],
   )
 
-  // Delete mapping from table — full server re-sanitize
+  // Delete mapping from table — local only, applied on Re-sanitize
   const handleDelete = useCallback(
     (index: number) => {
-      const updatedMappings = localMappings.filter((_, i) => i !== index)
-      setLocalMappings(updatedMappings)
-
-      entityMappingsMutation.mutate(
-        { sessionId, mappings: updatedMappings },
-        {
-          onSuccess: (data) => {
-            pendingMappingsRef.current = false
-            setLocalMappings(data.entityMappings)
-            setLocalHtml(data.sanitizedHtml)
-            sessionQuery.refetch()
-          },
-          onError: () => {
-            setLocalMappings(localMappings)
-          },
-        },
-      )
+      setLocalMappings((prev) => prev.filter((_, i) => i !== index))
+      pendingMappingsRef.current = true
     },
-    [sessionId, localMappings, entityMappingsMutation, sessionQuery],
+    [],
   )
 
   // Dismiss popover
