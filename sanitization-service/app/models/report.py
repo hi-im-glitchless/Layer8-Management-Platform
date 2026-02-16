@@ -248,34 +248,35 @@ class ValidateSectionCorrectionResponse(BaseModel):
 
 
 class BuildReportRequest(BaseModel):
-    """Request body for building the final DOCX report."""
+    """Request body for building the final HTML report."""
 
     language: str = Field(
         ..., description="Language code for skeleton selection: 'en' or 'pt-pt'"
     )
     narrative_sections: dict[str, str] = Field(
-        ..., description="Section key -> narrative text"
+        ..., description="Section key -> narrative HTML string"
     )
     metadata: dict = Field(
         default_factory=dict,
         description="Cover page metadata (client_name, project_code, report_date)",
     )
-    chart_images: dict[str, str] = Field(
+    chart_configs: dict[str, dict] = Field(
         default_factory=dict,
-        description="Chart name -> base64-encoded PNG image",
+        description="Chart ID -> Chart.js config object",
+    )
+    metrics: dict = Field(
+        default_factory=dict,
+        description="Computed metrics (severity_counts, category_counts, total)",
     )
     risk_score: float = Field(0.0, description="Risk score for display")
     risk_level: str = Field("", description="Risk level label")
 
 
 class BuildReportResponse(BaseModel):
-    """Response with the built DOCX report."""
+    """Response with the built HTML report."""
 
-    docx_base64: str = Field(
-        ..., description="Base64-encoded DOCX file bytes"
-    )
-    filename: str = Field(
-        ..., description="Suggested filename for the report"
+    html_content: str = Field(
+        ..., description="Complete HTML document string"
     )
 
 

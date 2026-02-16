@@ -459,25 +459,17 @@ async def validate_section_correction_route(
 async def build_report(
     body: BuildReportRequest,
 ) -> BuildReportResponse:
-    """Build the final executive report DOCX from skeleton + data + charts.
+    """Build the final executive report HTML from skeleton + narrative + charts.
 
-    Selects the skeleton DOCX based on language, fills it with narrative
-    sections, cover page metadata, and chart images, and returns the
-    complete DOCX as base64.
+    Selects the skeleton HTML based on language, fills it with LLM-generated
+    narrative sections, cover page metadata, and Chart.js configs, and
+    returns the complete HTML document string.
     """
     # Resolve skeleton path
     try:
         skeleton_path = get_skeleton_path(body.language)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-
-    # Decode chart images from base64 to bytes
-    chart_bytes: dict[str, bytes] = {}
-    for chart_name, b64_data in body.chart_images.items():
-        try:
-            chart_bytes[chart_name] = base64.b64decode(b64_data)
-        except Exception:
-            logger.warning("Failed to decode chart image: %s", chart_name)
 
     # Reconstruct narrative dict with nested structure for strategic_recommendations
     narrative: dict = {}
@@ -495,40 +487,31 @@ async def build_report(
     report_data = {
         "narrative": narrative,
         "metadata": body.metadata,
+        "metrics": body.metrics,
         "risk_score": body.risk_score,
         "risk_level": body.risk_level,
     }
 
-    # Build the DOCX
+    # Build the HTML report
     try:
         builder = ReportBuilder(skeleton_path)
-        docx_bytes = builder.build_report(report_data, chart_bytes)
+        html_content = builder.build_report(report_data, body.chart_configs)
     except Exception as exc:
         logger.error("Report build failed: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to build report DOCX: {exc}",
+            detail=f"Failed to build HTML report: {exc}",
         )
 
-    docx_base64 = base64.b64encode(docx_bytes).decode("ascii")
-
-    # Generate filename
-    client_name = body.metadata.get("client_name", "report")
-    safe_name = "".join(
-        c if c.isalnum() or c in "-_" else "_" for c in client_name
-    )
-    filename = f"executive_report_{safe_name}.docx"
-
     logger.info(
-        "Built report DOCX: %d bytes, lang=%s, %d charts",
-        len(docx_bytes),
+        "Built HTML report: %d chars, lang=%s, %d charts",
+        len(html_content),
         body.language,
-        len(chart_bytes),
+        len(body.chart_configs),
     )
 
     return BuildReportResponse(
-        docx_base64=docx_base64,
-        filename=filename,
+        html_content=html_content,
     )
 
 
