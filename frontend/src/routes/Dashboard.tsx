@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom'
+import { FileCode, FileText } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks'
@@ -11,6 +13,7 @@ function getGreeting(): string {
 
 export function Dashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const name = user?.displayName || user?.username || ''
 
   return (
@@ -24,41 +27,35 @@ export function Dashboard() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Reports</CardTitle>
-            <CardDescription>Your latest executive reports</CardDescription>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card
+          className="cursor-pointer border bg-card transition-colors hover:bg-accent/10"
+          onClick={() => navigate('/template-adapter')}
+        >
+          <CardHeader className="flex flex-row items-center gap-3">
+            <FileCode className="h-8 w-8 text-muted-foreground" />
+            <div>
+              <CardTitle>New Template Adaptation</CardTitle>
+              <CardDescription>
+                Upload and adapt a DOCX template with AI-powered placeholder mapping
+              </CardDescription>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-5/6" />
-          </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Template Adapters</CardTitle>
-            <CardDescription>Recent template conversions</CardDescription>
+        <Card
+          className="cursor-pointer border bg-card transition-colors hover:bg-accent/10"
+          onClick={() => navigate('/executive-report')}
+        >
+          <CardHeader className="flex flex-row items-center gap-3">
+            <FileText className="h-8 w-8 text-muted-foreground" />
+            <div>
+              <CardTitle>New Executive Report</CardTitle>
+              <CardDescription>
+                Generate a professional executive report from your technical findings
+              </CardDescription>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-4/5" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Activity</CardTitle>
-            <CardDescription>Recent system activity</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/5" />
-            <Skeleton className="h-4 w-4/5" />
-          </CardContent>
         </Card>
       </div>
     </div>
