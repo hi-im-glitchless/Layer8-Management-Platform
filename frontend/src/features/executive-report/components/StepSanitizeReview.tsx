@@ -5,8 +5,6 @@ import {
   CheckCircle,
   Info,
   AlertCircle,
-  PanelRightOpen,
-  PanelRightClose,
   ChevronDown,
   ChevronRight,
   RefreshCw,
@@ -52,9 +50,6 @@ export function StepSanitizeReview({
   const metadataMutation = useUpdateMetadata()
 
   // Layout state
-  const [showMappingTable, setShowMappingTable] = useState(
-    () => (state?.entityMappings?.length ?? 0) > 0,
-  )
   const [showMetadata, setShowMetadata] = useState(false)
 
   // Entity popover state
@@ -161,13 +156,8 @@ export function StepSanitizeReview({
       pendingMappingsRef.current = true
 
       toast.success(`Added "${text}" → ${placeholder}. Click Re-sanitize to apply.`)
-
-      // Auto-show mapping table when first mapping is added manually
-      if (!showMappingTable) {
-        setShowMappingTable(true)
-      }
     },
-    [localMappings, showMappingTable],
+    [localMappings],
   )
 
   // Edit entity type in table — local only, applied on Re-sanitize
@@ -288,24 +278,6 @@ export function StepSanitizeReview({
             <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', isUpdatingMappings && 'animate-spin')} aria-hidden="true" />
             Re-sanitize
           </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowMappingTable(!showMappingTable)}
-          className="text-xs"
-        >
-          {showMappingTable ? (
-            <>
-              <PanelRightClose className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-              Hide Mapping Table
-            </>
-          ) : (
-            <>
-              <PanelRightOpen className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-              Show Mapping Table
-            </>
-          )}
-        </Button>
         </div>
       </div>
 
@@ -315,20 +287,18 @@ export function StepSanitizeReview({
         onTextSelection={handleTextSelection}
       />
 
-      {/* Mapping table (below preview, collapsible) */}
-      {showMappingTable && (
-        <Card>
-          <CardContent className="p-3">
-            <EntityMappingTable
-              mappings={localMappings}
-              onEditType={handleEditType}
-              onDelete={handleDelete}
-              onDeleteMany={handleDeleteMany}
-              isUpdating={isUpdatingMappings}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {/* Mapping table (always visible below preview) */}
+      <Card>
+        <CardContent className="p-3">
+          <EntityMappingTable
+            mappings={localMappings}
+            onEditType={handleEditType}
+            onDelete={handleDelete}
+            onDeleteMany={handleDeleteMany}
+            isUpdating={isUpdatingMappings}
+          />
+        </CardContent>
+      </Card>
 
       {/* Entity popover for text selection */}
       {selectedText && (
