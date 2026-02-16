@@ -60,14 +60,13 @@ export function EntityMappingTable({
 
   return (
     <TooltipProvider>
-      <div className="overflow-auto max-h-[calc(100vh-280px)]">
+      <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
-              <TableHead className="text-xs w-[35%]">Original Value</TableHead>
-              <TableHead className="text-xs w-[20%]">Placeholder</TableHead>
-              <TableHead className="text-xs w-[30%]">Entity Type</TableHead>
-              <TableHead className="text-xs w-[15%] text-right">Actions</TableHead>
+              <TableHead className="text-xs">Value</TableHead>
+              <TableHead className="text-xs">Type</TableHead>
+              <TableHead className="text-xs w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,40 +107,40 @@ function EntityRow({
 
   return (
     <TableRow className={cn(isUpdating && 'opacity-60 pointer-events-none')}>
-      {/* Original Value */}
-      <TableCell className="text-xs font-mono">
-        {needsTruncation ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="cursor-help">{displayValue}</span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[300px] break-all">
-              {mapping.originalValue}
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <span>{displayValue}</span>
-        )}
-        {mapping.isManual && (
-          <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0">
-            manual
-          </Badge>
-        )}
-      </TableCell>
-
-      {/* Placeholder */}
-      <TableCell className="text-xs font-mono text-muted-foreground">
-        {mapping.placeholder}
+      {/* Value: original + placeholder as secondary text */}
+      <TableCell className="text-xs max-w-0">
+        <div className="truncate font-mono" title={mapping.originalValue}>
+          {needsTruncation ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">{displayValue}</span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[300px] break-all">
+                {mapping.originalValue}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <span>{displayValue}</span>
+          )}
+          {mapping.isManual && (
+            <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 align-middle">
+              manual
+            </Badge>
+          )}
+        </div>
+        <div className="text-[10px] text-muted-foreground font-mono truncate">
+          {mapping.placeholder}
+        </div>
       </TableCell>
 
       {/* Entity Type */}
-      <TableCell>
+      <TableCell className="w-[140px]">
         <Select
           value={mapping.entityType}
           onValueChange={(value) => onEditType(index, value)}
           disabled={isUpdating}
         >
-          <SelectTrigger className="h-7 text-xs w-full">
+          <SelectTrigger className="h-7 text-xs">
             <SelectValue>{getEntityTypeLabel(mapping.entityType)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -154,8 +153,8 @@ function EntityRow({
         </Select>
       </TableCell>
 
-      {/* Actions */}
-      <TableCell className="text-right">
+      {/* Delete */}
+      <TableCell className="w-10 px-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
