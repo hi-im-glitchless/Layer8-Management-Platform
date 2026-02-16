@@ -7,6 +7,7 @@ POST /report/render-charts            -- Render charts as base64 PNG images
 POST /report/build-narrative-prompt   -- Build Pass 2 LLM prompt from computed data
 POST /report/validate-narrative       -- Validate LLM narrative JSON response
 POST /report/build-report             -- Build DOCX report from skeleton + data + charts
+POST /report/extract-supplementary   -- Extract headers, footers, text boxes from DOCX
 """
 
 import base64
@@ -24,6 +25,8 @@ from app.models.report import (
     BuildReportResponse,
     ComputeMetricsRequest,
     ComputeMetricsResponse,
+    ExtractSupplementaryRequest,
+    ExtractSupplementaryResponse,
     RenderChartsRequest,
     RenderChartsResponse,
     SectionCorrectionPromptRequest,
@@ -41,6 +44,7 @@ from app.services.compliance_matrix import (
     compute_risk_score,
     get_risk_level,
 )
+from app.services.docx_parser import extract_supplementary_text
 from app.services.report_builder import ReportBuilder, get_skeleton_path
 from app.services.report_extraction_prompt import (
     build_extraction_system_prompt,
@@ -549,4 +553,58 @@ async def build_report(
     return BuildReportResponse(
         docx_base64=docx_base64,
         filename=filename,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /report/extract-supplementary
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/extract-supplementary",
+    response_model=ExtractSupplementaryResponse,
+)
+async def extract_supplementary(
+    body: ExtractSupplementaryRequest,
+) -> ExtractSupplementaryResponse:
+    """Extract headers, footers, and text box content from a DOCX file.
+
+    mammoth.js handles the document body but cannot access headers,
+    footers, or text boxes. This endpoint uses python-docx to extract
+    those supplementary text segments for sanitization alongside the
+    body content.
+    """
+    try:
+        doc_bytes = base64.b64decode(body.template_base64)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid base64 encoding: {exc}",
+        )
+
+    try:
+        result = extract_supplementary_text(doc_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error(
+            "Supplementary text extraction failed: %s", exc, exc_info=True
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to extract supplementary text: {exc}",
+        )
+
+    logger.info(
+        "Extracted supplementary text: %d headers, %d footers, %d text_boxes",
+        len(result["headers"]),
+        len(result["footers"]),
+        len(result["text_boxes"]),
+    )
+
+    return ExtractSupplementaryResponse(
+        headers=result["headers"],
+        footers=result["footers"],
+        text_boxes=result["text_boxes"],
     )

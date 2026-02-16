@@ -277,3 +277,33 @@ class BuildReportResponse(BaseModel):
     filename: str = Field(
         ..., description="Suggested filename for the report"
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /report/extract-supplementary
+# ---------------------------------------------------------------------------
+
+
+class ExtractSupplementaryRequest(BaseModel):
+    """Request body for extracting headers, footers, and text boxes from DOCX."""
+
+    template_base64: str = Field(
+        ..., description="Base64-encoded DOCX file bytes"
+    )
+
+
+class ExtractSupplementaryResponse(BaseModel):
+    """Response with supplementary text segments extracted from DOCX."""
+
+    headers: list[str] = Field(
+        default_factory=list,
+        description="Text content from document headers",
+    )
+    footers: list[str] = Field(
+        default_factory=list,
+        description="Text content from document footers",
+    )
+    text_boxes: list[str] = Field(
+        default_factory=list,
+        description="Text content from inline text boxes (w:txbxContent)",
+    )

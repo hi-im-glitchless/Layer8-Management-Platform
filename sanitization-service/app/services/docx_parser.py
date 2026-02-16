@@ -426,3 +426,109 @@ class DocxParserService:
             meta["revision"] = revision
 
         return meta
+
+
+# ---------------------------------------------------------------------------
+# Standalone supplementary text extraction
+# ---------------------------------------------------------------------------
+
+
+def extract_supplementary_text(doc_bytes: bytes) -> dict:
+    """Extract headers, footers, and text box content from a DOCX file.
+
+    mammoth.js handles the document body. This function extracts the
+    supplementary elements that mammoth cannot reach: section headers,
+    section footers, and inline text boxes (w:txbxContent).
+
+    Args:
+        doc_bytes: Raw bytes of the .docx file.
+
+    Returns:
+        Dict with keys ``headers``, ``footers``, ``text_boxes``,
+        each a list of non-empty text strings.
+
+    Raises:
+        ValueError: If the bytes cannot be parsed as a valid DOCX.
+    """
+    try:
+        doc = Document(BytesIO(doc_bytes))
+    except Exception as exc:
+        raise ValueError(f"Failed to parse DOCX: {exc}") from exc
+
+    headers: list[str] = []
+    footers: list[str] = []
+    text_boxes: list[str] = []
+
+    # Extract headers and footers from each section
+    for section in doc.sections:
+        # Headers
+        for accessor in ("header", "first_page_header", "even_page_header"):
+            try:
+                hf = getattr(section, accessor, None)
+                if hf is None:
+                    continue
+                for para in hf.paragraphs:
+                    text = para.text.strip()
+                    if text:
+                        headers.append(text)
+            except Exception:
+                continue
+
+        # Footers
+        for accessor in ("footer", "first_page_footer", "even_page_footer"):
+            try:
+                hf = getattr(section, accessor, None)
+                if hf is None:
+                    continue
+                for para in hf.paragraphs:
+                    text = para.text.strip()
+                    if text:
+                        footers.append(text)
+            except Exception:
+                continue
+
+    # Extract text boxes from body
+    for txbx in doc.element.body.findall(".//" + qn("w:txbxContent")):
+        for p_elem in txbx.findall(qn("w:p")):
+            texts = [
+                t.text or ""
+                for t in p_elem.findall(".//" + qn("w:t"))
+            ]
+            combined = "".join(texts).strip()
+            if combined:
+                text_boxes.append(combined)
+
+    # Extract text boxes from headers/footers
+    for section in doc.sections:
+        for accessor in (
+            "header", "footer",
+            "first_page_header", "first_page_footer",
+            "even_page_header", "even_page_footer",
+        ):
+            try:
+                hf = getattr(section, accessor, None)
+                if hf is None:
+                    continue
+                hf_elem = hf._element
+                for txbx in hf_elem.findall(".//" + qn("w:txbxContent")):
+                    for p_elem in txbx.findall(qn("w:p")):
+                        texts = [
+                            t.text or ""
+                            for t in p_elem.findall(".//" + qn("w:t"))
+                        ]
+                        combined = "".join(texts).strip()
+                        if combined:
+                            text_boxes.append(combined)
+            except Exception:
+                continue
+
+    # Deduplicate while preserving order
+    headers = list(dict.fromkeys(headers))
+    footers = list(dict.fromkeys(footers))
+    text_boxes = list(dict.fromkeys(text_boxes))
+
+    return {
+        "headers": headers,
+        "footers": footers,
+        "text_boxes": text_boxes,
+    }
