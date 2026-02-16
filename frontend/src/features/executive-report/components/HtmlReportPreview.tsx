@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -31,14 +31,13 @@ export function HtmlReportPreview({
   // Build srcdoc with injected selection script
   const srcdoc = buildSrcdoc(html, !!onTextSelection)
 
-  // Force iframe remount when content changes (browsers don't always re-render srcDoc updates)
-  const iframeKey = useMemo(() => {
-    let hash = 0
-    for (let i = 0; i < Math.min(srcdoc.length, 500); i++) {
-      hash = ((hash << 5) - hash + srcdoc.charCodeAt(i)) | 0
-    }
-    return `preview-${srcdoc.length}-${hash}`
-  }, [srcdoc])
+  // Increment counter on every html change to force iframe remount
+  const refreshCounter = useRef(0)
+  const prevHtml = useRef(html)
+  if (html !== prevHtml.current) {
+    prevHtml.current = html
+    refreshCounter.current++
+  }
 
   // Listen for postMessage from iframe
   const handleMessage = useCallback(
@@ -118,7 +117,7 @@ export function HtmlReportPreview({
   return (
     <div ref={containerRef} className={cn('w-full', className)}>
       <iframe
-        key={iframeKey}
+        key={refreshCounter.current}
         ref={iframeRef}
         srcDoc={srcdoc}
         sandbox="allow-scripts"
