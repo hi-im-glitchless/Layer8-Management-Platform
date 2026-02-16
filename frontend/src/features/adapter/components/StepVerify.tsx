@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/tooltip'
 import {
   usePlaceholderPreview,
+  usePlaceholderPreviewQuery,
   useAnnotatedPreviewStatus,
   useCachedAnnotatedPreview,
   useDocumentStructure,
@@ -26,7 +27,6 @@ import type {
   TemplateLanguage,
   MappingPlan,
   MappingEntry,
-  PlaceholderInfo,
   SelectionEntry,
 } from '../types'
 
@@ -54,14 +54,20 @@ export function StepVerify({
   onApprove,
 }: StepVerifyProps) {
   const [mappingPlan, setMappingPlan] = useState<MappingPlan | null>(initialMappingPlan)
-  const [placeholderPdfJobId, setPlaceholderPdfJobId] = useState<string | null>(null)
-  const [placeholders, setPlaceholders] = useState<PlaceholderInfo[]>([])
-  const [placeholderCount, setPlaceholderCount] = useState(0)
   const [isDirty, setIsDirty] = useState(false)
   const [isRegenerating, setIsRegenerating] = useState(false)
 
+  // Query-based auto-trigger: fires once, caches with staleTime: Infinity.
+  // Survives unmount/remount — no useRef gate needed.
+  const placeholderPreviewQuery = usePlaceholderPreviewQuery(sessionId, true)
+
+  // Mutation kept for user-initiated regeneration only
   const placeholderPreviewMutation = usePlaceholderPreview()
-  const hasTriggeredPreview = useRef(false)
+
+  // Derive placeholder state from query data (persistent across navigation)
+  const placeholderPdfJobId = placeholderPreviewQuery.data?.pdfJobId ?? null
+  const placeholders = placeholderPreviewQuery.data?.placeholders ?? []
+  const placeholderCount = placeholderPreviewQuery.data?.placeholderCount ?? 0
 
   // Track the original mapping plan (from auto-map) to always diff against
   // the LLM's original output, not intermediate edits
@@ -114,14 +120,16 @@ export function StepVerify({
       ? (cachedPreview.data.pdfUrl.startsWith('http') ? cachedPreview.data.pdfUrl : `${API_BASE_URL}${cachedPreview.data.pdfUrl}`)
       : null
 
-  // Loading state
-  const isPreviewLoading = (placeholderPreviewMutation.isPending && !displayPdfUrl) ||
+  // Loading state — query isLoading = first fetch with no cache; mutation isPending = regeneration
+  const isPreviewLoading = ((placeholderPreviewQuery.isLoading || placeholderPreviewMutation.isPending) && !displayPdfUrl) ||
     (!!effectivePdfJobId && !isAnnotatedPdfReady && !isAnnotatedPdfFailed && !displayPdfUrl) ||
     isRegenerating
 
-  // Error state
-  const previewError = placeholderPreviewMutation.isError && !displayPdfUrl
-    ? (placeholderPreviewMutation.error as Error)?.message || 'Failed to generate placeholder preview'
+  // Error state — check both query and mutation errors
+  const previewError = (placeholderPreviewQuery.isError || placeholderPreviewMutation.isError) && !displayPdfUrl
+    ? (placeholderPreviewQuery.error as Error | null)?.message
+      || (placeholderPreviewMutation.error as Error | null)?.message
+      || 'Failed to generate placeholder preview'
     : isAnnotatedPdfFailed && !displayPdfUrl
       ? 'Failed to convert placeholder preview to PDF'
       : undefined
@@ -134,29 +142,13 @@ export function StepVerify({
     }
   }, [initialMappingPlan, mappingPlan])
 
-  // Auto-trigger placeholder preview on mount
-  useEffect(() => {
-    if (hasTriggeredPreview.current || placeholderPreviewMutation.isPending) return
-    hasTriggeredPreview.current = true
-    placeholderPreviewMutation.mutate(sessionId, {
-      onSuccess: (data) => {
-        setPlaceholderPdfJobId(data.pdfJobId)
-        setPlaceholders(data.placeholders)
-        setPlaceholderCount(data.placeholderCount)
-      },
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
-
-  // Sync placeholders from cached preview when mutation didn't provide them
-  useEffect(() => {
-    if (placeholders.length > 0) return
-    const cached = cachedPreview.data
-    if (cached?.placeholders?.length) {
-      setPlaceholders(cached.placeholders)
-      setPlaceholderCount(cached.placeholderCount)
-    }
-  }, [placeholders.length, cachedPreview.data])
+  // Sync placeholders from cached preview as fallback when query hasn't returned yet
+  const effectivePlaceholders = placeholders.length > 0
+    ? placeholders
+    : cachedPreview.data?.placeholders ?? []
+  const effectivePlaceholderCount = placeholderCount > 0
+    ? placeholderCount
+    : cachedPreview.data?.placeholderCount ?? 0
 
   /**
    * Handle table-based mapping plan edits. Compares updated entries against
@@ -317,13 +309,8 @@ export function StepVerify({
     } catch {
       // Reapply failed -- still try preview from existing DOCX
     }
-    placeholderPreviewMutation.mutate(sessionId, {
-      onSuccess: (data) => {
-        setPlaceholderPdfJobId(data.pdfJobId)
-        setPlaceholders(data.placeholders)
-        setPlaceholderCount(data.placeholderCount)
-      },
-    })
+    // Mutation onSuccess in hooks.ts seeds the query cache automatically
+    placeholderPreviewMutation.mutate(sessionId)
   }, [sessionId, placeholderPreviewMutation])
 
   // Regenerate: save mapping plan to backend, re-apply DOCX, generate new PDF
@@ -349,12 +336,9 @@ export function StepVerify({
       return
     }
 
-    // 3. Generate new placeholder PDF
+    // 3. Generate new placeholder PDF — mutation onSuccess seeds query cache
     placeholderPreviewMutation.mutate(sessionId, {
-      onSuccess: (data) => {
-        setPlaceholderPdfJobId(data.pdfJobId)
-        setPlaceholders(data.placeholders)
-        setPlaceholderCount(data.placeholderCount)
+      onSuccess: () => {
         setIsDirty(false)
         setIsRegenerating(false)
         toast.success('Placeholders updated -- review the changes')
@@ -378,12 +362,12 @@ export function StepVerify({
   // Jump to a placeholder's approximate page in the PDF
   const handleJumpToPlaceholder = useCallback(
     (paragraphIndex: number) => {
-      const match = placeholders.find((p) => p.paragraphIndex === paragraphIndex)
+      const match = effectivePlaceholders.find((p) => p.paragraphIndex === paragraphIndex)
       if (match) {
         setScrollTargetText(match.placeholderText)
       }
     },
-    [placeholders],
+    [effectivePlaceholders],
   )
 
   const handleScrollComplete = useCallback(() => {
@@ -395,14 +379,14 @@ export function StepVerify({
   const handleRowClick = useCallback(
     (entry: MappingEntry, entryIdx: number) => {
       setHighlightedIdx(entryIdx)
-      const match = placeholders.find((p) => p.paragraphIndex === entry.sectionIndex)
+      const match = effectivePlaceholders.find((p) => p.paragraphIndex === entry.sectionIndex)
       if (match) {
         setScrollTargetText(match.placeholderText)
       }
       // Clear highlight after a brief moment
       setTimeout(() => setHighlightedIdx(null), 2000)
     },
-    [placeholders],
+    [effectivePlaceholders],
   )
 
   const handleNewRowHandled = useCallback(() => {
@@ -486,13 +470,13 @@ export function StepVerify({
       {/* Toolbar: placeholder count, KB badge, Regenerate, Approve */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {placeholderCount > 0 && (
+          {effectivePlaceholderCount > 0 && (
             <Badge variant="secondary" className="text-xs">
-              {placeholderCount} placeholders
+              {effectivePlaceholderCount} placeholders
             </Badge>
           )}
           <PlaceholderNavigator
-            placeholders={placeholders}
+            placeholders={effectivePlaceholders}
             isOpen={navigatorOpen}
             onToggle={() => setNavigatorOpen((prev) => !prev)}
             onJumpToPlaceholder={handleJumpToPlaceholder}
@@ -589,19 +573,21 @@ export function StepVerify({
               onTextSelected={handleTextSelected}
               selections={selections}
               isStreaming={isRegenerating}
-              mappedCount={placeholderCount}
+              mappedCount={effectivePlaceholderCount}
               scrollTargetPage={scrollTargetPage}
               scrollTargetText={scrollTargetText}
               onScrollComplete={handleScrollComplete}
               className="min-h-[600px]"
             />
             {/* Error overlay with retry */}
-            {placeholderPreviewMutation.isError && !displayPdfUrl && (
+            {(placeholderPreviewQuery.isError || placeholderPreviewMutation.isError) && !displayPdfUrl && (
               <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
                 <div className="flex flex-col items-center gap-3 rounded-lg bg-background px-6 py-4 shadow-md border max-w-sm text-center">
                   <p className="text-sm font-medium text-destructive">Failed to generate preview</p>
                   <p className="text-xs text-muted-foreground">
-                    {(placeholderPreviewMutation.error as Error)?.message || 'Unknown error'}
+                    {(placeholderPreviewQuery.error as Error | null)?.message
+                      || (placeholderPreviewMutation.error as Error | null)?.message
+                      || 'Unknown error'}
                   </p>
                   <Button variant="outline" size="sm" onClick={handleRetryPreview}>
                     <RefreshCw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />

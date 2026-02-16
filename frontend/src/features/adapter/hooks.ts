@@ -106,19 +106,39 @@ export function useRequestPreview() {
 }
 
 /**
- * Request placeholder-styled preview of the adapted DOCX.
+ * Request placeholder-styled preview of the adapted DOCX (mutation).
  * Shows Jinja expressions with light blue backgrounds for verification.
+ * Used for user-initiated regeneration (not auto-trigger on mount).
  */
 export function usePlaceholderPreview() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (sessionId: string) => adapterApi.requestPlaceholderPreview(sessionId),
-    onSuccess: (_data, sessionId) => {
+    onSuccess: (data, sessionId) => {
+      // Seed the query cache so the query hook picks up regeneration results
+      queryClient.setQueryData(['adapter', 'placeholder-preview', sessionId], data)
       queryClient.invalidateQueries({ queryKey: ['adapter', 'annotated-preview', sessionId] })
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to generate placeholder preview')
     },
+  })
+}
+
+/**
+ * Query-based placeholder preview that survives unmount/remount.
+ * Auto-triggers once per session (when no cached data exists) and caches
+ * the result with staleTime: Infinity so navigation away and back doesn't
+ * re-fetch or lose state.
+ */
+export function usePlaceholderPreviewQuery(sessionId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['adapter', 'placeholder-preview', sessionId],
+    queryFn: () => adapterApi.requestPlaceholderPreview(sessionId!),
+    enabled: !!sessionId && enabled,
+    staleTime: Infinity,
+    gcTime: 30 * 60 * 1000, // keep in cache 30 min after last subscriber unmounts
+    retry: 1,
   })
 }
 
