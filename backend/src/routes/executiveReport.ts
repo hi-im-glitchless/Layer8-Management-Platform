@@ -11,7 +11,8 @@
  * GET  /api/report/session                 -- Get user's active report session
  * DELETE /api/report/session/:sessionId    -- Delete report session
  * GET  /api/report/preview/:sessionId      -- Get PDF status/URL
- * GET  /api/report/download/:sessionId     -- Download PDF file
+ * POST /api/report/download-pdf            -- Download de-sanitized PDF via Gotenberg
+ * GET  /api/report/download/:sessionId     -- Download PDF file (legacy)
  *
  * All endpoints require authentication and validate session ownership.
  */
@@ -35,7 +36,7 @@ import {
   processReportChat,
   getReportDownloadPath,
 } from '@/services/reportService.js';
-import { getPdfJobStatus } from '@/services/pdfQueue.js';
+import { getPdfJobStatus, convertHtmlToPdf } from '@/services/pdfQueue.js';
 import { logAuditEvent } from '@/services/audit.js';
 
 const router = Router();
@@ -99,6 +100,10 @@ const generateBodySchema = z.object({
 const chatBodySchema = z.object({
   sessionId: z.string().uuid('sessionId must be a valid UUID'),
   message: z.string().min(1, 'message is required').max(10000),
+});
+
+const downloadPdfBodySchema = z.object({
+  sessionId: z.string().uuid('sessionId must be a valid UUID'),
 });
 
 // ---------------------------------------------------------------------------
@@ -741,11 +746,93 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/report/download-pdf
+// ---------------------------------------------------------------------------
+
+/**
+ * Download the de-sanitized executive report as PDF.
+ * Applies de-sanitization server-side using session entity mappings,
+ * then converts HTML to PDF via Gotenberg Chromium endpoint.
+ * Body: { sessionId }
+ * Returns: PDF binary with Content-Type: application/pdf
+ */
+router.post('/download-pdf', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const body = downloadPdfBodySchema.safeParse(req.body);
+    if (!body.success) {
+      return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
+    }
+
+    const userId = req.session.userId!;
+    const { sessionId } = body.data;
+
+    const state = await getReportSession(userId, sessionId);
+    if (!state) {
+      return res.status(404).json({ error: 'Report session not found' });
+    }
+
+    if (!state.generatedHtml) {
+      return res.status(400).json({ error: 'No generated HTML available. Run generation first.' });
+    }
+
+    // Apply de-sanitization: replace placeholders with original values
+    let desanitizedHtml = state.generatedHtml;
+    if (state.entityMappings && state.entityMappings.length > 0) {
+      for (const mapping of state.entityMappings) {
+        if (mapping.placeholder && mapping.originalValue) {
+          desanitizedHtml = desanitizedHtml.split(mapping.placeholder).join(mapping.originalValue);
+        }
+      }
+    }
+
+    // Convert de-sanitized HTML to PDF via Gotenberg Chromium
+    const pdfBuffer = await convertHtmlToPdf(desanitizedHtml, '3s');
+
+    // Build filename
+    const filename = state.metadata.clientName
+      ? `executive_report_${state.metadata.clientName.replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
+      : `executive_report_${sessionId}.pdf`;
+
+    // Audit log
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    try {
+      await logAuditEvent({
+        userId,
+        action: 'report.download_pdf',
+        details: {
+          sessionId,
+          filename,
+          pdfSize: pdfBuffer.length,
+          detectedLanguage: state.detectedLanguage,
+        },
+        ipAddress,
+      });
+    } catch (auditErr) {
+      console.error('[executiveReport route] Failed to log download-pdf audit:', auditErr);
+    }
+
+    // Update wizard state step to download
+    updateReportSession(userId, sessionId, {
+      currentStep: 'download',
+    }).catch((err) => {
+      console.error('[executiveReport route] Failed to update step to download:', err);
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length.toString());
+    res.send(pdfBuffer);
+  } catch (error) {
+    handleReportError(res, error, 'PDF download');
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/report/download/:sessionId
 // ---------------------------------------------------------------------------
 
 /**
- * Download the generated executive report as PDF.
+ * Download the generated executive report as PDF (legacy).
  */
 router.get('/download/:sessionId', requireAuth, async (req: Request, res: Response) => {
   try {

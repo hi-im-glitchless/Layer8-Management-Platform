@@ -148,6 +148,43 @@ export async function addPdfConversionJob(
 }
 
 /**
+ * Convert HTML to PDF synchronously via Gotenberg Chromium endpoint.
+ * Used for on-demand PDF generation at download time (no queue).
+ * Sends HTML as multipart form with waitDelay for Chart.js rendering.
+ *
+ * @param html - Complete HTML document string
+ * @param waitDelay - Time to wait for JS execution (default: '3s' for Chart.js)
+ * @returns PDF as Buffer
+ */
+export async function convertHtmlToPdf(html: string, waitDelay: string = '3s'): Promise<Buffer> {
+  const formData = new FormData();
+  formData.append('files', new Blob([html], { type: 'text/html' }), 'index.html');
+  formData.append('waitDelay', waitDelay);
+  // A4 page format with margins matching CSS @page rules
+  formData.append('paperWidth', '8.27');
+  formData.append('paperHeight', '11.69');
+  formData.append('marginTop', '0');
+  formData.append('marginBottom', '0');
+  formData.append('marginLeft', '0');
+  formData.append('marginRight', '0');
+  formData.append('printBackground', 'true');
+
+  const gotenbergUrl = `${config.GOTENBERG_URL}/forms/chromium/convert/html`;
+
+  const response = await fetch(gotenbergUrl, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`Gotenberg HTML-to-PDF conversion failed (${response.status}): ${errorText}`);
+  }
+
+  return Buffer.from(await response.arrayBuffer());
+}
+
+/**
  * Get the status of a PDF conversion job.
  * @param jobId BullMQ job ID
  * @returns Job status with progress and result data
