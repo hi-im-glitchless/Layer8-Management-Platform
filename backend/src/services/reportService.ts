@@ -275,7 +275,7 @@ export async function uploadReport(
   // Step 5: Extract supplementary text (headers/footers/text boxes)
   let supplementaryText = { headers: [] as string[], footers: [] as string[], textBoxes: [] as string[] };
   try {
-    const suppRes = await fetch(`${sanitizerUrl}/adapter/extract-supplementary`, {
+    const suppRes = await fetch(`${sanitizerUrl}/report/extract-supplementary`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ template_base64: base64Content }),
@@ -354,6 +354,11 @@ export async function sanitizeReport(
     throw new Error('No uploaded HTML in session. Upload a DOCX first.');
   }
 
+  // Extract manual mappings so they survive Presidio re-detection
+  const manualMappings = (state.entityMappings ?? []).filter(
+    (m) => m.isManual,
+  );
+
   // Re-run sanitization on the original uploaded HTML
   const counterMap = { ...state.entityCounterMap };
   const sanitizeResult = await sanitizeHtmlTextNodes(
@@ -361,6 +366,7 @@ export async function sanitizeReport(
     sessionId,
     counterMap,
     state.detectedLanguage,
+    manualMappings,
   );
 
   // Update session state
