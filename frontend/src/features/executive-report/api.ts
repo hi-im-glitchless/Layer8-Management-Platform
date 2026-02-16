@@ -162,19 +162,27 @@ export const reportApi = {
   },
 
   /**
-   * Build the download URL for the generated executive report PDF.
-   * Used with <a download> for browser download.
+   * Download the report as de-sanitized PDF.
+   * POST /api/report/download-pdf with { sessionId }
+   * De-sanitization is applied server-side using session entity mappings.
+   * Returns raw Response for blob download.
    */
-  downloadUrl(sessionId: string): string {
-    return `${API_BASE_URL}/api/report/download/${sessionId}`
-  },
+  async downloadPdf(sessionId: string): Promise<Response> {
+    const csrfMatch = document.cookie.match(/(?:^|; )__csrf=([^;]*)/)
+    const csrfToken = csrfMatch ? decodeURIComponent(csrfMatch[1]) : undefined
 
-  /**
-   * Build the PDF download URL from the preview status pdfUrl.
-   * The pdfUrl is a relative path that must be prefixed with API_BASE_URL.
-   */
-  pdfDownloadUrl(pdfUrl: string): string {
-    if (pdfUrl.startsWith('http')) return pdfUrl
-    return `${API_BASE_URL}${pdfUrl}`
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
+    }
+
+    return fetch(`${API_BASE_URL}/api/report/download-pdf`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ sessionId }),
+      credentials: 'include',
+    })
   },
 }
