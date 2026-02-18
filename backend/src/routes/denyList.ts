@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAdmin, requireAuth } from '../middleware/auth.js';
+import { requireRole, requireAuth } from '../middleware/auth.js';
 import { auditMiddleware } from '../middleware/audit.js';
 import {
   getAllActiveTerms,
@@ -33,7 +33,7 @@ router.get('/active', requireAuth, async (req, res) => {
  * List all deny list terms with full details
  * Admin only - for management UI
  */
-router.get('/', requireAdmin, async (req, res) => {
+router.get('/', requireRole('ADMIN'), async (req, res) => {
   try {
     const includeInactive = req.query.includeInactive === 'true';
     const terms = await listTerms({ includeInactive });
@@ -49,7 +49,7 @@ router.get('/', requireAdmin, async (req, res) => {
  * Create a new deny list term
  * Admin only
  */
-router.post('/', requireAdmin, auditMiddleware('deny_list.create'), async (req, res) => {
+router.post('/', requireRole('ADMIN'), auditMiddleware('deny_list.create'), async (req, res) => {
   try {
     const createSchema = z.object({
       term: z
@@ -91,7 +91,7 @@ router.post('/', requireAdmin, auditMiddleware('deny_list.create'), async (req, 
  * Update a deny list term
  * Admin only
  */
-router.put('/:id', requireAdmin, auditMiddleware('deny_list.update'), async (req, res) => {
+router.put('/:id', requireRole('ADMIN'), auditMiddleware('deny_list.update'), async (req, res) => {
   try {
     const updateSchema = z.object({
       term: z.string().min(1).max(200).optional(),
@@ -127,7 +127,7 @@ router.put('/:id', requireAdmin, auditMiddleware('deny_list.update'), async (req
  * Delete a deny list term
  * Admin only
  */
-router.delete('/:id', requireAdmin, auditMiddleware('deny_list.delete'), async (req, res) => {
+router.delete('/:id', requireRole('ADMIN'), auditMiddleware('deny_list.delete'), async (req, res) => {
   try {
     const id = req.params.id as string;
     const success = await deleteTerm(id);
@@ -148,7 +148,7 @@ router.delete('/:id', requireAdmin, auditMiddleware('deny_list.delete'), async (
  * Bulk create deny list terms
  * Admin only
  */
-router.post('/bulk', requireAdmin, auditMiddleware('deny_list.bulk_create'), async (req, res) => {
+router.post('/bulk', requireRole('ADMIN'), auditMiddleware('deny_list.bulk_create'), async (req, res) => {
   try {
     const bulkSchema = z.object({
       terms: z

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireRole } from '../middleware/auth.js';
 import { auditMiddleware } from '../middleware/audit.js';
 import {
   getActiveSessions,
@@ -46,7 +46,7 @@ async function pollHealthCheck(baseUrl: string, attempts = 15, intervalMs = 1000
 const router = Router();
 
 // All routes require admin
-router.use(requireAdmin);
+router.use(requireRole('ADMIN'));
 
 /**
  * GET /api/admin/sessions
