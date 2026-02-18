@@ -61,7 +61,7 @@ router.put('/', requireAuth, auditMiddleware('profile.update'), async (req: Requ
         username: true,
         displayName: true,
         avatarUrl: true,
-        isAdmin: true,
+        role: true,
         totpEnabled: true,
         createdAt: true,
         lastLoginAt: true,
