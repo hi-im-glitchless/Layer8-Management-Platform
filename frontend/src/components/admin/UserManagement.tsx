@@ -21,7 +21,8 @@ import { useUsers, useDeleteUser, useUpdateUser } from '@/features/admin/hooks'
 import { CreateUserDialog } from './CreateUserDialog'
 import { EditUserDialog } from './EditUserDialog'
 import type { AdminUser } from '@/features/admin/types'
-import { MoreVertical, Plus, Shield, User, Check, X, UserX } from 'lucide-react'
+import { ROLE_LABELS, type Role } from '@/lib/rbac'
+import { MoreVertical, Plus, Shield, Check, X, UserX } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 export function UserManagement() {
@@ -110,17 +111,13 @@ export function UserManagement() {
                 <TableRow key={user.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>
-                    {user.isAdmin ? (
-                      <Badge variant="destructive" className="gap-1">
-                        <Shield className="h-3 w-3" />
-                        Admin
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="gap-1">
-                        <User className="h-3 w-3" />
-                        User
-                      </Badge>
-                    )}
+                    <Badge
+                      variant={user.role === 'ADMIN' ? 'destructive' : user.role === 'MANAGER' ? 'default' : 'secondary'}
+                      className="gap-1"
+                    >
+                      {user.role === 'ADMIN' && <Shield className="h-3 w-3" />}
+                      {ROLE_LABELS[user.role as Role] ?? user.role}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {user.isActive ? (
