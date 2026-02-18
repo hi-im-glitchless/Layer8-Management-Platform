@@ -2,12 +2,14 @@
  * Auth types for API responses and user data
  */
 
+import type { Role } from '@/lib/rbac';
+
 export interface User {
   id: string;
   username: string;
   displayName?: string | null;
   avatarUrl?: string | null;
-  isAdmin: boolean;
+  role: Role;
   totpEnabled: boolean;
   createdAt?: string;
   lastLoginAt?: string | null;
