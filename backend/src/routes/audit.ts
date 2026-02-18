@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { queryAuditLogs, exportAuditLogs, verifyAuditChain, purgeAllAuditLogs } from '../services/audit.js';
-import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -13,7 +13,7 @@ const router = Router();
 router.get('/', requireAuth, async (req, res) => {
   try {
     const session = req.session as any;
-    const isAdmin = session.isAdmin === true;
+    const isAdmin = session.role === 'ADMIN';
 
     // Parse query parameters
     const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
@@ -71,7 +71,7 @@ router.get('/', requireAuth, async (req, res) => {
  * Export audit logs as JSON for compliance auditors
  * Admin only
  */
-router.get('/export', requireAdmin, async (req, res) => {
+router.get('/export', requireRole('ADMIN'), async (req, res) => {
   try {
     // Parse query parameters (same as query but no pagination)
     const action = req.query.action as string | undefined;
@@ -105,7 +105,7 @@ router.get('/export', requireAdmin, async (req, res) => {
  * Verify the integrity of the audit chain
  * Admin only
  */
-router.get('/verify', requireAdmin, async (req, res) => {
+router.get('/verify', requireRole('ADMIN'), async (req, res) => {
   try {
     const result = await verifyAuditChain();
     // Transform to match frontend VerifyChainResult interface
@@ -126,7 +126,7 @@ router.get('/verify', requireAdmin, async (req, res) => {
  * Purge all audit logs so the chain restarts from genesis
  * Admin only
  */
-router.delete('/purge', requireAdmin, async (req, res) => {
+router.delete('/purge', requireRole('ADMIN'), async (req, res) => {
   try {
     const deletedCount = await purgeAllAuditLogs();
     res.json({ purged: deletedCount });
