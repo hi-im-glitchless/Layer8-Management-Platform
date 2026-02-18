@@ -11,16 +11,16 @@ import { Shield, Users, Activity, FileText, Bot } from 'lucide-react'
 
 export function Admin() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, hasRole: userHasRole } = useAuth()
 
   useEffect(() => {
-    if (user && !user.isAdmin) {
+    if (user && !userHasRole('ADMIN')) {
       toast.error('Access denied: Admin privileges required')
       navigate('/', { replace: true })
     }
-  }, [user, navigate])
+  }, [user, userHasRole, navigate])
 
-  if (!user || !user.isAdmin) {
+  if (!user || !userHasRole('ADMIN')) {
     return null
   }
 

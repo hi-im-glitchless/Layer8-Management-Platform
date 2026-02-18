@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Camera, Loader2, Shield } from 'lucide-react';
 import { toast } from 'sonner';
+import { ROLE_LABELS, type Role } from '@/lib/rbac';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -260,9 +261,9 @@ export function Profile() {
                       Last login: {formatDistanceToNow(new Date(user.lastLoginAt), { addSuffix: true })}
                     </div>
                   )}
-                  {user?.isAdmin && (
-                    <Badge variant="secondary">Admin</Badge>
-                  )}
+                  <Badge variant="secondary">
+                    {ROLE_LABELS[user?.role as Role] ?? user?.role}
+                  </Badge>
                 </div>
               </div>
             </div>
