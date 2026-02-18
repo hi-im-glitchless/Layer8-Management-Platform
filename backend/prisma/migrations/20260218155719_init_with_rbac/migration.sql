@@ -3,7 +3,7 @@ CREATE TABLE "User" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "username" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
-    "isAdmin" BOOLEAN NOT NULL DEFAULT false,
+    "role" TEXT NOT NULL DEFAULT 'NORMAL',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "mustResetPassword" BOOLEAN NOT NULL DEFAULT true,
     "totpSecret" TEXT,
@@ -106,6 +106,19 @@ CREATE TABLE "StyleHint" (
     "updatedAt" DATETIME NOT NULL
 );
 
+-- CreateTable
+CREATE TABLE "TemplateMappingSnapshot" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "templateHash" TEXT NOT NULL,
+    "templateType" TEXT NOT NULL,
+    "language" TEXT NOT NULL,
+    "mappingPlanJson" TEXT NOT NULL,
+    "entryCount" INTEGER NOT NULL DEFAULT 0,
+    "usageCount" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 
@@ -140,7 +153,7 @@ CREATE INDEX "TemplateMapping_templateType_language_zone_idx" ON "TemplateMappin
 CREATE INDEX "TemplateMapping_usageCount_idx" ON "TemplateMapping"("usageCount");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TemplateMapping_templateType_language_normalizedSectionText_gwField_key" ON "TemplateMapping"("templateType", "language", "normalizedSectionText", "gwField");
+CREATE UNIQUE INDEX "TemplateMapping_templateType_language_normalizedSectionText_gwField_zone_key" ON "TemplateMapping"("templateType", "language", "normalizedSectionText", "gwField", "zone");
 
 -- CreateIndex
 CREATE INDEX "BlueprintPattern_templateType_idx" ON "BlueprintPattern"("templateType");
@@ -153,3 +166,9 @@ CREATE INDEX "StyleHint_templateType_idx" ON "StyleHint"("templateType");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "StyleHint_templateType_styleName_zone_key" ON "StyleHint"("templateType", "styleName", "zone");
+
+-- CreateIndex
+CREATE INDEX "TemplateMappingSnapshot_templateType_language_idx" ON "TemplateMappingSnapshot"("templateType", "language");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TemplateMappingSnapshot_templateHash_templateType_language_key" ON "TemplateMappingSnapshot"("templateHash", "templateType", "language");
