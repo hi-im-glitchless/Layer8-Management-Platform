@@ -167,6 +167,39 @@ export async function terminateSession(sessionId: string): Promise<boolean> {
 }
 
 /**
+ * Invalidate all active sessions for a user (force re-login)
+ * Used when admin changes a user's role
+ * @param userId - User ID whose sessions should be destroyed
+ * @returns Number of sessions destroyed
+ */
+export async function invalidateUserSessions(userId: string): Promise<number> {
+  try {
+    const keys = await redisClient.keys('layer8:sess:*');
+    let destroyed = 0;
+
+    for (const key of keys) {
+      const sessionData = await redisClient.get(key);
+      if (!sessionData) continue;
+
+      try {
+        const parsed = JSON.parse(sessionData);
+        if (parsed.userId === userId) {
+          await redisClient.del(key);
+          destroyed++;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return destroyed;
+  } catch (error) {
+    console.error('[session service] Error invalidating user sessions:', error);
+    return 0;
+  }
+}
+
+/**
  * Clean up expired sessions from Redis
  * Note: Redis sessions expire automatically, but this provides manual cleanup
  * @returns Number of sessions cleaned up
