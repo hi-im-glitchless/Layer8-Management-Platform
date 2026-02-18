@@ -40,7 +40,7 @@ export function requireRole(minimumRole: string) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const userLevel = ROLE_HIERARCHY[req.session.role] ?? 0;
+    const userLevel = ROLE_HIERARCHY[req.session.role ?? ''] ?? 0;
     const requiredLevel = ROLE_HIERARCHY[minimumRole] ?? Infinity;
 
     if (userLevel < requiredLevel) {
