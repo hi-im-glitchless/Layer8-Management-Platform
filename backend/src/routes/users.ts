@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db/prisma.js';
 import { hashPassword } from '../services/auth.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireRole } from '../middleware/auth.js';
+import { invalidateUserSessions } from '../services/session.js';
 import { auditMiddleware } from '../middleware/audit.js';
 
 const router = Router();
 
 // All routes require admin
-router.use(requireAdmin);
+router.use(requireRole('ADMIN'));
 
 /**
  * GET /api/users
@@ -20,7 +21,7 @@ router.get('/', async (req, res) => {
       select: {
         id: true,
         username: true,
-        isAdmin: true,
+        role: true,
         isActive: true,
         totpEnabled: true,
         createdAt: true,
@@ -51,7 +52,7 @@ router.post('/', auditMiddleware('admin.user.create'), async (req, res) => {
         .max(50, 'Username must be at most 50 characters')
         .regex(/^[a-zA-Z0-9_]+$/, 'Username must be alphanumeric with underscores only'),
       password: z.string().min(8, 'Password must be at least 8 characters'),
-      isAdmin: z.boolean().optional().default(false),
+      role: z.enum(['NORMAL', 'PM', 'MANAGER', 'ADMIN']).optional().default('NORMAL'),
     });
 
     const validated = createUserSchema.parse(req.body);
@@ -73,14 +74,14 @@ router.post('/', auditMiddleware('admin.user.create'), async (req, res) => {
       data: {
         username: validated.username,
         passwordHash,
-        isAdmin: validated.isAdmin,
+        role: validated.role,
         mustResetPassword: true, // Force password change on first login
         totpEnabled: false, // Will be set up during onboarding
       },
       select: {
         id: true,
         username: true,
-        isAdmin: true,
+        role: true,
         isActive: true,
         totpEnabled: true,
         createdAt: true,
@@ -114,15 +115,15 @@ router.put('/:id', auditMiddleware('admin.user.update'), async (req, res) => {
         .max(50)
         .regex(/^[a-zA-Z0-9_]+$/)
         .optional(),
-      isAdmin: z.boolean().optional(),
+      role: z.enum(['NORMAL', 'PM', 'MANAGER', 'ADMIN']).optional(),
       isActive: z.boolean().optional(),
     });
 
     const validated = updateUserSchema.parse(req.body);
 
     // Prevent self-demotion from admin
-    if (id === session.userId && validated.isAdmin === false) {
-      return res.status(400).json({ error: 'Cannot remove your own admin privileges' });
+    if (id === session.userId && validated.role && validated.role !== 'ADMIN') {
+      return res.status(400).json({ error: 'Cannot demote your own admin role' });
     }
 
     // Check if username is being changed and already exists
@@ -146,13 +147,18 @@ router.put('/:id', auditMiddleware('admin.user.update'), async (req, res) => {
       select: {
         id: true,
         username: true,
-        isAdmin: true,
+        role: true,
         isActive: true,
         totpEnabled: true,
         createdAt: true,
         updatedAt: true,
       },
     });
+
+    // Invalidate sessions when role changes to force re-login
+    if (validated.role) {
+      await invalidateUserSessions(id);
+    }
 
     res.json(user);
   } catch (error) {
