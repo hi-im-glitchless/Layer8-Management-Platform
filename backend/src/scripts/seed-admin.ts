@@ -31,7 +31,7 @@ async function main() {
     data: {
       username,
       passwordHash,
-      isAdmin: true,
+      role: 'ADMIN',
       mustResetPassword: true, // Force password change on first login
       totpEnabled: false, // Will be set up during onboarding
     },
