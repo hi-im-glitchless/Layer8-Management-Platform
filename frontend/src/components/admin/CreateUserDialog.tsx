@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCreateUser } from '@/features/admin/hooks'
+import { type Role } from '@/lib/rbac'
 import { Copy, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -33,7 +34,7 @@ function generatePassword(): string {
 export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [role, setRole] = useState<Role>('NORMAL')
   const [createdPassword, setCreatedPassword] = useState<string | null>(null)
 
   const createUser = useCreateUser()
@@ -67,7 +68,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       await createUser.mutateAsync({
         username,
         password,
-        isAdmin,
+        role,
       })
 
       // Show created password for copying
@@ -80,7 +81,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const handleClose = () => {
     setUsername('')
     setPassword('')
-    setIsAdmin(false)
+    setRole('NORMAL')
     setCreatedPassword(null)
     onOpenChange(false)
   }
@@ -186,18 +187,22 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               </p>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="isAdmin">Admin Privileges</Label>
-                <p className="text-xs text-muted-foreground">
-                  Grant admin access to this user
-                </p>
-              </div>
-              <Switch
-                id="isAdmin"
-                checked={isAdmin}
-                onCheckedChange={setIsAdmin}
-              />
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                <SelectTrigger id="role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NORMAL">Normal</SelectItem>
+                  <SelectItem value="PM">Project Manager</SelectItem>
+                  <SelectItem value="MANAGER">Manager</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Determines feature access level
+              </p>
             </div>
           </div>
 

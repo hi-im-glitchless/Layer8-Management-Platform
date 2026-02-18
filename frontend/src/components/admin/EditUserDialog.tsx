@@ -10,10 +10,11 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useUpdateUser, useResetPassword, useResetTOTP } from '@/features/admin/hooks'
 import type { AdminUser } from '@/features/admin/types'
+import { type Role } from '@/lib/rbac'
 import { Sparkles, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -35,7 +36,7 @@ function generatePassword(): string {
 
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const [username, setUsername] = useState('')
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [role, setRole] = useState<Role>('NORMAL')
   const [newPassword, setNewPassword] = useState('')
 
   const updateUser = useUpdateUser()
@@ -45,7 +46,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   useEffect(() => {
     if (user) {
       setUsername(user.username)
-      setIsAdmin(user.isAdmin)
+      setRole(user.role as Role)
       setNewPassword('')
     }
   }, [user])
@@ -71,7 +72,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         id: user.id,
         data: {
           username: username !== user.username ? username : undefined,
-          isAdmin: isAdmin !== user.isAdmin ? isAdmin : undefined,
+          role: role !== (user.role as Role) ? role : undefined,
         },
       })
       onOpenChange(false)
@@ -147,18 +148,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="edit-isAdmin">Admin Privileges</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Grant admin access to this user
-                  </p>
-                </div>
-                <Switch
-                  id="edit-isAdmin"
-                  checked={isAdmin}
-                  onCheckedChange={setIsAdmin}
-                />
+              <div>
+                <Label htmlFor="edit-role">Role</Label>
+                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                  <SelectTrigger id="edit-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NORMAL">Normal</SelectItem>
+                    <SelectItem value="PM">Project Manager</SelectItem>
+                    <SelectItem value="MANAGER">Manager</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Determines feature access level
+                </p>
               </div>
 
               <Button
