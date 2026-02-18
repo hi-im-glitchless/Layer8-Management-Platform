@@ -23,23 +23,36 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+const ROLE_HIERARCHY: Record<string, number> = {
+  NORMAL: 1,
+  PM: 2,
+  MANAGER: 3,
+  ADMIN: 4,
+};
+
 /**
- * Middleware to require admin privileges
- * First checks authentication, then checks admin status
+ * Middleware factory for role-based access control
+ * Creates middleware that requires the user to have at least the specified role
  */
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  // Check auth first
-  if (!req.session.userId || !req.session.totpVerified) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
+export function requireRole(minimumRole: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.session.userId || !req.session.totpVerified) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
 
-  // Check admin status
-  if (!req.session.isAdmin) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+    const userLevel = ROLE_HIERARCHY[req.session.role] ?? 0;
+    const requiredLevel = ROLE_HIERARCHY[minimumRole] ?? Infinity;
 
-  next();
+    if (userLevel < requiredLevel) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    next();
+  };
 }
+
+/** @deprecated Use requireRole('ADMIN') instead */
+export const requireAdmin = requireRole('ADMIN');
 
 /**
  * Middleware to require pending TOTP state
