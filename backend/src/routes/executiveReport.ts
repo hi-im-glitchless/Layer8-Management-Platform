@@ -20,7 +20,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
 import fs from 'fs';
-import { requireAuth } from '@/middleware/auth.js';
+import { requireRole } from '@/middleware/auth.js';
 import {
   getReportSession,
   getActiveReportSession,
@@ -143,7 +143,7 @@ function handleReportError(res: Response, error: unknown, context: string): void
  */
 router.post(
   '/upload',
-  requireAuth,
+  requireRole('MANAGER'),
   (req: Request, res: Response, next) => {
     upload.single('file')(req, res, (err) => {
       if (err instanceof multer.MulterError) {
@@ -203,7 +203,7 @@ router.post(
  * Body: { sessionId, mappings: EntityMapping[] }
  * Returns { sanitizedHtml, entityMappings }
  */
-router.post('/update-entity-mappings', requireAuth, async (req: Request, res: Response) => {
+router.post('/update-entity-mappings', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = updateEntityMappingsBodySchema.safeParse(req.body);
     if (!body.success) {
@@ -252,7 +252,7 @@ router.post('/update-entity-mappings', requireAuth, async (req: Request, res: Re
  * Body: { sessionId }
  * Returns { findings, metadata, warnings }
  */
-router.post('/approve-sanitization', requireAuth, async (req: Request, res: Response) => {
+router.post('/approve-sanitization', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = approveSanitizationBodySchema.safeParse(req.body);
     if (!body.success) {
@@ -296,7 +296,7 @@ router.post('/approve-sanitization', requireAuth, async (req: Request, res: Resp
  * Body: { sessionId, metadata: { clientName?, projectCode?, startDate?, endDate?, scopeSummary? } }
  * Returns updated metadata.
  */
-router.post('/update-metadata', requireAuth, async (req: Request, res: Response) => {
+router.post('/update-metadata', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = updateMetadataBodySchema.safeParse(req.body);
     if (!body.success) {
@@ -340,7 +340,7 @@ router.post('/update-metadata', requireAuth, async (req: Request, res: Response)
  * Stages: computing -> generating_charts -> narrative -> building_report -> converting_pdf
  * Events: stage (progress), delta (LLM text), done (usage), error
  */
-router.post('/generate', requireAuth, async (req: Request, res: Response) => {
+router.post('/generate', requireRole('MANAGER'), async (req: Request, res: Response) => {
   const body = generateBodySchema.safeParse(req.body);
   if (!body.success) {
     return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
@@ -437,7 +437,7 @@ router.post('/generate', requireAuth, async (req: Request, res: Response) => {
  * Events: delta (LLM text), section_update (JSON with updated section key + text),
  *         done (usage stats), error (message + retryable flag)
  */
-router.post('/chat', requireAuth, async (req: Request, res: Response) => {
+router.post('/chat', requireRole('MANAGER'), async (req: Request, res: Response) => {
   const body = chatBodySchema.safeParse(req.body);
   if (!body.success) {
     return res.status(400).json({ error: 'Invalid request', details: body.error.issues });
@@ -540,7 +540,7 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
  * Returns the complete ReportWizardState including HTML fields.
  * Excludes base64 file content to keep payload manageable.
  */
-router.get('/session/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.get('/session/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -581,7 +581,7 @@ router.get('/session/:sessionId', requireAuth, async (req: Request, res: Respons
  * Used for sidebar badge or auto-resume on page load.
  * Returns { session } or { session: null } if no active session.
  */
-router.get('/session', requireAuth, async (req: Request, res: Response) => {
+router.get('/session', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const userId = req.session.userId!;
     const state = await getActiveReportSession(userId);
@@ -618,7 +618,7 @@ router.get('/session', requireAuth, async (req: Request, res: Response) => {
  * Delete a report session. Allows the user to reset and start over.
  * Also cleans up uploaded files from disk.
  */
-router.delete('/session/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.delete('/session/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -678,7 +678,7 @@ router.delete('/session/:sessionId', requireAuth, async (req: Request, res: Resp
  * Poll PDF preview status for a report.
  * Returns current status with pdfUrl when completed.
  */
-router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.get('/preview/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -750,7 +750,7 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
  * Body: { sessionId }
  * Returns: PDF binary with Content-Type: application/pdf
  */
-router.post('/download-pdf', requireAuth, async (req: Request, res: Response) => {
+router.post('/download-pdf', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = downloadPdfBodySchema.safeParse(req.body);
     if (!body.success) {
@@ -828,7 +828,7 @@ router.post('/download-pdf', requireAuth, async (req: Request, res: Response) =>
 /**
  * Download the generated executive report as PDF (legacy).
  */
-router.get('/download/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.get('/download/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {

@@ -27,7 +27,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { config } from '@/config.js';
-import { requireAuth } from '@/middleware/auth.js';
+import { requireRole } from '@/middleware/auth.js';
 import {
   analyzeTemplate,
   uploadTemplate,
@@ -187,7 +187,7 @@ function handleAdapterError(res: Response, error: unknown, context: string): voi
  */
 router.post(
   '/upload',
-  requireAuth,
+  requireRole('MANAGER'),
   (req: Request, res: Response, next) => {
     upload.single('file')(req, res, (err) => {
       if (err instanceof multer.MulterError) {
@@ -256,7 +256,7 @@ router.post(
  */
 router.post(
   '/analyze',
-  requireAuth,
+  requireRole('MANAGER'),
   (req: Request, res: Response, next) => {
     upload.single('file')(req, res, (err) => {
       if (err instanceof multer.MulterError) {
@@ -325,7 +325,7 @@ router.post(
  * Used when the page is refreshed and the File object is lost — the template
  * base64 is read from the session stored in Redis.
  */
-router.post('/analyze-session', requireAuth, async (req: Request, res: Response) => {
+router.post('/analyze-session', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = sessionIdParamSchema.safeParse(req.body);
     if (!body.success) {
@@ -397,7 +397,7 @@ router.post('/analyze-session', requireAuth, async (req: Request, res: Response)
  * This endpoint may take 60-180s (two LLM passes). The frontend uses
  * an existing polling fallback pattern from StepAnalysis.
  */
-router.post('/auto-map', requireAuth, async (req: Request, res: Response) => {
+router.post('/auto-map', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = sessionIdSchema.safeParse(req.body);
     if (!body.success) {
@@ -463,7 +463,7 @@ router.post('/auto-map', requireAuth, async (req: Request, res: Response) => {
  * Requires currentStep to be "verify".
  * Returns 202 with { pdfJobId, docxUrl }
  */
-router.post('/preview', requireAuth, async (req: Request, res: Response) => {
+router.post('/preview', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = sessionIdSchema.safeParse(req.body);
     if (!body.success) {
@@ -518,7 +518,7 @@ router.post('/preview', requireAuth, async (req: Request, res: Response) => {
  * Poll preview status (PDF conversion progress).
  * Returns current status with pdfUrl when completed.
  */
-router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.get('/preview/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -569,7 +569,7 @@ router.get('/preview/:sessionId', requireAuth, async (req: Request, res: Respons
  * Requires session to have a mapping plan (analysis step).
  * Returns 202 with { pdfJobId, tooltipData, unmappedParagraphs, gapSummary }
  */
-router.post('/annotated-preview', requireAuth, async (req: Request, res: Response) => {
+router.post('/annotated-preview', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = annotatedPreviewSchema.safeParse(req.body);
     if (!body.success) {
@@ -628,7 +628,7 @@ router.post('/annotated-preview', requireAuth, async (req: Request, res: Respons
  * Get cached annotated preview data from wizard state (for page reload).
  * Includes current PDF status if pdfJobId exists, plus tooltip and gap data.
  */
-router.get('/annotated-preview/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.get('/annotated-preview/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -685,7 +685,7 @@ router.get('/annotated-preview/:sessionId', requireAuth, async (req: Request, re
  * Body: { sessionId }
  * Returns 200 with { appliedCount, skippedCount, placementWarnings }
  */
-router.post('/reapply', requireAuth, async (req: Request, res: Response) => {
+router.post('/reapply', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = sessionIdSchema.safeParse(req.body);
     if (!body.success) {
@@ -744,7 +744,7 @@ router.post('/reapply', requireAuth, async (req: Request, res: Response) => {
  * Requires session to have adaptation.appliedDocxPath (auto-map completed).
  * Returns 202 with { pdfJobId, placeholders, placeholderCount }
  */
-router.post('/placeholder-preview', requireAuth, async (req: Request, res: Response) => {
+router.post('/placeholder-preview', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = sessionIdSchema.safeParse(req.body);
     if (!body.success) {
@@ -801,7 +801,7 @@ router.post('/placeholder-preview', requireAuth, async (req: Request, res: Respo
  * Proxies to Python POST /adapter/document-structure, caching the result
  * in wizard state so subsequent requests skip the re-parse.
  */
-router.get('/document-structure/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.get('/document-structure/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -917,7 +917,7 @@ router.get('/document-structure/:sessionId', requireAuth, async (req: Request, r
  * Body: { sessionId, updates: { editedEntries?, addedEntries? } }
  * Returns the updated mapping plan.
  */
-router.post('/update-mapping', requireAuth, async (req: Request, res: Response) => {
+router.post('/update-mapping', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = updateMappingSchema.safeParse(req.body);
     if (!body.success) {
@@ -1185,7 +1185,7 @@ router.post('/update-mapping', requireAuth, async (req: Request, res: Response) 
  * Decays old mappings and creates/boosts corrected mappings in the KB.
  * Returns { updated, decayed }
  */
-router.post('/correction-update', requireAuth, async (req: Request, res: Response) => {
+router.post('/correction-update', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const body = correctionUpdateSchema.safeParse(req.body);
     if (!body.success) {
@@ -1243,7 +1243,7 @@ router.post('/correction-update', requireAuth, async (req: Request, res: Respons
  * Returns zone distribution, blueprint count, style hint count,
  * average confidence, and top fields.
  */
-router.get('/kb-stats/:templateType', requireAuth, async (req: Request, res: Response) => {
+router.get('/kb-stats/:templateType', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = templateTypeParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -1265,7 +1265,7 @@ router.get('/kb-stats/:templateType', requireAuth, async (req: Request, res: Res
  * Download the adapted DOCX file (with Jinja2 placeholders, NOT the rendered preview).
  * This is what the user uploads to Ghostwriter.
  */
-router.get('/download/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.get('/download/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -1355,7 +1355,7 @@ router.get('/download/:sessionId', requireAuth, async (req: Request, res: Respon
  * Events: delta (text chunk), mapping_update (modified plan),
  *         selection_mapping (per-selection result), batch_complete, done (usage), error
  */
-router.post('/chat', requireAuth, async (req: Request, res: Response) => {
+router.post('/chat', requireRole('MANAGER'), async (req: Request, res: Response) => {
   const body = chatBodySchema.safeParse(req.body);
   if (!body.success) {
     return res.status(400).json({
@@ -1487,7 +1487,7 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
  * Get full wizard state for page reload / navigation restoration.
  * Returns the complete WizardState (excluding base64 template for payload size).
  */
-router.get('/session/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.get('/session/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
@@ -1526,7 +1526,7 @@ router.get('/session/:sessionId', requireAuth, async (req: Request, res: Respons
  * Used for sidebar badge or auto-resume on page load.
  * Returns { session } or { session: null } if no active session.
  */
-router.get('/session', requireAuth, async (req: Request, res: Response) => {
+router.get('/session', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const userId = req.session.userId!;
     const state = await getActiveWizardSession(userId);
@@ -1561,7 +1561,7 @@ router.get('/session', requireAuth, async (req: Request, res: Response) => {
 /**
  * Delete a wizard session. Allows the user to reset and start over.
  */
-router.delete('/session/:sessionId', requireAuth, async (req: Request, res: Response) => {
+router.delete('/session/:sessionId', requireRole('MANAGER'), async (req: Request, res: Response) => {
   try {
     const params = sessionIdParamSchema.safeParse(req.params);
     if (!params.success) {
