@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth, useLogout } from '@/features/auth/hooks'
 
 export function Header() {
-  const { user, isAdmin } = useAuth();
+  const { user, hasRole: userHasRole } = useAuth();
   const { logout } = useLogout();
   const navigate = useNavigate();
 
@@ -59,7 +59,7 @@ export function Header() {
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              {isAdmin && (
+              {userHasRole('ADMIN') && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-warning">
                   <Shield className="h-2.5 w-2.5 text-white" />
                 </span>
@@ -71,7 +71,7 @@ export function Header() {
               <div className="flex flex-col space-y-1">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium">{user?.displayName || user?.username || 'User'}</p>
-                  {isAdmin && (
+                  {userHasRole('ADMIN') && (
                     <Badge variant="secondary" className="text-xs">
                       Admin
                     </Badge>

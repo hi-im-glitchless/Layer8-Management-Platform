@@ -15,18 +15,19 @@ import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/hooks'
+import { type Role } from '@/lib/rbac'
 
 interface NavItem {
   to: string
   icon: typeof LayoutDashboard
   label: string
-  adminOnly?: boolean
+  minRole?: Role
 }
 
 interface NavGroup {
   label: string
   items: NavItem[]
-  adminOnly?: boolean
+  minRole?: Role
 }
 
 const navigationGroups: NavGroup[] = [
@@ -39,8 +40,8 @@ const navigationGroups: NavGroup[] = [
   {
     label: 'Tools',
     items: [
-      { to: '/template-adapter', icon: FileCode, label: 'Template Adapter' },
-      { to: '/executive-report', icon: FileText, label: 'Executive Report' },
+      { to: '/template-adapter', icon: FileCode, label: 'Template Adapter', minRole: 'MANAGER' },
+      { to: '/executive-report', icon: FileText, label: 'Executive Report', minRole: 'MANAGER' },
       { to: '/documents', icon: FileUp, label: 'Documents' },
     ],
   },
@@ -53,7 +54,7 @@ const navigationGroups: NavGroup[] = [
   },
   {
     label: 'Admin',
-    adminOnly: true,
+    minRole: 'ADMIN',
     items: [
       { to: '/admin', icon: Shield, label: 'Admin Panel' },
     ],
@@ -63,11 +64,16 @@ const navigationGroups: NavGroup[] = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const { resolvedTheme } = useTheme()
-  const { user } = useAuth()
+  const { user, hasRole: userHasRole } = useAuth()
 
   const visibleGroups = useMemo(
-    () => navigationGroups.filter((group) => !group.adminOnly || user?.isAdmin),
-    [user?.isAdmin]
+    () => navigationGroups
+      .filter((group) => !group.minRole || userHasRole(group.minRole))
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.minRole || userHasRole(item.minRole)),
+      })),
+    [user?.role]
   )
 
   // Load collapsed state from localStorage
