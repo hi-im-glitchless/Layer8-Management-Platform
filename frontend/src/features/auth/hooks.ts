@@ -5,6 +5,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import * as authApi from './api';
+import { hasRole as checkRole, type Role } from '@/lib/rbac';
 
 const AUTH_QUERY_KEY = ['auth', 'me'];
 
@@ -25,7 +26,8 @@ export function useAuth() {
     user: query.data,
     isLoading: query.isLoading,
     isAuthenticated: !!query.data && !query.error,
-    isAdmin: query.data?.isAdmin ?? false,
+    role: query.data?.role ?? 'NORMAL',
+    hasRole: (minimumRole: Role) => checkRole(query.data?.role, minimumRole),
     refetch: query.refetch,
     error: query.error,
   };
