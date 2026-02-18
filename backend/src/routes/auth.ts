@@ -96,7 +96,7 @@ router.post('/login', loginRateLimiter, auditMiddleware('auth.login'), async (re
     // Set session data
     req.session.userId = user.id;
     req.session.username = user.username;
-    req.session.isAdmin = user.isAdmin;
+    req.session.role = user.role;
     req.session.createdAt = Date.now();
     req.session.lastActivity = Date.now();
     req.session.ipAddress = req.ip || req.socket.remoteAddress || null;
@@ -404,7 +404,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
         username: true,
         displayName: true,
         avatarUrl: true,
-        isAdmin: true,
+        role: true,
         totpEnabled: true,
         createdAt: true,
         lastLoginAt: true,
