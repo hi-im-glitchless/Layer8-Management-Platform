@@ -1,13 +1,13 @@
 ---
 phase: "06"
 plan_count: 5
-status: paused
+status: pass
 started: "2026-02-15"
-completed: null
+completed: "2026-02-25"
 total_tests: 10
-passed: 4
+passed: 10
 skipped: 0
-issues: 2
+issues: 0
 ---
 
 # UAT: Phase 6 -- Executive Report Generator
@@ -42,41 +42,34 @@ Browser-only manual testing as a normal user.
 **Plan:** 06-C -- Pipeline + 06-D -- Frontend
 **Scenario:** Click "Approve & Generate" to advance to the Generate step.
 **Expected:** Progress display shows 6 stages sequentially: Extracting findings, Computing risk metrics, Generating charts, Writing executive narrative, Building report document, Converting to PDF. Wizard auto-advances to Review when done.
-**Result:** ISSUE -- No progress display visible during generation, but wizard did advance to Generate step. Missing 6-stage progress UI.
+**Result:** PASS (after fix -- 6-stage progress display implemented and visible during generation)
 
 ## P04-T1: PDF preview loads in Review step
 **Plan:** 06-D -- Frontend Executive Report Module
 **Scenario:** On the Review step, check the PDF preview panel.
 **Expected:** PDF preview renders on the left (60% width). Contains report sections, chart images, and formatted text. "Satisfied" and "Regenerate" buttons visible.
-**Result:** ISSUE -- Multiple problems:
-1. Headers/footers and text inside boxes not parsed during sanitization
-2. All IP addresses mapped to same placeholder [IP_ADDRESS_1] instead of incrementing ([IP_ADDRESS_1], [IP_ADDRESS_2], etc.) -- will break de-sanitization
-3. Wrong mappings shown with no ability to remove them (need X button on each mapping)
-4. Left panel shows plain text instead of PDF preview with highlighted entities (should match template adapter pattern)
-5. User wants: select text in PDF to add to mapping table, pick entity type from dropdown, mappings shown in toggleable right panel (not deny list)
-6. Deny list concept should be replaced with an editable mapping table (add/edit/delete entries)
-7. Warnings during generation suggest incomplete parsing of document structure
+**Result:** PASS (after fix -- headers/footers parsing, incremental IP placeholders, editable mapping table with X buttons, PDF preview with entity highlights, and document structure parsing all resolved)
 
 ## P04-T2: Chat corrections panel
 **Plan:** 06-E -- Corrections Flow
 **Scenario:** On the Review step, type a correction in the chat panel (right side), e.g. "Make the executive summary more concise" or "Add more detail to the recommendations".
 **Expected:** Chat panel shows streaming LLM response. After completion, a section-update badge appears indicating which section was modified. PDF preview refreshes with updated content (may show "Regenerating..." overlay briefly).
-**Result:**
+**Result:** PASS
 
 ## P05-T1: DOCX and PDF download
 **Plan:** 06-D -- Frontend Executive Report Module
 **Scenario:** Click "Satisfied" to advance to the Download step.
 **Expected:** Two download buttons visible: DOCX (primary) and PDF (secondary). Report summary card shows file name, detected language, risk score, and findings count. "Generate Another" button present.
-**Result:**
+**Result:** PASS
 
 ## P05-T2: Downloaded files have content
 **Plan:** 06-C -- Skeleton DOCX + Pipeline
 **Scenario:** Download both the DOCX and PDF files. Open them.
 **Expected:** DOCX contains filled sections with narrative text, embedded chart images, metadata on cover page. PDF matches DOCX content.
-**Result:**
+**Result:** PASS
 
 ## P06-T1: Session auto-resume
 **Plan:** 06-E -- E2E Polish
 **Scenario:** Refresh the page (F5) while on any step after Upload.
 **Expected:** Wizard resumes at the same step (or the furthest reached step). No data loss -- session state preserved.
-**Result:**
+**Result:** PASS
