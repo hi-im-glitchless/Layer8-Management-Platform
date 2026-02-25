@@ -15,11 +15,14 @@ Layer8 automates template adaptation and executive report generation for offensi
 - [x] Phase 5.2: Interactive PDF Mapping (INSERTED)
 - [x] Phase 5.3: Placeholder Verification & Correction (INSERTED)
 - [x] Phase 5.4: Intelligent Knowledge Base (INSERTED)
-- [ ] Phase 5.5: LLM-Powered Placeholder Regeneration (INSERTED)
-- [ ] Phase 5.6: Prescriptive Knowledge Base (INSERTED)
-- [ ] Phase 6: Executive Report Generator
-- [ ] Phase 7: UI Polish (INSERTED)
-- [ ] Phase 8: Production Deployment
+- [x] Phase 5.5: LLM-Powered Placeholder Regeneration (INSERTED)
+- [x] Phase 5.6: Prescriptive Knowledge Base (INSERTED)
+- [x] Phase 6: Executive Report Generator
+- [x] Phase 6.1: Executive Report HTML Overhaul (INSERTED)
+- [x] Phase 7: UI Polish (INSERTED)
+- [x] Phase 8: Role-Based Access Control (INSERTED)
+- [ ] Phase 9: Team Schedule & Allocation
+- [ ] Phase 10: Security Hardening
 
 ### Phase 1: Foundation, Security & Web UI Design
 **Goal:** Secure infrastructure for authentication, session isolation, compliance-grade audit logging, and fully designed frontend
@@ -78,55 +81,104 @@ Layer8 automates template adaptation and executive report generation for offensi
 **Plans:** 5/5 complete
 
 ### Phase 5.2: Interactive PDF Mapping (INSERTED)
-**Goal:** Replace table-based mapping UI with a PDF-first, select-and-describe workflow. Users scroll through a continuously rendered PDF, select unmapped text sections (numbered #1, #2, #3...) or pick blank/invisible paragraphs from a document structure browser, then describe all selections in a single chat message. The LLM resolves each selection to a Ghostwriter field and marker type. Only confirmed mappings are highlighted (green); no yellow gap shading. Coverage counter shows progress without prescribing specific gaps. Each completed session feeds the KB per template type (internal/web/mobile), improving auto-mapping accuracy over time.
+**Goal:** Replace table-based mapping UI with a PDF-first, select-and-describe workflow
 **Deps:** Phase 5.1
 **Reqs:** TMPL-01, TMPL-06, UIUX-09, UIUX-10
 **Success:** Users can select text on PDF + pick blank paragraphs from structure panel, batch-describe selections via chat, LLM maps all at once, PDF regenerates with green shading, KB stores mappings per template type for few-shot reuse
 **Plans:** 5/5 complete
 
 ### Phase 5.3: Placeholder Verification & Correction (INSERTED)
-**Goal:** Analysis step renders the PDF with visible Jinja placeholders (not rendered content), replacing green markings. Users verify placeholder correctness by selecting text in three correction modes: (1) select unmapped text/empty space that should be a placeholder, (2) select a wrong placeholder that needs correction, (3) select a placeholder that should be removed. User describes all corrections in a single LLM chatbox message, LLM updates the mapping, and user clicks regenerate to produce the PDF with fixed placeholders.
+**Goal:** Analysis step renders the PDF with visible Jinja placeholders, three correction modes via LLM chat
 **Deps:** Phase 5.2
 **Reqs:** TMPL-01, TMPL-06, UIUX-09, UIUX-10
-**Success:** Analysis step shows PDF with raw Jinja placeholders (no green shading), three selection-based correction modes work end-to-end, LLM processes natural-language correction prompts and updates mapping, regenerate produces corrected PDF
+**Success:** Analysis step shows PDF with raw Jinja placeholders, three selection-based correction modes work end-to-end, LLM processes corrections, regenerate produces corrected PDF
 **Plans:** 5/5 complete
 
 ### Phase 5.4: Intelligent Knowledge Base (INSERTED)
-**Goal:** Evolve the flat mapping KB into a structural intelligence layer that understands document zones (header/footer/body/table), repetition patterns, structural blueprints (loop templates, co-occurring markers), style-based heuristics, and confidence calibration from correction feedback — so the LLM auto-maps with near-complete accuracy on familiar template types
+**Goal:** Structural intelligence layer with zone patterns, blueprints, and confidence calibration
 **Deps:** Phase 5.3
 **Reqs:** TMPL-01, TMPL-06
-**Success:** KB stores zone patterns, repetition rules, structural blueprints, and marker co-occurrences; LLM prompt receives structural context instead of flat examples; auto-map accuracy on web/en templates jumps from ~15/90 to 80%+ without manual corrections
+**Success:** KB stores zone patterns, repetition rules, structural blueprints; auto-map accuracy 80%+ on familiar templates
 **Plans:** 5/5 complete
 
 ### Phase 5.5: LLM-Powered Placeholder Regeneration (INSERTED)
-**Goal:** Replace the mechanical find-and-replace regeneration engine with an LLM-based approach. When the user edits mappings in the table and clicks "Regenerate Placeholders", instead of the sanitization service doing brittle text matching and paragraph-index lookups, the LLM reads the actual DOCX content, understands document structure (headers, footers, sections, paragraphs, tables), and intelligently places each placeholder at the correct location. The mapping table UI stays exactly as-is — only the backend regeneration path changes. This also enables richer KB population since the LLM can infer structural context for each placement.
+**Goal:** Replace mechanical find-and-replace with LLM-based intelligent placeholder placement
 **Deps:** Phase 5.4
 **Reqs:** TMPL-01, TMPL-06
-**Success:** User edits mappings in table, clicks regenerate, LLM produces correctly-placed placeholders without document corruption; mapping table UI unchanged; KB receives structural context from LLM placement decisions
+**Success:** LLM produces correctly-placed placeholders without document corruption; mapping table UI unchanged
+**Plans:** 4/4 complete
 
 ### Phase 5.6: Prescriptive Knowledge Base (INSERTED)
-**Goal:** Transform the KB from an advisory few-shot prompt enhancer into a deterministic mapping cache with LLM fallback. For each document section, normalize text and look up the KB — if a high-confidence match exists (≥ 0.8), lock that mapping directly without LLM involvement. Only send unmatched or low-confidence sections to the LLM for analysis. Prune dead KB entries (confidence < 0.3) to reduce noise. Factor zone into lookup matching to avoid cross-zone collisions. Show locked mappings as pre-filled but editable in StepVerify so the user retains final say.
+**Goal:** Transform KB from advisory to deterministic mapping cache with LLM fallback
 **Deps:** Phase 5.5
 **Reqs:** TMPL-01, TMPL-06
-**Success:** Re-uploading a previously mapped document produces near-identical correct mappings with zero LLM calls for known sections; only genuinely new/unknown sections go to the LLM; users can still override any locked mapping; dead entries pruned from KB
+**Success:** Re-uploading mapped document produces near-identical mappings with zero LLM calls for known sections
+**Plans:** 5/5 complete
 
 ### Phase 6: Executive Report Generator
 **Goal:** Sanitized executive report generation with complete workflow
 **Deps:** Phase 2, Phase 3, Phase 4
 **Reqs:** EXEC-01-13, DENY-01-04, LANG-01-03, UIUX-14-15
 **Success:** Upload → sanitize → review → generate → desanitize → annotate → download
+**Plans:** 4/4 complete
+
+### Phase 6.1: Executive Report HTML Overhaul (INSERTED)
+**Goal:** Replace DOCX-based report generation with HTML template rendering via Gotenberg
+**Deps:** Phase 6
+**Reqs:** EXEC-01-13
+**Success:** HTML templates produce pixel-perfect PDF reports matching corporate branding
+**Plans:** 5/5 complete
 
 ### Phase 7: UI Polish (INSERTED)
 **Goal:** Complete the dashboard and minor visual details across the application
 **Deps:** Phase 6
 **Reqs:** Visual polish (no formal requirement IDs)
 **Success:** Dashboard fully functional, minor visual inconsistencies resolved, polished user experience
+**Plans:** 5/5 complete
 
-### Phase 8: Production Deployment
-**Goal:** Production-ready Docker Compose stack with multi-user concurrency
-**Deps:** Phase 5, Phase 6
-**Reqs:** DEPL-01-03
-**Success:** Docker Compose running, concurrent users, Nginx reverse proxy with SSE
+### Phase 8: Role-Based Access Control (INSERTED)
+**Goal:** Role-based permissions (ADMIN, MANAGER, PENTESTER) with route guards and UI enforcement
+**Deps:** Phase 1
+**Reqs:** AUTH-01-06
+**Success:** Three roles with distinct permissions, admin user management panel, route-level RBAC middleware
+**Plans:** 5/5 complete
+
+### Phase 9: Team Schedule & Allocation
+**Goal:** Build a team allocation dashboard that lets managers assign pentesters to projects on a weekly calendar, track availability (holidays, absences), and manage team composition — integrated natively with the app's existing UI patterns (React/shadcn/TanStack), Prisma data layer, and RBAC system
+**Deps:** Phase 8 (RBAC for role-gated access)
+**Reqs:** SCHED-01 through SCHED-12
+**Success:**
+- Weekly calendar grid with sticky headers/columns showing team × weeks for full year
+- Per-day availability indicators (available/holiday/absence) rendered inline
+- Click-to-edit assignments with project name, color, status (confirmed/needs-reqs/placeholder)
+- Split-cell support (two projects in same week)
+- Drag-and-drop to swap/move assignments between cells
+- Ctrl+click copy/paste assignments across cells
+- Lock assignments to prevent accidental changes
+- Team management panel (add/remove/reorder members)
+- Holiday configuration (Portuguese public holidays, extensible)
+- Absence management (click day dots to toggle personal absences)
+- Auto-OUT logic (week becomes OUT when all days unavailable)
+- ADMIN/MANAGER can edit; PENTESTER read-only view
+**Requirements:**
+- SCHED-01: Multi-section calendar (quarterly views + all-year tab)
+- SCHED-02: Sticky column/header scrollable grid
+- SCHED-03: Weekly assignment cells with color-coded projects
+- SCHED-04: Per-day availability dots (5 per week: Mon-Fri)
+- SCHED-05: Edit modal with color palette and status cycling
+- SCHED-06: Split cell support (two projects per week)
+- SCHED-07: Drag-and-drop assignment swapping
+- SCHED-08: Ctrl+click clipboard copy/paste
+- SCHED-09: Lock/unlock assignments
+- SCHED-10: Team management panel (add/remove/reorder)
+- SCHED-11: Holiday and absence management
+- SCHED-12: RBAC integration (ADMIN/MANAGER write, PENTESTER read-only)
+
+### Phase 10: Security Hardening
+**Goal:** Production security hardening with rate limiting, CSRF protection, and security headers
+**Deps:** Phase 8
+**Reqs:** SECR-01-06
+**Success:** OWASP-compliant security posture, rate limiting, CSRF tokens, security headers
 
 ## Progress
 
@@ -138,16 +190,16 @@ Layer8 automates template adaptation and executive report generation for offensi
 | 2.1 - Profile | 2/2 | Complete | 2026-02-11 |
 | 3 - LLM Integration | 3/3 | Complete | 2026-02-12 |
 | 4 - Document Processing | 5/5 | Complete | 2026-02-13 |
-| 5 - Template Adapter Core | 4/4 | complete | 2026-02-14 |
+| 5 - Template Adapter Core | 5/5 | Complete | 2026-02-14 |
 | 5.1 - Analysis Preview & Memory | 5/5 | Complete | 2026-02-13 |
 | 5.2 - Interactive PDF Mapping | 5/5 | Complete | 2026-02-14 |
 | 5.3 - Placeholder Verification | 5/5 | Complete | 2026-02-14 |
-| 5.4 - Intelligent KB | 0/TBD | Not started | - |
-| 5.5 - LLM Placeholder Regen | 0/4 | Planned | - |
-| 5.6 - Prescriptive KB | 0/TBD | Not started | - |
-| 6 - Executive Report | 0/TBD | Not started | - |
-| 7 - UI Polish | 0/TBD | Not started | - |
-| 8 - Deployment | 0/TBD | Not started | - |
-
----
-*Imported from GSD: 2026-02-12*
+| 5.4 - Intelligent KB | 5/5 | Complete | 2026-02-14 |
+| 5.5 - LLM Placeholder Regen | 4/4 | Complete | 2026-02-15 |
+| 5.6 - Prescriptive KB | 5/5 | Complete | 2026-02-15 |
+| 6 - Executive Report | 4/4 | Complete | 2026-02-16 |
+| 6.1 - Executive Report HTML | 5/5 | Complete | 2026-02-16 |
+| 7 - UI Polish | 5/5 | Complete | 2026-02-17 |
+| 8 - Role-Based Access Control | 5/5 | Complete | 2026-02-18 |
+| 9 - Team Schedule & Allocation | 0/TBD | Not started | - |
+| 10 - Security Hardening | 0/TBD | Not started | - |

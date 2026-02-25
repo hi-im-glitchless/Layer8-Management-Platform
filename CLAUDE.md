@@ -4,9 +4,9 @@
 
 ## Active Context
 
-**Work:** Phase 5.5 — LLM-Powered Placeholder Regeneration (not started)
-**Last shipped:** Phase 5.4 — Intelligent Knowledge Base (2026-02-14)
-**Next action:** Discuss and plan Phase 5.5, or /vbw:status to review progress
+**Work:** Phase 9 — Team Schedule & Allocation (not started)
+**Last shipped:** Phase 8 — Role-Based Access Control (2026-02-18)
+**Next action:** Plan Phase 9 (Schedule), or /vbw:status to review progress
 
 ## VBW Rules
 

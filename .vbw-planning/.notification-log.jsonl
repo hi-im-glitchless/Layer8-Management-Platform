@@ -940,3 +940,21 @@
   "title": "",
   "message": "Claude is waiting for your input"
 }
+{
+  "timestamp": "2026-02-25T16:44:37Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-02-25T16:49:56Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-02-25T16:54:53Z",
+  "type": "auth_success",
+  "title": "",
+  "message": "Claude Code login successful"
+}
