@@ -197,7 +197,7 @@ Layer8 automates template adaptation and executive report generation for offensi
 | 5.4 - Intelligent KB | 5/5 | Complete | 2026-02-14 |
 | 5.5 - LLM Placeholder Regen | 4/4 | Complete | 2026-02-15 |
 | 5.6 - Prescriptive KB | 5/5 | Complete | 2026-02-15 |
-| 6 - Executive Report | 4/4 | Complete | 2026-02-16 |
+| 6 - Executive Report | 5/5 | complete | 2026-02-25 |
 | 6.1 - Executive Report HTML | 5/5 | Complete | 2026-02-16 |
 | 7 - UI Polish | 5/5 | Complete | 2026-02-17 |
 | 8 - Role-Based Access Control | 5/5 | Complete | 2026-02-18 |

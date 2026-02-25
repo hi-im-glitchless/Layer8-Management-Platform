@@ -3,10 +3,10 @@
 **Project:** Template AI Engine (Layer8)
 
 ## Current Phase
-Phase: 9 of 15 (Team Schedule & Allocation)
+Phase: 6 of 15 (06.1 Executive Report Html Overhaul)
 Plans: 0/TBD
 Progress: 0%
-Status: Not started
+Status: needs_remediation
 
 ## Decisions
 - CLIProxyAPI as primary LLM provider (OpenAI SDK format)
