@@ -386,4 +386,21 @@ router.delete('/holidays/:id', requireRole('ADMIN'), async (req, res) => {
   }
 });
 
+// ── Project Colors ────────────────────────────────────────────────
+
+/**
+ * GET /project-colors
+ * Search project colors for autocomplete
+ */
+router.get('/project-colors', async (req, res) => {
+  try {
+    const search = typeof req.query.search === 'string' ? req.query.search : '';
+    const projectColors = await scheduleService.searchProjectColors(search);
+    res.json({ projectColors });
+  } catch (error) {
+    console.error('[schedule routes] Error searching project colors:', error);
+    res.status(500).json({ error: 'Failed to search project colors' });
+  }
+});
+
 export default router;

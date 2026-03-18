@@ -21,6 +21,7 @@ import documentsRouter from './routes/documents.js';
 import ghostwriterRouter from './routes/ghostwriter.js';
 import templateAdapterRouter from './routes/templateAdapter.js';
 import executiveReportRouter from './routes/executiveReport.js';
+import scheduleRouter from './routes/schedule.js';
 import { waitForSanitizer } from './services/sanitization.js';
 import { checkGotenbergHealth } from './services/documents.js';
 
@@ -132,6 +133,9 @@ async function startServer() {
 
     // Mount executive report routes
     app.use('/api/report', executiveReportRouter);
+
+    // Mount schedule routes
+    app.use('/api/schedule', scheduleRouter);
 
     // Mount sanitization routes
     app.use('/api', sanitizationRouter);
