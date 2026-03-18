@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useTeamMembers, useAssignments } from '../hooks'
+import { useTeamMembers, useAssignments, useAbsences, useHolidays } from '../hooks'
 import { getWeeksInRange, getQuarterDateRange, formatWeekLabel } from '../constants'
-import type { Assignment, TeamMember } from '../types'
+import { AvailabilityDots } from './AvailabilityDots'
+import type { Assignment, Absence, Holiday, TeamMember } from '../types'
 
 interface ScheduleGridProps {
   year: number
@@ -11,28 +12,48 @@ interface ScheduleGridProps {
 
 interface GridCellProps {
   assignment: Assignment | undefined
+  weekStart: Date
+  teamMemberId: string
+  absences: Absence[]
+  holidays: Holiday[]
+  year: number
   onClick: () => void
 }
 
-function GridCell({ assignment, onClick }: GridCellProps) {
+function GridCell({ assignment, weekStart, teamMemberId, absences, holidays, year, onClick }: GridCellProps) {
+  const dots = (
+    <AvailabilityDots
+      weekStart={weekStart}
+      teamMemberId={teamMemberId}
+      absences={absences}
+      holidays={holidays}
+      year={year}
+    />
+  )
+
   if (!assignment) {
     return (
       <td
-        className="border border-border p-1 min-w-[100px] h-[48px] cursor-pointer hover:bg-muted/50 transition-colors"
+        className="border border-border p-1 min-w-[100px] h-[56px] cursor-pointer hover:bg-muted/50 transition-colors align-top"
         onClick={onClick}
-      />
+      >
+        <div className="h-full flex flex-col justify-end">
+          {dots}
+        </div>
+      </td>
     )
   }
 
   return (
     <td
-      className="border border-border p-1 min-w-[100px] h-[48px] cursor-pointer transition-colors"
+      className="border border-border p-1 min-w-[100px] h-[56px] cursor-pointer transition-colors align-top"
       style={{ backgroundColor: assignment.projectColor }}
       onClick={onClick}
     >
       <span className="text-xs font-medium text-white truncate block px-1">
         {assignment.projectName}
       </span>
+      {dots}
     </td>
   )
 }
@@ -40,11 +61,28 @@ function GridCell({ assignment, onClick }: GridCellProps) {
 export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const teamMembersQuery = useTeamMembers()
   const assignmentsQuery = useAssignments(year, quarter ?? undefined)
+  const holidaysQuery = useHolidays()
 
   const weeks = useMemo(() => {
     const { start, end } = getQuarterDateRange(year, quarter)
     return getWeeksInRange(start, end)
   }, [year, quarter])
+
+  const dateRange = useMemo(() => {
+    if (weeks.length === 0) return { dateStart: '', dateEnd: '' }
+    const first = weeks[0]
+    const last = weeks[weeks.length - 1]
+    const end = new Date(last)
+    end.setDate(end.getDate() + 4) // Friday of last week
+    return {
+      dateStart: first.toISOString().split('T')[0],
+      dateEnd: end.toISOString().split('T')[0],
+    }
+  }, [weeks])
+
+  const absencesQuery = useAbsences(dateRange)
+  const absences: Absence[] = absencesQuery.data?.absences ?? []
+  const holidays: Holiday[] = holidaysQuery.data?.holidays ?? []
 
   const assignmentMap = useMemo(() => {
     const assignments = assignmentsQuery.data?.assignments ?? []
@@ -59,7 +97,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   const teamMembers: TeamMember[] = teamMembersQuery.data?.teamMembers ?? []
 
-  const isLoading = teamMembersQuery.isLoading || assignmentsQuery.isLoading
+  const isLoading = teamMembersQuery.isLoading || assignmentsQuery.isLoading || absencesQuery.isLoading || holidaysQuery.isLoading
 
   if (isLoading) {
     return (
@@ -114,6 +152,11 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                 <GridCell
                   key={week.toISOString()}
                   assignment={getAssignment(member.id, week)}
+                  weekStart={week}
+                  teamMemberId={member.id}
+                  absences={absences}
+                  holidays={holidays}
+                  year={year}
                   onClick={() => {
                     // Future: open assignment edit modal
                   }}
