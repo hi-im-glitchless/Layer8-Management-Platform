@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Users, UserPlus, Trash2 } from 'lucide-react'
+import { Users, UserPlus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { useTeamMembers, useCreateTeamMember, useArchiveTeamMember } from '../hooks'
+import { useTeamMembers, useCreateTeamMember, useArchiveTeamMember, useReorderTeamMembers } from '../hooks'
 import { useUsers } from '@/features/admin/hooks'
 import type { TeamMember } from '../types'
 
@@ -37,6 +37,7 @@ export function TeamManagementPanel() {
   const usersQuery = useUsers()
   const createMember = useCreateTeamMember()
   const archiveMember = useArchiveTeamMember()
+  const reorderMembers = useReorderTeamMembers()
 
   const teamMembers: TeamMember[] = teamMembersQuery.data?.teamMembers ?? []
   const allUsers = usersQuery.data?.users ?? []
@@ -51,6 +52,13 @@ export function TeamManagementPanel() {
     createMember.mutate(selectedUserId, {
       onSuccess: () => setSelectedUserId(''),
     })
+  }
+
+  const handleReorder = (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...teamMembers]
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    ;[newOrder[index], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[index]]
+    reorderMembers.mutate(newOrder.map((m) => m.id))
   }
 
   return (
@@ -93,7 +101,7 @@ export function TeamManagementPanel() {
 
           {/* Team Member List */}
           <div className="flex flex-col gap-1">
-            {teamMembers.map((member) => (
+            {teamMembers.map((member, index) => (
               <div
                 key={member.id}
                 className="flex items-center justify-between rounded-md border px-3 py-2"
@@ -108,6 +116,26 @@ export function TeamManagementPanel() {
                     {member.user.displayName || member.user.username}
                   </span>
                 </div>
+
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={index === 0 || reorderMembers.isPending}
+                    onClick={() => handleReorder(index, 'up')}
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    disabled={index === teamMembers.length - 1 || reorderMembers.isPending}
+                    onClick={() => handleReorder(index, 'down')}
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -141,6 +169,7 @@ export function TeamManagementPanel() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                </div>
               </div>
             ))}
             {teamMembers.length === 0 && (
