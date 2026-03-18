@@ -1,8 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTeamMembers, useAssignments, useAbsences, useHolidays } from '../hooks'
 import { getWeeksInRange, getQuarterDateRange, formatWeekLabel } from '../constants'
 import { AvailabilityDots } from './AvailabilityDots'
+import { AssignmentCell } from './AssignmentCell'
+import { AssignmentModal } from './AssignmentModal'
 import type { Assignment, Absence, Holiday, TeamMember } from '../types'
 
 interface ScheduleGridProps {
@@ -10,58 +12,24 @@ interface ScheduleGridProps {
   quarter: number | null
 }
 
-interface GridCellProps {
-  assignment: Assignment | undefined
-  weekStart: Date
+interface ModalState {
+  open: boolean
   teamMemberId: string
-  absences: Absence[]
-  holidays: Holiday[]
-  year: number
-  onClick: () => void
-}
-
-function GridCell({ assignment, weekStart, teamMemberId, absences, holidays, year, onClick }: GridCellProps) {
-  const dots = (
-    <AvailabilityDots
-      weekStart={weekStart}
-      teamMemberId={teamMemberId}
-      absences={absences}
-      holidays={holidays}
-      year={year}
-    />
-  )
-
-  if (!assignment) {
-    return (
-      <td
-        className="border border-border p-1 min-w-[100px] h-[56px] cursor-pointer hover:bg-muted/50 transition-colors align-top"
-        onClick={onClick}
-      >
-        <div className="h-full flex flex-col justify-end">
-          {dots}
-        </div>
-      </td>
-    )
-  }
-
-  return (
-    <td
-      className="border border-border p-1 min-w-[100px] h-[56px] cursor-pointer transition-colors align-top"
-      style={{ backgroundColor: assignment.projectColor }}
-      onClick={onClick}
-    >
-      <span className="text-xs font-medium text-white truncate block px-1">
-        {assignment.projectName}
-      </span>
-      {dots}
-    </td>
-  )
+  weekStart: string
+  assignment: Assignment | undefined
 }
 
 export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const teamMembersQuery = useTeamMembers()
   const assignmentsQuery = useAssignments(year, quarter ?? undefined)
   const holidaysQuery = useHolidays()
+
+  const [modalState, setModalState] = useState<ModalState>({
+    open: false,
+    teamMemberId: '',
+    weekStart: '',
+    assignment: undefined,
+  })
 
   const weeks = useMemo(() => {
     const { start, end } = getQuarterDateRange(year, quarter)
@@ -99,6 +67,24 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   const isLoading = teamMembersQuery.isLoading || assignmentsQuery.isLoading || absencesQuery.isLoading || holidaysQuery.isLoading
 
+  const getAssignment = useCallback((teamMemberId: string, weekStart: Date): Assignment | undefined => {
+    const key = `${teamMemberId}-${weekStart.toISOString().split('T')[0]}`
+    return assignmentMap.get(key)
+  }, [assignmentMap])
+
+  const handleCellClick = useCallback((teamMemberId: string, weekStart: Date, assignment: Assignment | undefined) => {
+    setModalState({
+      open: true,
+      teamMemberId,
+      weekStart: weekStart.toISOString().split('T')[0],
+      assignment,
+    })
+  }, [])
+
+  const handleModalClose = useCallback(() => {
+    setModalState((prev) => ({ ...prev, open: false }))
+  }, [])
+
   if (isLoading) {
     return (
       <div className="space-y-3 p-4">
@@ -119,53 +105,64 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     )
   }
 
-  const getAssignment = (teamMemberId: string, weekStart: Date): Assignment | undefined => {
-    const key = `${teamMemberId}-${weekStart.toISOString().split('T')[0]}`
-    return assignmentMap.get(key)
-  }
-
   return (
-    <div className="overflow-auto max-h-[calc(100vh-220px)] border border-border rounded-md">
-      <table className="border-collapse w-full">
-        <thead>
-          <tr className="sticky top-0 z-20 bg-background">
-            <th className="sticky left-0 z-30 bg-background border border-border px-3 py-2 text-left text-sm font-semibold min-w-[160px]">
-              Team
-            </th>
-            {weeks.map((week) => (
-              <th
-                key={week.toISOString()}
-                className="border border-border px-2 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[100px]"
-              >
-                {formatWeekLabel(week)}
+    <>
+      <div className="overflow-auto max-h-[calc(100vh-220px)] border border-border rounded-md">
+        <table className="border-collapse w-full">
+          <thead>
+            <tr className="sticky top-0 z-20 bg-background">
+              <th className="sticky left-0 z-30 bg-background border border-border px-3 py-2 text-left text-sm font-semibold min-w-[160px]">
+                Team
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {teamMembers.map((member) => (
-            <tr key={member.id} className="hover:bg-muted/30">
-              <td className="sticky left-0 z-10 bg-background border border-border px-3 py-2 text-sm font-medium whitespace-nowrap min-w-[160px]">
-                {member.user.displayName || member.user.username}
-              </td>
               {weeks.map((week) => (
-                <GridCell
+                <th
                   key={week.toISOString()}
-                  assignment={getAssignment(member.id, week)}
-                  weekStart={week}
-                  teamMemberId={member.id}
-                  absences={absences}
-                  holidays={holidays}
-                  year={year}
-                  onClick={() => {
-                    // Future: open assignment edit modal
-                  }}
-                />
+                  className="border border-border px-2 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[100px]"
+                >
+                  {formatWeekLabel(week)}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {teamMembers.map((member) => (
+              <tr key={member.id} className="hover:bg-muted/30">
+                <td className="sticky left-0 z-10 bg-background border border-border px-3 py-2 text-sm font-medium whitespace-nowrap min-w-[160px]">
+                  {member.user.displayName || member.user.username}
+                </td>
+                {weeks.map((week) => {
+                  const assignment = getAssignment(member.id, week)
+                  return (
+                    <td
+                      key={week.toISOString()}
+                      className="border border-border p-1 min-w-[100px] h-[56px] align-top"
+                    >
+                      <AssignmentCell
+                        assignment={assignment}
+                        onCellClick={() => handleCellClick(member.id, week, assignment)}
+                      />
+                      <AvailabilityDots
+                        weekStart={week}
+                        teamMemberId={member.id}
+                        absences={absences}
+                        holidays={holidays}
+                        year={year}
+                      />
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <AssignmentModal
+        open={modalState.open}
+        onClose={handleModalClose}
+        teamMemberId={modalState.teamMemberId}
+        weekStart={modalState.weekStart}
+        assignment={modalState.assignment}
+      />
+    </>
   )
 }
