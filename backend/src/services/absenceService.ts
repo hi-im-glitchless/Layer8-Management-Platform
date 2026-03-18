@@ -57,15 +57,30 @@ export async function toggleAbsence(
 export async function bulkCreateAbsences(
   entries: Array<{ teamMemberId: string; date: Date; type: string; reason?: string }>
 ) {
-  const result = await prisma.absence.createMany({
-    data: entries.map((e) => ({
-      teamMemberId: e.teamMemberId,
-      date: e.date,
-      type: e.type,
-      reason: e.reason ?? null,
-    })),
-    skipDuplicates: true,
-  });
+  let created = 0;
 
-  return { created: result.count };
+  for (const entry of entries) {
+    const existing = await prisma.absence.findUnique({
+      where: {
+        teamMemberId_date: {
+          teamMemberId: entry.teamMemberId,
+          date: entry.date,
+        },
+      },
+    });
+
+    if (!existing) {
+      await prisma.absence.create({
+        data: {
+          teamMemberId: entry.teamMemberId,
+          date: entry.date,
+          type: entry.type,
+          reason: entry.reason ?? null,
+        },
+      });
+      created++;
+    }
+  }
+
+  return { created };
 }
