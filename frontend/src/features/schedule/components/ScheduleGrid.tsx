@@ -65,6 +65,35 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   const teamMembers: TeamMember[] = teamMembersQuery.data?.teamMembers ?? []
 
+  const absenceSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of absences) {
+      set.add(`${a.teamMemberId}-${new Date(a.date).toISOString().split('T')[0]}`)
+    }
+    return set
+  }, [absences])
+
+  const holidaySet = useMemo(() => {
+    const set = new Set<string>()
+    for (const h of holidays) {
+      const date = new Date(year, h.month - 1, h.day)
+      set.add(date.toISOString().split('T')[0])
+    }
+    return set
+  }, [holidays, year])
+
+  const isFullyAbsent = useCallback((teamMemberId: string, weekStart: Date): boolean => {
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(weekStart)
+      d.setDate(d.getDate() + i)
+      const dateKey = d.toISOString().split('T')[0]
+      const hasAbsence = absenceSet.has(`${teamMemberId}-${dateKey}`)
+      const hasHoliday = holidaySet.has(dateKey)
+      if (!hasAbsence && !hasHoliday) return false
+    }
+    return true
+  }, [absenceSet, holidaySet])
+
   const isLoading = teamMembersQuery.isLoading || assignmentsQuery.isLoading || absencesQuery.isLoading || holidaysQuery.isLoading
 
   const getAssignment = useCallback((teamMemberId: string, weekStart: Date): Assignment | undefined => {
@@ -138,23 +167,32 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                 </td>
                 {weeks.map((week) => {
                   const assignment = getAssignment(member.id, week)
+                  const fullyOut = isFullyAbsent(member.id, week)
                   return (
                     <td
                       key={week.toISOString()}
-                      className="border border-border p-1 min-w-[100px] h-[56px] align-top"
+                      className={`border border-border p-1 min-w-[100px] h-[56px] align-top${fullyOut ? ' bg-muted' : ''}`}
                     >
-                      <AssignmentCell
-                        assignment={assignment}
-                        onCellClick={() => handleCellClick(member.id, week, assignment)}
-                        onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
-                      />
-                      <AvailabilityDots
-                        weekStart={week}
-                        teamMemberId={member.id}
-                        absences={absences}
-                        holidays={holidays}
-                        year={year}
-                      />
+                      {fullyOut ? (
+                        <div className="h-full flex items-center justify-center">
+                          <span className="text-xs font-semibold text-muted-foreground">OUT</span>
+                        </div>
+                      ) : (
+                        <>
+                          <AssignmentCell
+                            assignment={assignment}
+                            onCellClick={() => handleCellClick(member.id, week, assignment)}
+                            onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
+                          />
+                          <AvailabilityDots
+                            weekStart={week}
+                            teamMemberId={member.id}
+                            absences={absences}
+                            holidays={holidays}
+                            year={year}
+                          />
+                        </>
+                      )}
                     </td>
                   )
                 })}
