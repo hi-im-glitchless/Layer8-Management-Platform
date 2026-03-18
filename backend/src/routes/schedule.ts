@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { requireRole } from '../middleware/auth.js';
 import * as scheduleService from '../services/scheduleService.js';
 import * as assignmentService from '../services/assignmentService.js';
+import * as absenceService from '../services/absenceService.js';
+import * as holidayService from '../services/holidayService.js';
 
 const router = Router();
 
@@ -242,6 +244,145 @@ router.post('/assignments/:id/lock', requireRole('MANAGER'), async (req, res) =>
   } catch (error) {
     console.error('[schedule routes] Error toggling assignment lock:', error);
     res.status(500).json({ error: 'Failed to toggle assignment lock' });
+  }
+});
+
+// ── Absences ──────────────────────────────────────────────────────
+
+/**
+ * GET /absences
+ * List absences filtered by date range and optional team member
+ */
+router.get('/absences', async (req, res) => {
+  try {
+    const schema = z.object({
+      teamMemberId: z.string().min(1).optional(),
+      dateStart: z.string().min(1),
+      dateEnd: z.string().min(1),
+    });
+    const params = schema.parse(req.query);
+    const absences = await absenceService.listAbsences({
+      teamMemberId: params.teamMemberId,
+      dateStart: new Date(params.dateStart),
+      dateEnd: new Date(params.dateEnd),
+    });
+    res.json({ absences });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    console.error('[schedule routes] Error listing absences:', error);
+    res.status(500).json({ error: 'Failed to list absences' });
+  }
+});
+
+/**
+ * POST /absences/toggle
+ * Toggle an absence (create if missing, delete if exists) (MANAGER+)
+ */
+router.post('/absences/toggle', requireRole('MANAGER'), async (req, res) => {
+  try {
+    const schema = z.object({
+      teamMemberId: z.string().min(1),
+      date: z.string().min(1),
+      type: z.enum(['holiday', 'sick', 'vacation', 'other']),
+    });
+    const data = schema.parse(req.body);
+    const result = await absenceService.toggleAbsence(
+      data.teamMemberId,
+      new Date(data.date),
+      data.type
+    );
+    res.json({
+      absence: result,
+      action: result ? 'created' : 'deleted',
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    console.error('[schedule routes] Error toggling absence:', error);
+    res.status(500).json({ error: 'Failed to toggle absence' });
+  }
+});
+
+// ── Holidays ──────────────────────────────────────────────────────
+
+/**
+ * GET /holidays
+ * List all holidays
+ */
+router.get('/holidays', async (req, res) => {
+  try {
+    const holidays = await holidayService.listHolidays();
+    res.json({ holidays });
+  } catch (error) {
+    console.error('[schedule routes] Error listing holidays:', error);
+    res.status(500).json({ error: 'Failed to list holidays' });
+  }
+});
+
+/**
+ * POST /holidays
+ * Create a holiday (ADMIN+)
+ */
+router.post('/holidays', requireRole('ADMIN'), async (req, res) => {
+  try {
+    const schema = z.object({
+      name: z.string().min(1).max(100),
+      month: z.number().int().min(1).max(12),
+      day: z.number().int().min(1).max(31),
+      isRecurring: z.boolean().default(true),
+    });
+    const data = schema.parse(req.body);
+    const holiday = await holidayService.createHoliday(data);
+    res.status(201).json({ holiday });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    console.error('[schedule routes] Error creating holiday:', error);
+    res.status(500).json({ error: 'Failed to create holiday' });
+  }
+});
+
+/**
+ * PUT /holidays/:id
+ * Update a holiday (ADMIN+)
+ */
+router.put('/holidays/:id', requireRole('ADMIN'), async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const schema = z.object({
+      name: z.string().min(1).max(100).optional(),
+      month: z.number().int().min(1).max(12).optional(),
+      day: z.number().int().min(1).max(31).optional(),
+      isRecurring: z.boolean().optional(),
+    });
+    const data = schema.parse(req.body);
+    const holiday = await holidayService.updateHoliday(id, data);
+    res.json({ holiday });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    console.error('[schedule routes] Error updating holiday:', error);
+    res.status(500).json({ error: 'Failed to update holiday' });
+  }
+});
+
+/**
+ * DELETE /holidays/:id
+ * Delete a holiday (ADMIN+)
+ */
+router.delete('/holidays/:id', requireRole('ADMIN'), async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    await holidayService.deleteHoliday(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[schedule routes] Error deleting holiday:', error);
+    res.status(500).json({ error: 'Failed to delete holiday' });
   }
 });
 
