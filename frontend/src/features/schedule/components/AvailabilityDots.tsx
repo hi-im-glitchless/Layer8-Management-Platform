@@ -1,4 +1,6 @@
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useCallback } from 'react'
+import { useAuth } from '@/features/auth/hooks'
+import { useToggleAbsence } from '../hooks'
 import type { Absence, Holiday } from '../types'
 
 interface AvailabilityDotsProps {
@@ -30,6 +32,10 @@ export const AvailabilityDots = memo(function AvailabilityDots({
   holidays,
   year,
 }: AvailabilityDotsProps) {
+  const { hasRole } = useAuth()
+  const canToggle = hasRole('MANAGER')
+  const toggleAbsence = useToggleAbsence()
+
   const days = useMemo(() => getDaysOfWeek(weekStart), [weekStart])
 
   const absenceMap = useMemo(() => {
@@ -51,6 +57,15 @@ export const AvailabilityDots = memo(function AvailabilityDots({
     return set
   }, [holidays, year])
 
+  const handleToggle = useCallback((dateKey: string) => {
+    if (!canToggle) return
+    toggleAbsence.mutate({
+      teamMemberId,
+      date: dateKey,
+      type: 'vacation',
+    })
+  }, [canToggle, teamMemberId, toggleAbsence])
+
   return (
     <div className="flex gap-[2px] justify-center mt-0.5">
       {days.map((day) => {
@@ -64,6 +79,20 @@ export const AvailabilityDots = memo(function AvailabilityDots({
           dotClass = 'w-[5px] h-[5px] rounded-full bg-blue-500'
         } else if (isAbsent) {
           dotClass = 'w-[5px] h-[5px] rounded-full bg-red-500'
+        }
+
+        if (canToggle && !isHoliday) {
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`${dotClass} cursor-pointer hover:ring-1 hover:ring-ring transition-all`}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleToggle(key)
+              }}
+            />
+          )
         }
 
         return <div key={key} className={dotClass} />
