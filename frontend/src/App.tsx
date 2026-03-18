@@ -9,6 +9,7 @@ import { ExecutiveReport } from '@/routes/ExecutiveReport'
 import { AuditLog } from '@/routes/AuditLog'
 import { Admin } from '@/routes/Admin'
 import { Profile } from '@/routes/Profile'
+import { Schedule } from '@/routes/Schedule'
 import { Login } from '@/routes/Login'
 import { Documents } from '@/routes/Documents'
 import { NotFound } from '@/routes/NotFound'
@@ -100,6 +101,7 @@ function App() {
               <Route path="/audit-log" element={<AuditLog />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/schedule" element={<Schedule />} />
 
               {/* Manager+ routes */}
               <Route element={<RoleProtectedRoute minRole="MANAGER" />}>
