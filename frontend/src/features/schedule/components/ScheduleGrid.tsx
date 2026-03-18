@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useTeamMembers, useAssignments, useAbsences, useHolidays } from '../hooks'
+import { useTeamMembers, useAssignments, useAbsences, useHolidays, useToggleLock } from '../hooks'
 import { getWeeksInRange, getQuarterDateRange, formatWeekLabel } from '../constants'
 import { AvailabilityDots } from './AvailabilityDots'
 import { AssignmentCell } from './AssignmentCell'
@@ -81,6 +81,12 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     })
   }, [])
 
+  const toggleLockMutation = useToggleLock()
+
+  const handleLockToggle = useCallback((assignmentId: string) => {
+    toggleLockMutation.mutate(assignmentId)
+  }, [toggleLockMutation])
+
   const handleModalClose = useCallback(() => {
     setModalState((prev) => ({ ...prev, open: false }))
   }, [])
@@ -140,6 +146,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                       <AssignmentCell
                         assignment={assignment}
                         onCellClick={() => handleCellClick(member.id, week, assignment)}
+                        onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
                       />
                       <AvailabilityDots
                         weekStart={week}
