@@ -3,7 +3,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { Lock, Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import type { Assignment, AssignmentStatus } from '../types'
-import { ASSIGNMENT_STATUSES, STATUS_CYCLE } from '../constants'
+import { ASSIGNMENT_STATUSES, STATUS_CYCLE, STATUS_DOT_COLORS } from '../constants'
 
 interface AssignmentCellProps {
   assignment: Assignment | undefined
@@ -14,12 +14,6 @@ interface AssignmentCellProps {
   onCellClick: (e?: React.MouseEvent) => void
   onLockToggle?: (e: React.MouseEvent) => void
   onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
-}
-
-const STATUS_DOT_COLORS: Record<AssignmentStatus, string> = {
-  confirmed: 'bg-green-400',
-  'needs-reqs': 'bg-yellow-400',
-  placeholder: 'bg-gray-400',
 }
 
 function getStatusLabel(status: AssignmentStatus): string {
@@ -101,7 +95,7 @@ export const AssignmentCell = memo(function AssignmentCell({
         }`}
         onClick={(e) => onCellClick(e)}
       >
-        <Plus className="w-4 h-4 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />
+        <Plus className="w-4 h-4 text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors" />
       </div>
     )
   }
