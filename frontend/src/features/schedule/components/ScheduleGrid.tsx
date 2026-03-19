@@ -344,21 +344,31 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     )
   }
 
-  const renderTable = (weekSlice: Date[]) => (
+  const renderTable = (weekSlice: Date[]) => {
+    // Pre-compute month transition indices for thicker left borders
+    const monthTransitions = new Set<number>()
+    for (let i = 1; i < weekSlice.length; i++) {
+      if (weekSlice[i].getMonth() !== weekSlice[i - 1].getMonth()) {
+        monthTransitions.add(i)
+      }
+    }
+
+    return (
     <table className="border-collapse w-full table-fixed">
       <thead>
         <tr className="sticky top-0 z-30 bg-muted/20">
           <th className="sticky left-0 z-40 bg-muted/20 border-b-2 border-r border-border border-r-border/30 dark:border-r-border/30 px-3 py-2 text-left text-sm font-semibold w-[140px] min-w-[120px] max-w-[140px]">
             Team
           </th>
-          {weekSlice.map((week) => {
+          {weekSlice.map((week, colIdx) => {
             const weekKey = toLocalDateString(week)
             const weekHolidays = holidaysByWeek.get(weekKey)
             const hasHoliday = weekHolidays && weekHolidays.length > 0
+            const isMonthTransition = monthTransitions.has(colIdx)
             return (
               <th
                 key={week.toISOString()}
-                className={`border-b-2 border-r border-border border-r-border/30 dark:border-r-border/30 px-1 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${hasHoliday ? ' bg-red-50 dark:bg-red-950/20' : ''}`}
+                className={`border-b-2 border-r border-border border-r-border/30 dark:border-r-border/30 px-1 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${hasHoliday ? ' bg-red-50 dark:bg-red-950/20' : ''}${isMonthTransition ? ' border-l-2 border-l-border/60 dark:border-l-border/40' : ''}`}
               >
                 {hasHoliday ? (
                   <TooltipProvider>
@@ -385,14 +395,15 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             <td className={`sticky left-0 z-20 border-b border-r border-border/40 dark:border-border/25 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap${rowIdx % 2 === 0 ? ' bg-muted/5' : ' bg-background'}`}>
               {member.user?.displayName || member.user?.username || member.displayName || 'Unknown'}
             </td>
-            {weekSlice.map((week) => {
+            {weekSlice.map((week, colIdx) => {
               const assignment = getAssignment(member.id, week)
               const fullyOut = isFullyAbsent(member.id, week)
               const weekStr = toLocalDateString(week)
+              const isMonthTransition = monthTransitions.has(colIdx)
               return (
                 <td
                   key={week.toISOString()}
-                  className={`border-b border-r border-border/40 dark:border-border/25 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
+                  className={`border-b border-r border-border/40 dark:border-border/25 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}${isMonthTransition ? ' border-l-2 border-l-border/60 dark:border-l-border/40' : ''}`}
                   onMouseEnter={() => handleCellHover(member.id, weekStr)}
                 >
                   {fullyOut ? (
@@ -445,6 +456,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       </tbody>
     </table>
   )
+  }
 
   return (
     <>
