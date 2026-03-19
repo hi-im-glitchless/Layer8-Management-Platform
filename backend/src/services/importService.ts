@@ -90,12 +90,14 @@ function parseDateFromCell(value: unknown): Date | null {
   if (value instanceof Date) return value;
 
   if (typeof value === 'number') {
-    // Excel serial date
-    const date = XLSX.SSF.parse_date_code(value);
-    if (date) {
-      return new Date(date.y, date.m - 1, date.d);
-    }
-    return null;
+    // Excel serial date: days since 1900-01-01 (with the Lotus 1-2-3 leap year bug)
+    // Day 1 = 1900-01-01, day 60 = 1900-02-29 (doesn't exist but Excel counts it)
+    let serial = Math.floor(value);
+    if (serial < 1) return null;
+    if (serial > 60) serial--; // Adjust for Lotus bug (day 60 = fake Feb 29, 1900)
+    const epoch = new Date(1900, 0, 1);
+    epoch.setDate(epoch.getDate() + serial - 1);
+    return isNaN(epoch.getTime()) ? null : epoch;
   }
 
   if (typeof value === 'string') {
