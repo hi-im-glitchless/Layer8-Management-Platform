@@ -136,8 +136,18 @@ export function getQuarterDateRange(
  * Formats a Monday date as a short label like "Mar 16".
  */
 export function formatWeekLabel(mondayDate: Date): string {
+  const friday = new Date(mondayDate)
+  friday.setDate(friday.getDate() + 4)
+
+  // If the week spans two months, show range like "29 Jun - 3 Jul"
+  if (mondayDate.getMonth() !== friday.getMonth()) {
+    const monStr = mondayDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    const friStr = friday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    return `${monStr} - ${friStr}`
+  }
+
   return mondayDate.toLocaleDateString('en-GB', {
-    month: 'short',
     day: 'numeric',
+    month: 'short',
   })
 }
