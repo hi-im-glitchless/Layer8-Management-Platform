@@ -181,12 +181,19 @@ export function parseExcelFile(buffer: Buffer): ParsedScheduleData {
 
     if (headerRow === -1 || dateColumns.size === 0) continue;
 
-    // Parse data rows (everything below header)
+    // Parse data rows (everything below header).
+    // Stop after 5 consecutive empty rows to handle sheets with inflated ranges (1M+ rows).
+    let emptyStreak = 0;
     for (let r = headerRow + 1; r <= range.e.r; r++) {
       // Get member name from first column
       const nameCell = sheet[XLSX.utils.encode_cell({ r, c: range.s.c })] as XLSX.CellObject | undefined;
-      const memberName = nameCell?.v ? String(nameCell.v).trim() : '';
-      if (!memberName) continue;
+      const memberName = (nameCell?.v != null && nameCell.t !== 'z') ? String(nameCell.v).trim() : '';
+      if (!memberName) {
+        emptyStreak++;
+        if (emptyStreak >= 5) break;
+        continue;
+      }
+      emptyStreak = 0;
 
       memberNamesSet.add(memberName);
 
@@ -194,10 +201,10 @@ export function parseExcelFile(buffer: Buffer): ParsedScheduleData {
       for (const [c, weekDate] of dateColumns) {
         const cellAddr = XLSX.utils.encode_cell({ r, c });
         const cell = sheet[cellAddr] as XLSX.CellObject | undefined;
-        if (!cell?.v) continue;
+        if (!cell || cell.v == null || cell.t === 'z') continue;
 
         const projectName = String(cell.v).trim();
-        if (!projectName) continue;
+        if (!projectName || projectName === 'undefined') continue;
 
         const bgColor = getCellColor(cell) || hashStringToColor(projectName);
         const monday = toMonday(weekDate);
