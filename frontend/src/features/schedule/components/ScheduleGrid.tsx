@@ -347,8 +347,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const renderTable = (weekSlice: Date[]) => (
     <table className="border-collapse w-full table-fixed">
       <thead>
-        <tr className="sticky top-0 z-30 bg-background">
-          <th className="sticky left-0 z-40 bg-background border-b border-r border-border/50 px-3 py-2 text-left text-sm font-semibold w-[140px] min-w-[120px] max-w-[140px]">
+        <tr className="sticky top-0 z-30 bg-muted/20">
+          <th className="sticky left-0 z-40 bg-muted/20 border-b-2 border-r border-border border-r-border/30 dark:border-r-border/30 px-3 py-2 text-left text-sm font-semibold w-[140px] min-w-[120px] max-w-[140px]">
             Team
           </th>
           {weekSlice.map((week) => {
@@ -358,7 +358,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             return (
               <th
                 key={week.toISOString()}
-                className={`border-b border-r border-border/50 px-1 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${hasHoliday ? ' bg-red-50 dark:bg-red-950/20' : ''}`}
+                className={`border-b-2 border-r border-border border-r-border/30 dark:border-r-border/30 px-1 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${hasHoliday ? ' bg-red-50 dark:bg-red-950/20' : ''}`}
               >
                 {hasHoliday ? (
                   <TooltipProvider>
