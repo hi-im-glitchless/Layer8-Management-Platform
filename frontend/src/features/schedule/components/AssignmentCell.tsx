@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { Lock, Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import type { Assignment, AssignmentStatus } from '../types'
@@ -6,8 +7,11 @@ import { ASSIGNMENT_STATUSES } from '../constants'
 
 interface AssignmentCellProps {
   assignment: Assignment | undefined
+  teamMemberId: string
+  weekStart: string
   canEdit?: boolean
-  onCellClick: () => void
+  isDragOverlay?: boolean
+  onCellClick: (e?: React.MouseEvent) => void
   onLockToggle?: (e: React.MouseEvent) => void
 }
 
@@ -31,18 +35,61 @@ function getContrastColor(hex: string): string {
 
 export const AssignmentCell = memo(function AssignmentCell({
   assignment,
+  teamMemberId,
+  weekStart,
   canEdit = true,
+  isDragOverlay = false,
   onCellClick,
   onLockToggle,
 }: AssignmentCellProps) {
+  const cellId = `${teamMemberId}-${weekStart}`
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging,
+  } = useDraggable({
+    id: cellId,
+    disabled: isDragOverlay || !canEdit || !assignment || assignment.isLocked,
+    data: { assignment, teamMemberId, weekStart },
+  })
+
+  const {
+    setNodeRef: setDropRef,
+    isOver,
+  } = useDroppable({
+    id: cellId,
+    disabled: isDragOverlay,
+    data: { assignment, teamMemberId, weekStart },
+  })
+
+  const setRefs = (el: HTMLDivElement | null) => {
+    if (!isDragOverlay) {
+      setDragRef(el)
+      setDropRef(el)
+    }
+  }
+
   if (!assignment) {
-    if (!canEdit) {
-      return <div className="h-full min-h-[40px]" />
+    const isDropTarget = isOver && !isDragOverlay
+    if (!canEdit && !isDropTarget) {
+      return (
+        <div
+          ref={isDragOverlay ? undefined : setDropRef}
+          className="h-full min-h-[40px]"
+        />
+      )
     }
     return (
       <div
-        className="group h-full min-h-[40px] flex items-center justify-center cursor-pointer rounded-sm border border-transparent hover:border-border hover:bg-muted/50 transition-colors"
-        onClick={onCellClick}
+        ref={isDragOverlay ? undefined : setDropRef}
+        className={`group h-full min-h-[40px] flex items-center justify-center cursor-pointer rounded-sm border transition-colors ${
+          isDropTarget
+            ? 'border-primary bg-primary/10'
+            : 'border-transparent hover:border-border hover:bg-muted/50'
+        }`}
+        onClick={(e) => onCellClick(e)}
       >
         <Plus className="w-4 h-4 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />
       </div>
@@ -53,13 +100,34 @@ export const AssignmentCell = memo(function AssignmentCell({
   const isSplit = assignment.splitProjectName && assignment.splitProjectColor
   const textColor = getContrastColor(assignment.projectColor)
   const isClickable = canEdit && !isLocked
+  const isDropTarget = isOver && !isDragOverlay
+
+  if (isDragOverlay) {
+    return (
+      <div
+        className="h-[40px] w-[90px] flex items-center rounded-sm px-1.5 opacity-80 shadow-lg"
+        style={{ backgroundColor: assignment.projectColor }}
+      >
+        <span className="text-xs font-medium truncate" style={{ color: textColor }}>
+          {assignment.projectName}
+        </span>
+      </div>
+    )
+  }
 
   if (isSplit) {
     const splitTextColor = getContrastColor(assignment.splitProjectColor!)
     return (
       <div
-        className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden ${isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'}`}
-        onClick={isClickable ? onCellClick : undefined}
+        ref={setRefs}
+        {...attributes}
+        {...listeners}
+        className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden ${
+          isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'
+        } ${isDragging ? 'opacity-40' : ''} ${
+          isDropTarget ? 'ring-2 ring-primary' : ''
+        } ${isLocked && isDropTarget ? 'cursor-not-allowed' : ''}`}
+        onClick={isClickable ? (e) => onCellClick(e) : undefined}
       >
         <div
           className="flex-1 flex items-center px-1.5 min-w-0"
@@ -88,9 +156,16 @@ export const AssignmentCell = memo(function AssignmentCell({
 
   return (
     <div
-      className={`group h-full min-h-[40px] flex items-center rounded-sm px-1.5 relative ${isClickable ? 'cursor-pointer' : !canEdit ? '' : 'opacity-75 ring-1 ring-muted-foreground/30'}`}
+      ref={setRefs}
+      {...attributes}
+      {...listeners}
+      className={`group h-full min-h-[40px] flex items-center rounded-sm px-1.5 relative ${
+        isClickable ? 'cursor-pointer' : !canEdit ? '' : 'opacity-75 ring-1 ring-muted-foreground/30'
+      } ${isDragging ? 'opacity-40' : ''} ${
+        isDropTarget && !isLocked ? 'ring-2 ring-primary' : ''
+      } ${isDropTarget && isLocked ? 'ring-2 ring-destructive cursor-not-allowed' : ''}`}
       style={{ backgroundColor: assignment.projectColor }}
-      onClick={isClickable ? onCellClick : undefined}
+      onClick={isClickable ? (e) => onCellClick(e) : undefined}
     >
       <TooltipProvider>
         <Tooltip>
