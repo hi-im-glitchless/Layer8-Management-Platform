@@ -18,18 +18,18 @@ export const STATUS_CYCLE: readonly ('placeholder' | 'needs-reqs' | 'confirmed')
 // ── Color Palette ──────────────────────────────────────────────────
 
 export const COLOR_PALETTE = [
-  { name: 'Blue', hex: '#3B82F6' },
-  { name: 'Green', hex: '#22C55E' },
-  { name: 'Red', hex: '#EF4444' },
-  { name: 'Purple', hex: '#A855F7' },
-  { name: 'Orange', hex: '#F97316' },
-  { name: 'Teal', hex: '#14B8A6' },
-  { name: 'Pink', hex: '#EC4899' },
-  { name: 'Yellow', hex: '#EAB308' },
-  { name: 'Indigo', hex: '#6366F1' },
-  { name: 'Cyan', hex: '#06B6D4' },
-  { name: 'Rose', hex: '#F43F5E' },
-  { name: 'Lime', hex: '#84CC16' },
+  { name: 'Slate Blue', hex: '#6B8DB5' },
+  { name: 'Sage Green', hex: '#7BAF8B' },
+  { name: 'Dusty Red', hex: '#C07070' },
+  { name: 'Plum', hex: '#9B7DB8' },
+  { name: 'Burnt Orange', hex: '#C49A6C' },
+  { name: 'Teal', hex: '#6BA3A3' },
+  { name: 'Rose', hex: '#B8839B' },
+  { name: 'Gold', hex: '#BBA86B' },
+  { name: 'Indigo', hex: '#7B7EB5' },
+  { name: 'Sea Blue', hex: '#6BA3BF' },
+  { name: 'Mauve', hex: '#B87B95' },
+  { name: 'Olive', hex: '#8FA86B' },
 ] as const
 
 // ── Assignment Statuses ────────────────────────────────────────────
