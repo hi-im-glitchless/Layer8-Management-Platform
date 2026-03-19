@@ -70,9 +70,11 @@ export function NoMansLanding({
         </td>
       </tr>
       {/* Backlog member rows */}
-      {backlogMembers.map((member) => (
-        <tr key={member.id} className="hover:bg-muted/30 transition-colors">
-          <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] text-amber-700 dark:text-amber-400 italic">
+      {backlogMembers.map((member, rowIdx) => {
+        const rowBg = rowIdx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900/50'
+        return (
+        <tr key={member.id} className={`transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20 ${rowBg}`}>
+          <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] text-amber-700 dark:text-amber-400 italic`}>
             <div className="flex items-center justify-between gap-1 group/row">
               <span className="truncate">{getMemberLabel(member)}</span>
               {canEdit && (
@@ -93,7 +95,7 @@ export function NoMansLanding({
             return (
               <td
                 key={week.toISOString()}
-                className={`border-b border-r border-border/50 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
+                className={`border-b border-r border-slate-200 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
                 onMouseEnter={() => onCellHover(member.id, weekStr)}
               >
                 {fullyOut ? (
@@ -125,7 +127,7 @@ export function NoMansLanding({
             )
           })}
         </tr>
-      ))}
+      )})}
     </>
   )
 }
