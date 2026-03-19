@@ -32,6 +32,15 @@ export const COLOR_PALETTE = [
   { name: 'Olive', hex: '#8FA86B' },
 ] as const
 
+// ── Status Dot Colors (theme-aware) ──────────────────────────────
+// Used by AssignmentCell to render status indicator dots
+
+export const STATUS_DOT_COLORS: Record<string, string> = {
+  confirmed: 'bg-green-600 dark:bg-green-500',
+  'needs-reqs': 'bg-amber-500 dark:bg-amber-400',
+  placeholder: 'bg-slate-500 dark:bg-slate-400',
+}
+
 // ── Assignment Statuses ────────────────────────────────────────────
 
 export const ASSIGNMENT_STATUSES = [
