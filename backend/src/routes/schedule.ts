@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { prisma } from '@/db/prisma.js';
 import multer from 'multer';
 import { requireRole } from '../middleware/auth.js';
 import * as scheduleService from '../services/scheduleService.js';
@@ -117,6 +118,28 @@ router.delete('/team-members/:id', requireRole('ADMIN'), async (req, res) => {
   } catch (error) {
     console.error('[schedule routes] Error archiving team member:', error);
     res.status(500).json({ error: 'Failed to archive team member' });
+  }
+});
+
+/**
+ * DELETE /team-members/backlog/:id
+ * Delete a backlog row and its assignments (MANAGER+)
+ */
+router.delete('/team-members/backlog/:id', requireRole('MANAGER'), async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const member = await prisma.teamMember.findUnique({ where: { id } });
+    if (!member || !member.isBacklog) {
+      res.status(404).json({ error: 'Backlog row not found' });
+      return;
+    }
+    // Delete assignments first, then the member
+    await prisma.assignment.deleteMany({ where: { teamMemberId: id } });
+    await prisma.teamMember.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[schedule routes] Error deleting backlog member:', error);
+    res.status(500).json({ error: 'Failed to delete backlog row' });
   }
 });
 

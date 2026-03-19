@@ -22,6 +22,7 @@ import {
   useUpdateAssignment,
   useUpsertAssignment,
   useAddBacklogMember,
+  useDeleteBacklogMember,
 } from '../hooks'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { getWeeksInRange, getQuarterDateRange, formatWeekLabel, QUARTER_LABELS, toLocalDateString } from '../constants'
@@ -82,6 +83,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const updateMutation = useUpdateAssignment()
   const upsertMutation = useUpsertAssignment()
   const addBacklogMutation = useAddBacklogMember()
+  const deleteBacklogMutation = useDeleteBacklogMember()
 
   const weeks = useMemo(() => {
     const { start, end } = getQuarterDateRange(year, quarter)
@@ -438,6 +440,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           onLockToggle={handleLockToggle}
           onStatusCycle={handleStatusCycle}
           onAddRow={() => addBacklogMutation.mutate()}
+          onDeleteRow={(id) => deleteBacklogMutation.mutate(id)}
         />
       </tbody>
     </table>

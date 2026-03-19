@@ -92,6 +92,19 @@ export function useAddBacklogMember() {
   })
 }
 
+export function useDeleteBacklogMember() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => scheduleApi.deleteBacklogMember(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
+    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to delete backlog row'),
+  })
+}
+
 // ── Assignments ────────────────────────────────────────────────────
 
 export function useAssignments(year: number, quarter?: number) {

@@ -53,6 +53,12 @@ export const scheduleApi = {
     })
   },
 
+  async deleteBacklogMember(id: string) {
+    return apiClient<{ success: boolean }>(`/api/schedule/team-members/backlog/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
   // ── Assignments ────────────────────────────────────────────────
 
   async getAssignments(params: { year: number; quarter?: number }) {

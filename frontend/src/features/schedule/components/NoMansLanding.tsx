@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { AssignmentCell } from './AssignmentCell'
 import { AvailabilityDots } from './AvailabilityDots'
 import { toLocalDateString } from '../constants'
@@ -19,6 +19,7 @@ interface NoMansLandingProps {
   onLockToggle: (assignmentId: string) => void
   onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
   onAddRow: () => void
+  onDeleteRow: (id: string) => void
 }
 
 function getMemberLabel(member: TeamMember): string {
@@ -42,6 +43,7 @@ export function NoMansLanding({
   onLockToggle,
   onStatusCycle,
   onAddRow,
+  onDeleteRow,
 }: NoMansLandingProps) {
   return (
     <>
@@ -70,8 +72,19 @@ export function NoMansLanding({
       {/* Backlog member rows */}
       {backlogMembers.map((member) => (
         <tr key={member.id} className="hover:bg-muted/30 transition-colors">
-          <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap text-amber-700 dark:text-amber-400 italic">
-            {getMemberLabel(member)}
+          <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] text-amber-700 dark:text-amber-400 italic">
+            <div className="flex items-center justify-between gap-1 group/row">
+              <span className="truncate">{getMemberLabel(member)}</span>
+              {canEdit && (
+                <button
+                  onClick={() => onDeleteRow(member.id)}
+                  className="shrink-0 p-0.5 rounded opacity-0 group-hover/row:opacity-60 hover:!opacity-100 hover:bg-destructive/10 transition-all"
+                  title="Delete row"
+                >
+                  <Trash2 className="w-3 h-3 text-destructive" />
+                </button>
+              )}
+            </div>
           </td>
           {weekSlice.map((week) => {
             const assignment = getAssignment(member.id, week)
