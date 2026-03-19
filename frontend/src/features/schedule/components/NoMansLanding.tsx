@@ -51,16 +51,16 @@ export function NoMansLanding({
       <tr>
         <td
           colSpan={weekSlice.length + 1}
-          className="bg-amber-50 dark:bg-amber-950/20 border-t-2 border-amber-300 dark:border-amber-700 px-4 py-1.5"
+          className="bg-slate-200 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600 px-4 py-1.5"
         >
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-amber-800 dark:text-amber-300 tracking-wide">
+            <span className="text-sm font-bold text-slate-600 dark:text-slate-300 tracking-wide">
               No Man&apos;s Landing
             </span>
             {canEdit && (
               <button
                 onClick={onAddRow}
-                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-900/60 rounded transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-300 dark:hover:bg-slate-700 rounded transition-colors"
               >
                 <Plus className="w-3 h-3" />
                 Add row
@@ -74,7 +74,7 @@ export function NoMansLanding({
         const rowBg = rowIdx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900/50'
         return (
         <tr key={member.id} className={`transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20 ${rowBg}`}>
-          <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] text-amber-700 dark:text-amber-400 italic`}>
+          <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] text-slate-500 dark:text-slate-400 italic`}>
             <div className="flex items-center justify-between gap-1 group/row">
               <span className="truncate">{getMemberLabel(member)}</span>
               {canEdit && (
