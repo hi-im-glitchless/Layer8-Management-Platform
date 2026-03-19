@@ -80,15 +80,15 @@ export function useReorderTeamMembers() {
   })
 }
 
-export function useInitBacklogMembers() {
+export function useAddBacklogMember() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => scheduleApi.initBacklogMembers(),
+    mutationFn: () => scheduleApi.addBacklogMember(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
     },
-    onError: (error: Error) => handleMutationError(error, 'Failed to initialize backlog members'),
+    onError: (error: Error) => handleMutationError(error, 'Failed to add backlog row'),
   })
 }
 

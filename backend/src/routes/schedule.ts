@@ -92,16 +92,16 @@ router.put('/team-members/:id', requireRole('MANAGER'), async (req, res) => {
 });
 
 /**
- * POST /team-members/init-backlog
- * Initialize 4 backlog ("No Man's Landing") entries if they don't exist (MANAGER+)
+ * POST /team-members/add-backlog
+ * Add a single backlog ("No Man's Landing") row (MANAGER+)
  */
-router.post('/team-members/init-backlog', requireRole('MANAGER'), async (req, res) => {
+router.post('/team-members/add-backlog', requireRole('MANAGER'), async (req, res) => {
   try {
-    const backlogMembers = await assignmentService.getOrCreateBacklogMembers(4);
-    res.status(201).json({ backlogMembers });
+    const member = await assignmentService.addBacklogMember();
+    res.status(201).json({ member });
   } catch (error) {
-    console.error('[schedule routes] Error initializing backlog members:', error);
-    res.status(500).json({ error: 'Failed to initialize backlog members' });
+    console.error('[schedule routes] Error adding backlog member:', error);
+    res.status(500).json({ error: 'Failed to add backlog row' });
   }
 });
 

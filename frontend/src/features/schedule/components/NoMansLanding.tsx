@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
+import { Plus } from 'lucide-react'
 import { AssignmentCell } from './AssignmentCell'
 import { AvailabilityDots } from './AvailabilityDots'
 import { toLocalDateString } from '../constants'
@@ -18,6 +18,7 @@ interface NoMansLandingProps {
   onCellHover: (teamMemberId: string, weekStart: string) => void
   onLockToggle: (assignmentId: string) => void
   onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
+  onAddRow: () => void
 }
 
 function getMemberLabel(member: TeamMember): string {
@@ -40,24 +41,36 @@ export function NoMansLanding({
   onCellHover,
   onLockToggle,
   onStatusCycle,
+  onAddRow,
 }: NoMansLandingProps) {
-  if (backlogMembers.length === 0) return null
-
   return (
     <>
-      {/* Separator row */}
+      {/* Separator row with add button */}
       <tr>
         <td
           colSpan={weekSlice.length + 1}
-          className="bg-amber-50 dark:bg-amber-950/20 border-t-2 border-amber-300 dark:border-amber-700 px-4 py-1.5 text-sm font-bold text-amber-800 dark:text-amber-300 tracking-wide"
+          className="bg-amber-50 dark:bg-amber-950/20 border-t-2 border-amber-300 dark:border-amber-700 px-4 py-1.5"
         >
-          No Man&apos;s Landing
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-amber-800 dark:text-amber-300 tracking-wide">
+              No Man&apos;s Landing
+            </span>
+            {canEdit && (
+              <button
+                onClick={onAddRow}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-900/60 rounded transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                Add row
+              </button>
+            )}
+          </div>
         </td>
       </tr>
       {/* Backlog member rows */}
       {backlogMembers.map((member) => (
         <tr key={member.id} className="hover:bg-muted/30 transition-colors">
-          <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[250px] min-w-[200px] max-w-[250px] overflow-hidden text-ellipsis whitespace-nowrap text-amber-700 dark:text-amber-400 italic">
+          <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap text-amber-700 dark:text-amber-400 italic">
             {getMemberLabel(member)}
           </td>
           {weekSlice.map((week) => {
@@ -67,7 +80,7 @@ export function NoMansLanding({
             return (
               <td
                 key={week.toISOString()}
-                className={`border-b border-r border-border/50 p-0.5 min-w-[150px] h-[56px] align-top${fullyOut ? ' bg-muted' : ''}`}
+                className={`border-b border-r border-border/50 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
                 onMouseEnter={() => onCellHover(member.id, weekStr)}
               >
                 {fullyOut ? (

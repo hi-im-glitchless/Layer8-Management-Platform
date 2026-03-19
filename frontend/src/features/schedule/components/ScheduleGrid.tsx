@@ -21,7 +21,7 @@ import {
   useSwapAssignments,
   useUpdateAssignment,
   useUpsertAssignment,
-  useInitBacklogMembers,
+  useAddBacklogMember,
 } from '../hooks'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { getWeeksInRange, getQuarterDateRange, formatWeekLabel, QUARTER_LABELS, toLocalDateString } from '../constants'
@@ -81,7 +81,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const swapMutation = useSwapAssignments()
   const updateMutation = useUpdateAssignment()
   const upsertMutation = useUpsertAssignment()
-  const initBacklogMutation = useInitBacklogMembers()
+  const addBacklogMutation = useAddBacklogMember()
 
   const weeks = useMemo(() => {
     const { start, end } = getQuarterDateRange(year, quarter)
@@ -140,15 +140,6 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const allMembers: TeamMember[] = teamMembersQuery.data?.teamMembers ?? []
   const teamMembers = useMemo(() => allMembers.filter((m) => !m.isBacklog), [allMembers])
   const backlogMembers = useMemo(() => allMembers.filter((m) => m.isBacklog), [allMembers])
-
-  // Auto-initialize backlog members when team data loads and none exist yet
-  const backlogInitRef = useRef(false)
-  useEffect(() => {
-    if (canEdit && !backlogInitRef.current && allMembers.length > 0 && backlogMembers.length === 0) {
-      backlogInitRef.current = true
-      initBacklogMutation.mutate()
-    }
-  }, [canEdit, allMembers.length, backlogMembers.length])
 
   const absenceSet = useMemo(() => {
     const set = new Set<string>()
@@ -446,6 +437,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           onCellHover={handleCellHover}
           onLockToggle={handleLockToggle}
           onStatusCycle={handleStatusCycle}
+          onAddRow={() => addBacklogMutation.mutate()}
         />
       </tbody>
     </table>

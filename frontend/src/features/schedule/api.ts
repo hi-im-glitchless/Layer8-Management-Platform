@@ -46,8 +46,8 @@ export const scheduleApi = {
     })
   },
 
-  async initBacklogMembers() {
-    return apiClient<{ backlogMembers: TeamMember[] }>('/api/schedule/team-members/init-backlog', {
+  async addBacklogMember() {
+    return apiClient<{ member: TeamMember }>('/api/schedule/team-members/add-backlog', {
       method: 'POST',
       body: JSON.stringify({}),
     })
