@@ -139,15 +139,16 @@ export function formatWeekLabel(mondayDate: Date): string {
   const friday = new Date(mondayDate)
   friday.setDate(friday.getDate() + 4)
 
-  // If the week spans two months, show range like "29 Jun - 3 Jul"
+  const monDay = mondayDate.getDate()
+  const friDay = friday.getDate()
+  const friMonth = friday.toLocaleDateString('en-GB', { month: 'short' })
+
+  // Cross-month: "29 Dec - 2 Jan"
   if (mondayDate.getMonth() !== friday.getMonth()) {
-    const monStr = mondayDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-    const friStr = friday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-    return `${monStr} - ${friStr}`
+    const monMonth = mondayDate.toLocaleDateString('en-GB', { month: 'short' })
+    return `${monDay} ${monMonth} - ${friDay} ${friMonth}`
   }
 
-  return mondayDate.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  })
+  // Same month: "5 - 9 Jan"
+  return `${monDay} - ${friDay} ${friMonth}`
 }
