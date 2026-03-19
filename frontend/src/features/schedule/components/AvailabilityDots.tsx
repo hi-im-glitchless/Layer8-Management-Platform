@@ -1,6 +1,7 @@
 import { memo, useMemo, useCallback } from 'react'
 import { useAuth } from '@/features/auth/hooks'
 import { useToggleAbsence } from '../hooks'
+import { LEGEND_COLORS } from '../constants'
 import type { Absence, Holiday } from '../types'
 
 interface AvailabilityDotsProps {
@@ -73,12 +74,12 @@ export const AvailabilityDots = memo(function AvailabilityDots({
         const isHoliday = holidaySet.has(key)
         const isAbsent = absenceMap.has(key)
 
-        let dotClass = 'w-[5px] h-[5px] rounded-full border border-muted-foreground/30'
+        let dotClass = 'w-3 h-3 rounded-sm border border-gray-300 bg-transparent'
 
         if (isHoliday) {
-          dotClass = 'w-[5px] h-[5px] rounded-full bg-blue-500'
+          dotClass = `w-3 h-3 rounded-sm ${LEGEND_COLORS.holiday}`
         } else if (isAbsent) {
-          dotClass = 'w-[5px] h-[5px] rounded-full bg-red-500'
+          dotClass = `w-3 h-3 rounded-sm ${LEGEND_COLORS.absence}`
         }
 
         if (canToggle && !isHoliday) {
@@ -86,7 +87,7 @@ export const AvailabilityDots = memo(function AvailabilityDots({
             <button
               key={key}
               type="button"
-              className={`${dotClass} cursor-pointer hover:ring-1 hover:ring-ring transition-all`}
+              className={`${dotClass} cursor-pointer hover:ring-1 hover:ring-offset-1 hover:ring-ring transition-all`}
               onClick={(e) => {
                 e.stopPropagation()
                 handleToggle(key)

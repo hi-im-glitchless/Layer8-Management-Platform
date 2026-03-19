@@ -1,3 +1,20 @@
+// ── Legend / Indicator Colors ──────────────────────────────────────
+// Single source of truth — used by AvailabilityDots, AssignmentCell, and LegendBar
+
+export const LEGEND_COLORS = {
+  available: 'bg-green-500',
+  absence: 'bg-orange-400',
+  holiday: 'bg-red-400',
+  other: 'bg-gray-400',
+} as const
+
+/** Status cycling order for click-to-cycle on assignment cells */
+export const STATUS_CYCLE: readonly ('placeholder' | 'needs-reqs' | 'confirmed')[] = [
+  'placeholder',
+  'needs-reqs',
+  'confirmed',
+] as const
+
 // ── Color Palette ──────────────────────────────────────────────────
 
 export const COLOR_PALETTE = [

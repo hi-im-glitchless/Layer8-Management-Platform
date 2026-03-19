@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { QuarterTabs } from '@/features/schedule/components/QuarterTabs'
 import { YearPicker } from '@/features/schedule/components/YearPicker'
 import { ScheduleGrid } from '@/features/schedule/components/ScheduleGrid'
+import { LegendBar } from '@/features/schedule/components/LegendBar'
 import { TeamManagementPanel } from '@/features/schedule/components/TeamManagementPanel'
 import { HolidayManager } from '@/features/schedule/components/HolidayManager'
 import { useAuth } from '@/features/auth/hooks'
@@ -26,6 +27,7 @@ export function Schedule() {
         </div>
       </div>
       <QuarterTabs activeQuarter={selectedQuarter} onQuarterChange={setSelectedQuarter} />
+      <LegendBar />
       <div className="-mx-4 px-2">
         <ScheduleGrid year={selectedYear} quarter={selectedQuarter} />
       </div>

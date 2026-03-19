@@ -1,9 +1,9 @@
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { Lock, Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import type { Assignment, AssignmentStatus } from '../types'
-import { ASSIGNMENT_STATUSES } from '../constants'
+import { ASSIGNMENT_STATUSES, STATUS_CYCLE } from '../constants'
 
 interface AssignmentCellProps {
   assignment: Assignment | undefined
@@ -13,6 +13,7 @@ interface AssignmentCellProps {
   isDragOverlay?: boolean
   onCellClick: (e?: React.MouseEvent) => void
   onLockToggle?: (e: React.MouseEvent) => void
+  onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
 }
 
 const STATUS_DOT_COLORS: Record<AssignmentStatus, string> = {
@@ -41,6 +42,7 @@ export const AssignmentCell = memo(function AssignmentCell({
   isDragOverlay = false,
   onCellClick,
   onLockToggle,
+  onStatusCycle,
 }: AssignmentCellProps) {
   const cellId = `${teamMemberId}-${weekStart}`
 
@@ -70,6 +72,14 @@ export const AssignmentCell = memo(function AssignmentCell({
       setDropRef(el)
     }
   }
+
+  const handleStatusClick = useCallback((e: React.MouseEvent, status: AssignmentStatus, assignmentId: string) => {
+    e.stopPropagation()
+    if (!onStatusCycle) return
+    const currentIdx = STATUS_CYCLE.indexOf(status)
+    const nextIdx = (currentIdx + 1) % STATUS_CYCLE.length
+    onStatusCycle(assignmentId, STATUS_CYCLE[nextIdx])
+  }, [onStatusCycle])
 
   if (!assignment) {
     const isDropTarget = isOver && !isDragOverlay
@@ -133,9 +143,19 @@ export const AssignmentCell = memo(function AssignmentCell({
           className="flex-1 flex items-center px-1.5 min-w-0"
           style={{ backgroundColor: assignment.projectColor }}
         >
-          <div
-            className={`w-2 h-2 rounded-full shrink-0 mr-1 ${STATUS_DOT_COLORS[assignment.status]}`}
-          />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[assignment.status]} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
+                  onClick={isClickable ? (e) => handleStatusClick(e, assignment.status, assignment.id) : undefined}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {isClickable ? 'Click to cycle status' : getStatusLabel(assignment.status)}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <span className="text-xs font-medium truncate" style={{ color: textColor }}>
             {assignment.projectName}
           </span>
@@ -144,9 +164,27 @@ export const AssignmentCell = memo(function AssignmentCell({
           className="flex-1 flex items-center px-1.5 min-w-0"
           style={{ backgroundColor: assignment.splitProjectColor! }}
         >
-          <div
-            className={`w-2 h-2 rounded-full shrink-0 mr-1 ${STATUS_DOT_COLORS[(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder']}`}
-          />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder']} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
+                  onClick={isClickable ? (e) => {
+                    e.stopPropagation()
+                    if (!onStatusCycle) return
+                    const splitStatus = (assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'
+                    const currentIdx = STATUS_CYCLE.indexOf(splitStatus)
+                    const nextIdx = (currentIdx + 1) % STATUS_CYCLE.length
+                    // For split status cycling, we use a special convention: prefix with 'split:' to indicate it's the split half
+                    onStatusCycle(`split:${assignment.id}`, STATUS_CYCLE[nextIdx])
+                  } : undefined}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {isClickable ? 'Click to cycle status' : getStatusLabel((assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <span className="text-xs font-medium truncate" style={{ color: splitTextColor }}>
             {assignment.splitProjectName}
           </span>
@@ -177,11 +215,12 @@ export const AssignmentCell = memo(function AssignmentCell({
         <Tooltip>
           <TooltipTrigger asChild>
             <div
-              className={`w-2 h-2 rounded-full shrink-0 mr-1.5 ${STATUS_DOT_COLORS[assignment.status]}`}
+              className={`w-5 h-3 rounded-sm shrink-0 mr-1.5 ${STATUS_DOT_COLORS[assignment.status]} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
+              onClick={isClickable ? (e) => handleStatusClick(e, assignment.status, assignment.id) : undefined}
             />
           </TooltipTrigger>
           <TooltipContent side="top">
-            {getStatusLabel(assignment.status)}
+            {isClickable ? 'Click to cycle status' : getStatusLabel(assignment.status)}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

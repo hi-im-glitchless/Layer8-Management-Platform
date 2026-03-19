@@ -22,6 +22,7 @@ import {
   useUpdateAssignment,
   useUpsertAssignment,
 } from '../hooks'
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { getWeeksInRange, getQuarterDateRange, formatWeekLabel, QUARTER_LABELS } from '../constants'
 import { AvailabilityDots } from './AvailabilityDots'
 import { AssignmentCell } from './AssignmentCell'
@@ -141,6 +142,34 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     }
     return set
   }, [holidays, year])
+
+  /** Map week-start ISO string -> list of holiday names that fall within that Mon-Fri */
+  const holidaysByWeek = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const h of holidays) {
+      const hDate = new Date(year, h.month - 1, h.day)
+      const hDay = hDate.getDay()
+      // Only consider weekdays (Mon=1..Fri=5)
+      if (hDay === 0 || hDay === 6) continue
+      // Find the Monday of this week
+      const monday = new Date(hDate)
+      monday.setDate(monday.getDate() - (hDay - 1))
+      const key = monday.toISOString().split('T')[0]
+      const list = map.get(key) ?? []
+      list.push(h.name)
+      map.set(key, list)
+    }
+    return map
+  }, [holidays, year])
+
+  const handleStatusCycle = useCallback((assignmentIdOrSplit: string, nextStatus: AssignmentStatus) => {
+    const isSplit = assignmentIdOrSplit.startsWith('split:')
+    const id = isSplit ? assignmentIdOrSplit.slice(6) : assignmentIdOrSplit
+    const data = isSplit
+      ? { splitProjectStatus: nextStatus }
+      : { status: nextStatus }
+    updateMutation.mutate({ id, data })
+  }, [updateMutation])
 
   const isFullyAbsent = useCallback((teamMemberId: string, weekStart: Date): boolean => {
     for (let i = 0; i < 5; i++) {
@@ -305,14 +334,32 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           <th className="sticky left-0 z-40 bg-background border-b border-r border-border/50 px-3 py-2 text-left text-sm font-semibold w-[250px] min-w-[200px] max-w-[250px]">
             Team
           </th>
-          {weekSlice.map((week) => (
-            <th
-              key={week.toISOString()}
-              className="border-b border-r border-border/50 px-1 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis"
-            >
-              {formatWeekLabel(week)}
-            </th>
-          ))}
+          {weekSlice.map((week) => {
+            const weekKey = week.toISOString().split('T')[0]
+            const weekHolidays = holidaysByWeek.get(weekKey)
+            const hasHoliday = weekHolidays && weekHolidays.length > 0
+            return (
+              <th
+                key={week.toISOString()}
+                className={`border-b border-r border-border/50 px-1 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${hasHoliday ? ' bg-red-50 dark:bg-red-950/20' : ''}`}
+              >
+                {hasHoliday ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>{formatWeekLabel(week)}</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {weekHolidays!.join(', ')}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  formatWeekLabel(week)
+                )}
+              </th>
+            )
+          })}
         </tr>
       </thead>
       <tbody>
@@ -345,6 +392,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                         isDragOverlay={false}
                         onCellClick={(e) => handleCellClick(member.id, week, assignment, e)}
                         onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
+                        onStatusCycle={canEdit && assignment ? handleStatusCycle : undefined}
                       />
                       <AvailabilityDots
                         weekStart={week}
