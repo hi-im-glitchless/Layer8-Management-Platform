@@ -89,8 +89,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   }, [year, quarter])
 
   /** Split weeks into quarterly chunks for "All Year" vertical layout.
-   *  Each week is assigned to exactly one quarter based on its Monday month,
-   *  so no week appears in two grids. */
+   *  Each week is assigned to exactly one quarter based on its Thursday's month
+   *  (ISO week rule: the quarter that contains most of the week's days). */
   const quarterChunks = useMemo(() => {
     if (quarter !== null) return null
     const chunks: { label: string; weeks: Date[] }[] = [
@@ -100,7 +100,10 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       { label: QUARTER_LABELS[3], weeks: [] },
     ]
     for (const week of weeks) {
-      const month = week.getMonth() // 0-11
+      // Use Thursday of the week to determine quarter (ISO week rule)
+      const thu = new Date(week)
+      thu.setDate(thu.getDate() + 3)
+      const month = thu.getMonth() // 0-11
       const q = Math.floor(month / 3) // 0-3
       chunks[q].weeks.push(week)
     }
