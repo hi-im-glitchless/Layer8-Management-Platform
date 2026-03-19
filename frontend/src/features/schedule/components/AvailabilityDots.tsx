@@ -74,7 +74,7 @@ export const AvailabilityDots = memo(function AvailabilityDots({
         const isHoliday = holidaySet.has(key)
         const isAbsent = absenceMap.has(key)
 
-        let dotClass = 'w-3 h-3 rounded-sm border border-gray-300 bg-transparent'
+        let dotClass = 'w-3 h-3 rounded-sm border border-border bg-transparent'
 
         if (isHoliday) {
           dotClass = `w-3 h-3 rounded-sm ${LEGEND_COLORS.holiday}`
