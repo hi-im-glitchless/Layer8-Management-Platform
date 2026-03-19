@@ -460,12 +460,12 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             {quarterChunks.map((chunk, idx) => (
               <div key={chunk.label}>
                 {idx > 0 && (
-                  <div className="bg-muted/60 border-y border-border/40 dark:border-border/25 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
+                  <div className="bg-muted/40 border-t border-border border-b border-b-border/40 dark:border-b-border/25 px-4 py-1.5 text-xs font-semibold text-foreground tracking-wide">
                     {chunk.label}
                   </div>
                 )}
                 {idx === 0 && (
-                  <div className="bg-muted/60 border-b border-border/40 dark:border-border/25 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
+                  <div className="bg-muted/40 border-b border-border px-4 py-1.5 text-xs font-semibold text-foreground tracking-wide">
                     {chunk.label}
                   </div>
                 )}
