@@ -51,7 +51,7 @@ export function NoMansLanding({
       <tr>
         <td
           colSpan={weekSlice.length + 1}
-          className="bg-slate-200 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600 px-4 py-1.5"
+          className="bg-slate-300 dark:bg-slate-800 border-t-2 border-slate-400 dark:border-slate-600 px-4 py-1.5"
         >
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-slate-600 dark:text-slate-300 tracking-wide">
@@ -71,10 +71,10 @@ export function NoMansLanding({
       </tr>
       {/* Backlog member rows */}
       {backlogMembers.map((member, rowIdx) => {
-        const rowBg = rowIdx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900/50'
+        const rowBg = rowIdx % 2 === 0 ? 'bg-slate-100 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900/50'
         return (
         <tr key={member.id} className={`transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20 ${rowBg}`}>
-          <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] text-slate-500 dark:text-slate-400 italic`}>
+          <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-400 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] text-slate-500 dark:text-slate-400 italic`}>
             <div className="flex items-center justify-between gap-1 group/row">
               <span className="truncate">{getMemberLabel(member)}</span>
               {canEdit && (
@@ -95,7 +95,7 @@ export function NoMansLanding({
             return (
               <td
                 key={week.toISOString()}
-                className={`border-b border-r border-slate-200 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
+                className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
                 onMouseEnter={() => onCellHover(member.id, weekStr)}
               >
                 {fullyOut ? (

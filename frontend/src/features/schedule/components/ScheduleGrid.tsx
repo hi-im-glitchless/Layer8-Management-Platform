@@ -356,8 +356,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     return (
     <table className="border-collapse w-full table-fixed">
       <thead>
-        <tr className="sticky top-0 z-30 bg-slate-200 dark:bg-slate-900">
-          <th className="sticky left-0 z-40 bg-slate-200 dark:bg-slate-900 border-b-2 border-r-2 border-slate-300 dark:border-slate-600 px-3 py-2.5 text-left text-sm font-semibold w-[140px] min-w-[120px] max-w-[140px]">
+        <tr className="sticky top-0 z-30 bg-slate-300 dark:bg-slate-900">
+          <th className="sticky left-0 z-40 bg-slate-300 dark:bg-slate-900 border-b-2 border-r-2 border-slate-400 dark:border-slate-600 px-3 py-2.5 text-left text-sm font-semibold w-[140px] min-w-[120px] max-w-[140px]">
             Team
           </th>
           {weekSlice.map((week, colIdx) => {
@@ -368,7 +368,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             return (
               <th
                 key={week.toISOString()}
-                className={`border-b-2 border-r border-slate-300 dark:border-slate-600 px-1 py-2.5 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${hasHoliday ? ' bg-red-100 dark:bg-red-900/40' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
+                className={`border-b-2 border-r border-slate-400 dark:border-slate-600 px-1 py-2.5 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${hasHoliday ? ' bg-red-100 dark:bg-red-900/40' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
               >
                 {hasHoliday ? (
                   <TooltipProvider>
@@ -392,10 +392,10 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       <tbody>
         {teamMembers.map((member, rowIdx) => {
           const isEvenRow = rowIdx % 2 === 0
-          const rowBg = isEvenRow ? 'bg-slate-50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900/50'
+          const rowBg = isEvenRow ? 'bg-slate-100 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900/50'
           return (
           <tr key={member.id} className={`transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20 ${rowBg}`}>
-            <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap`}>
+            <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-400 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap`}>
               {member.user?.displayName || member.user?.username || member.displayName || 'Unknown'}
             </td>
             {weekSlice.map((week, colIdx) => {
@@ -406,7 +406,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
               return (
                 <td
                   key={week.toISOString()}
-                  className={`border-b border-r border-slate-200 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
+                  className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
                   onMouseEnter={() => handleCellHover(member.id, weekStr)}
                 >
                   {fullyOut ? (
@@ -475,12 +475,12 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             {quarterChunks.map((chunk, idx) => (
               <div key={chunk.label}>
                 {idx > 0 && (
-                  <div className="bg-slate-200 dark:bg-slate-800 border-y border-slate-300 dark:border-slate-600 px-4 py-2 text-xs font-bold text-foreground tracking-wide">
+                  <div className="bg-slate-300 dark:bg-slate-800 border-y border-slate-400 dark:border-slate-600 px-4 py-2 text-xs font-bold text-foreground tracking-wide">
                     {chunk.label}
                   </div>
                 )}
                 {idx === 0 && (
-                  <div className="bg-slate-200 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-600 px-4 py-2 text-xs font-bold text-foreground tracking-wide">
+                  <div className="bg-slate-300 dark:bg-slate-800 border-b border-slate-400 dark:border-slate-600 px-4 py-2 text-xs font-bold text-foreground tracking-wide">
                     {chunk.label}
                   </div>
                 )}
