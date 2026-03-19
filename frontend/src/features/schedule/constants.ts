@@ -26,12 +26,15 @@ export const ASSIGNMENT_STATUSES = [
 // ── Quarter Tabs ───────────────────────────────────────────────────
 
 export const QUARTER_TABS = [
-  { value: 'all' as const, label: 'All Year', startMonth: 1, endMonth: 12 },
-  { value: 'Q1' as const, label: 'Q1', startMonth: 1, endMonth: 3 },
-  { value: 'Q2' as const, label: 'Q2', startMonth: 4, endMonth: 6 },
-  { value: 'Q3' as const, label: 'Q3', startMonth: 7, endMonth: 9 },
-  { value: 'Q4' as const, label: 'Q4', startMonth: 10, endMonth: 12 },
+  { value: 'all' as const, label: 'Todo o Ano', startMonth: 1, endMonth: 12 },
+  { value: 'Q1' as const, label: 'Jan-Mar', startMonth: 1, endMonth: 3 },
+  { value: 'Q2' as const, label: 'Abr-Jun', startMonth: 4, endMonth: 6 },
+  { value: 'Q3' as const, label: 'Jul-Set', startMonth: 7, endMonth: 9 },
+  { value: 'Q4' as const, label: 'Out-Dez', startMonth: 10, endMonth: 12 },
 ] as const
+
+/** Quarter separator labels used in the All Year vertical layout */
+export const QUARTER_LABELS = ['Jan-Mar', 'Abr-Jun', 'Jul-Set', 'Out-Dez'] as const
 
 // ── Portuguese Holidays ────────────────────────────────────────────
 

@@ -22,7 +22,7 @@ import {
   useUpdateAssignment,
   useUpsertAssignment,
 } from '../hooks'
-import { getWeeksInRange, getQuarterDateRange, formatWeekLabel } from '../constants'
+import { getWeeksInRange, getQuarterDateRange, formatWeekLabel, QUARTER_LABELS } from '../constants'
 import { AvailabilityDots } from './AvailabilityDots'
 import { AssignmentCell } from './AssignmentCell'
 import { AssignmentModal } from './AssignmentModal'
@@ -82,6 +82,18 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const weeks = useMemo(() => {
     const { start, end } = getQuarterDateRange(year, quarter)
     return getWeeksInRange(start, end)
+  }, [year, quarter])
+
+  /** Split weeks into quarterly chunks for "All Year" vertical layout */
+  const quarterChunks = useMemo(() => {
+    if (quarter !== null) return null
+    const chunks: { label: string; weeks: Date[] }[] = []
+    for (let q = 1; q <= 4; q++) {
+      const { start, end } = getQuarterDateRange(year, q)
+      const qWeeks = getWeeksInRange(start, end)
+      chunks.push({ label: QUARTER_LABELS[q - 1], weeks: qWeeks })
+    }
+    return chunks
   }, [year, quarter])
 
   const dateRange = useMemo(() => {
@@ -286,6 +298,72 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     )
   }
 
+  const renderTable = (weekSlice: Date[]) => (
+    <table className="border-collapse w-full table-fixed">
+      <thead>
+        <tr className="sticky top-0 z-30 bg-background">
+          <th className="sticky left-0 z-40 bg-background border-b border-r border-border/50 px-3 py-2 text-left text-sm font-semibold w-[250px] min-w-[200px] max-w-[250px]">
+            Team
+          </th>
+          {weekSlice.map((week) => (
+            <th
+              key={week.toISOString()}
+              className="border-b border-r border-border/50 px-1 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis"
+            >
+              {formatWeekLabel(week)}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {teamMembers.map((member) => (
+          <tr key={member.id} className="hover:bg-muted/30 transition-colors">
+            <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[250px] min-w-[200px] max-w-[250px] overflow-hidden text-ellipsis whitespace-nowrap">
+              {member.user.displayName || member.user.username}
+            </td>
+            {weekSlice.map((week) => {
+              const assignment = getAssignment(member.id, week)
+              const fullyOut = isFullyAbsent(member.id, week)
+              const weekStr = week.toISOString().split('T')[0]
+              return (
+                <td
+                  key={week.toISOString()}
+                  className={`border-b border-r border-border/50 p-0.5 min-w-[150px] h-[56px] align-top${fullyOut ? ' bg-muted' : ''}`}
+                  onMouseEnter={() => handleCellHover(member.id, weekStr)}
+                >
+                  {fullyOut ? (
+                    <div className="h-full flex items-center justify-center">
+                      <span className="text-xs font-semibold text-muted-foreground">OUT</span>
+                    </div>
+                  ) : (
+                    <>
+                      <AssignmentCell
+                        assignment={assignment}
+                        teamMemberId={member.id}
+                        weekStart={weekStr}
+                        canEdit={canEdit}
+                        isDragOverlay={false}
+                        onCellClick={(e) => handleCellClick(member.id, week, assignment, e)}
+                        onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
+                      />
+                      <AvailabilityDots
+                        weekStart={week}
+                        teamMemberId={member.id}
+                        absences={absences}
+                        holidays={holidays}
+                        year={year}
+                      />
+                    </>
+                  )}
+                </td>
+              )
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+
   return (
     <>
       <DndContext
@@ -294,71 +372,33 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="overflow-auto max-h-[calc(100vh-220px)] border border-border rounded-md">
-          <table className="border-collapse w-full">
-            <thead>
-              <tr className="sticky top-0 z-30 bg-background">
-                <th className="sticky left-0 z-40 bg-background border border-border px-3 py-2 text-left text-sm font-semibold min-w-[160px] max-w-[200px]">
-                  Team
-                </th>
-                {weeks.map((week) => (
-                  <th
-                    key={week.toISOString()}
-                    className="border border-border px-2 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[120px] overflow-hidden text-ellipsis"
-                  >
-                    {formatWeekLabel(week)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {teamMembers.map((member) => (
-                <tr key={member.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="sticky left-0 z-20 bg-background border border-border px-3 py-2 text-sm font-medium min-w-[160px] max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
-                    {member.user.displayName || member.user.username}
-                  </td>
-                  {weeks.map((week) => {
-                    const assignment = getAssignment(member.id, week)
-                    const fullyOut = isFullyAbsent(member.id, week)
-                    const weekStr = week.toISOString().split('T')[0]
-                    return (
-                      <td
-                        key={week.toISOString()}
-                        className={`border border-border p-1 min-w-[120px] h-[60px] align-top${fullyOut ? ' bg-muted' : ''}`}
-                        onMouseEnter={() => handleCellHover(member.id, weekStr)}
-                      >
-                        {fullyOut ? (
-                          <div className="h-full flex items-center justify-center">
-                            <span className="text-xs font-semibold text-muted-foreground">OUT</span>
-                          </div>
-                        ) : (
-                          <>
-                            <AssignmentCell
-                              assignment={assignment}
-                              teamMemberId={member.id}
-                              weekStart={weekStr}
-                              canEdit={canEdit}
-                              isDragOverlay={false}
-                              onCellClick={(e) => handleCellClick(member.id, week, assignment, e)}
-                              onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
-                            />
-                            <AvailabilityDots
-                              weekStart={week}
-                              teamMemberId={member.id}
-                              absences={absences}
-                              holidays={holidays}
-                              year={year}
-                            />
-                          </>
-                        )}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {quarterChunks ? (
+          /* All Year: 4 stacked quarter tables with vertical scroll */
+          <div className="overflow-y-auto max-h-[calc(100vh-220px)]">
+            {quarterChunks.map((chunk, idx) => (
+              <div key={chunk.label}>
+                {idx > 0 && (
+                  <div className="bg-muted/60 border-y border-border/50 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
+                    {chunk.label}
+                  </div>
+                )}
+                {idx === 0 && (
+                  <div className="bg-muted/60 border-b border-border/50 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
+                    {chunk.label}
+                  </div>
+                )}
+                <div className="overflow-x-auto">
+                  {renderTable(chunk.weeks)}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Single quarter: one table with horizontal scroll if needed */
+          <div className="overflow-auto max-h-[calc(100vh-220px)] rounded-md">
+            {renderTable(weeks)}
+          </div>
+        )}
         <DragOverlay>
           {activeDragId && activeDragData?.assignment ? (
             <AssignmentCell

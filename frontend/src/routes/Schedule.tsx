@@ -26,7 +26,9 @@ export function Schedule() {
         </div>
       </div>
       <QuarterTabs activeQuarter={selectedQuarter} onQuarterChange={setSelectedQuarter} />
-      <ScheduleGrid year={selectedYear} quarter={selectedQuarter} />
+      <div className="-mx-4 px-2">
+        <ScheduleGrid year={selectedYear} quarter={selectedQuarter} />
+      </div>
     </div>
   )
 }
