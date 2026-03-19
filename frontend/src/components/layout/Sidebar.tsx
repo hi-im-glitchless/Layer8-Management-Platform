@@ -117,7 +117,7 @@ export function Sidebar() {
           />
         )}
         {collapsed && (
-          <div className="text-accent text-xl font-bold">8</div>
+          <div className="text-red-600 text-xl font-bold">8</div>
         )}
       </div>
 
