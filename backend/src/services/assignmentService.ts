@@ -199,6 +199,53 @@ export async function swapAssignments(idA: string, idB: string) {
 }
 
 /**
+ * Get or create backlog ("No Man's Landing") team members.
+ * These are virtual rows with isBacklog=true and no linked user.
+ * Creates up to `count` entries if fewer exist.
+ */
+export async function getOrCreateBacklogMembers(count = 4) {
+  const existing = await prisma.teamMember.findMany({
+    where: { isBacklog: true, status: 'active' },
+    orderBy: { displayOrder: 'asc' },
+  });
+
+  if (existing.length >= count) {
+    return existing.slice(0, count);
+  }
+
+  // Find highest displayOrder to place backlog after real members
+  const maxOrder = await prisma.teamMember.aggregate({
+    _max: { displayOrder: true },
+  });
+  const baseOrder = (maxOrder._max.displayOrder ?? -1) + 1000; // large offset to stay after real members
+
+  const toCreate = count - existing.length;
+  const existingNumbers = existing.map((m) => {
+    const match = m.displayName?.match(/Futuro (\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  });
+  let nextNum = Math.max(0, ...existingNumbers) + 1;
+
+  for (let i = 0; i < toCreate; i++) {
+    await prisma.teamMember.create({
+      data: {
+        isBacklog: true,
+        displayName: `Futuro ${nextNum}`,
+        displayOrder: baseOrder + existing.length + i,
+        status: 'active',
+      },
+    });
+    nextNum++;
+  }
+
+  return prisma.teamMember.findMany({
+    where: { isBacklog: true, status: 'active' },
+    orderBy: { displayOrder: 'asc' },
+    take: count,
+  });
+}
+
+/**
  * Toggle the isLocked boolean on an assignment.
  */
 export async function toggleLock(id: string) {

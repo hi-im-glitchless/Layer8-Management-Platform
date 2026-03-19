@@ -10,13 +10,15 @@ export interface TeamMemberUser {
 
 export interface TeamMember {
   id: string
-  userId: string
+  userId: string | null
   displayOrder: number
   status: string
+  isBacklog: boolean
+  displayName: string | null
   joinedAt: string
   createdAt: string
   updatedAt: string
-  user: TeamMemberUser
+  user: TeamMemberUser | null
 }
 
 export type AssignmentStatus = 'placeholder' | 'needs-reqs' | 'confirmed'

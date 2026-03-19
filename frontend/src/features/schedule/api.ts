@@ -46,6 +46,13 @@ export const scheduleApi = {
     })
   },
 
+  async initBacklogMembers() {
+    return apiClient<{ backlogMembers: TeamMember[] }>('/api/schedule/team-members/init-backlog', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
+
   // ── Assignments ────────────────────────────────────────────────
 
   async getAssignments(params: { year: number; quarter?: number }) {

@@ -39,10 +39,12 @@ export function TeamManagementPanel() {
   const archiveMember = useArchiveTeamMember()
   const reorderMembers = useReorderTeamMembers()
 
-  const teamMembers: TeamMember[] = teamMembersQuery.data?.teamMembers ?? []
+  const allTeamMembers: TeamMember[] = teamMembersQuery.data?.teamMembers ?? []
+  // Filter out backlog members — they are managed by the schedule grid, not this panel
+  const teamMembers = allTeamMembers.filter((m) => !m.isBacklog)
   const allUsers = usersQuery.data?.users ?? []
 
-  const teamUserIds = new Set(teamMembers.map((m) => m.userId))
+  const teamUserIds = new Set(teamMembers.map((m) => m.userId).filter(Boolean))
   const availableUsers = allUsers.filter(
     (u) => !teamUserIds.has(u.id) && u.isActive
   )
@@ -108,12 +110,12 @@ export function TeamManagementPanel() {
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium shrink-0">
-                    {(member.user.displayName || member.user.username)
+                    {(member.user?.displayName || member.user?.username || '?')
                       .charAt(0)
                       .toUpperCase()}
                   </div>
                   <span className="text-sm truncate">
-                    {member.user.displayName || member.user.username}
+                    {member.user?.displayName || member.user?.username || 'Unknown'}
                   </span>
                 </div>
 
@@ -153,7 +155,7 @@ export function TeamManagementPanel() {
                       <AlertDialogDescription>
                         This will archive{' '}
                         <strong>
-                          {member.user.displayName || member.user.username}
+                          {member.user?.displayName || member.user?.username || 'Unknown'}
                         </strong>{' '}
                         from the schedule. Their existing assignments will be
                         preserved.

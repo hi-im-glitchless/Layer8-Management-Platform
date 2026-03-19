@@ -165,19 +165,22 @@ model TemplateMappingSnapshot {
 
 model TeamMember {
   id           String   @id @default(cuid())
-  userId       String   @unique
+  userId       String?  @unique
   displayOrder Int      @default(0)
   status       String   @default("active") // active, inactive, archived
+  isBacklog    Boolean  @default(false)
+  displayName  String?  // Used for backlog members (e.g. "Futuro 1")
   joinedAt     DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignments Assignment[]
   absences    Absence[]
 
   @@index([status])
   @@index([displayOrder])
+  @@index([isBacklog])
 }
 
 model Assignment {

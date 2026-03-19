@@ -21,12 +21,14 @@ import {
   useSwapAssignments,
   useUpdateAssignment,
   useUpsertAssignment,
+  useInitBacklogMembers,
 } from '../hooks'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { getWeeksInRange, getQuarterDateRange, formatWeekLabel, QUARTER_LABELS } from '../constants'
 import { AvailabilityDots } from './AvailabilityDots'
 import { AssignmentCell } from './AssignmentCell'
 import { AssignmentModal } from './AssignmentModal'
+import { NoMansLanding } from './NoMansLanding'
 import type { Assignment, Absence, Holiday, TeamMember, AssignmentStatus } from '../types'
 
 interface ScheduleGridProps {
@@ -79,6 +81,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const swapMutation = useSwapAssignments()
   const updateMutation = useUpdateAssignment()
   const upsertMutation = useUpsertAssignment()
+  const initBacklogMutation = useInitBacklogMembers()
 
   const weeks = useMemo(() => {
     const { start, end } = getQuarterDateRange(year, quarter)
@@ -124,7 +127,18 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     return map
   }, [assignmentsQuery.data])
 
-  const teamMembers: TeamMember[] = teamMembersQuery.data?.teamMembers ?? []
+  const allMembers: TeamMember[] = teamMembersQuery.data?.teamMembers ?? []
+  const teamMembers = useMemo(() => allMembers.filter((m) => !m.isBacklog), [allMembers])
+  const backlogMembers = useMemo(() => allMembers.filter((m) => m.isBacklog), [allMembers])
+
+  // Auto-initialize backlog members when team data loads and none exist yet
+  const backlogInitRef = useRef(false)
+  useEffect(() => {
+    if (canEdit && !backlogInitRef.current && allMembers.length > 0 && backlogMembers.length === 0) {
+      backlogInitRef.current = true
+      initBacklogMutation.mutate()
+    }
+  }, [canEdit, allMembers.length, backlogMembers.length])
 
   const absenceSet = useMemo(() => {
     const set = new Set<string>()
@@ -366,7 +380,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         {teamMembers.map((member) => (
           <tr key={member.id} className="hover:bg-muted/30 transition-colors">
             <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[250px] min-w-[200px] max-w-[250px] overflow-hidden text-ellipsis whitespace-nowrap">
-              {member.user.displayName || member.user.username}
+              {member.user?.displayName || member.user?.username || member.displayName || 'Unknown'}
             </td>
             {weekSlice.map((week) => {
               const assignment = getAssignment(member.id, week)
@@ -408,6 +422,21 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             })}
           </tr>
         ))}
+        <NoMansLanding
+          backlogMembers={backlogMembers}
+          weekSlice={weekSlice}
+          year={year}
+          canEdit={canEdit}
+          absences={absences}
+          holidays={holidays}
+          holidaysByWeek={holidaysByWeek}
+          getAssignment={getAssignment}
+          isFullyAbsent={isFullyAbsent}
+          onCellClick={handleCellClick}
+          onCellHover={handleCellHover}
+          onLockToggle={handleLockToggle}
+          onStatusCycle={handleStatusCycle}
+        />
       </tbody>
     </table>
   )

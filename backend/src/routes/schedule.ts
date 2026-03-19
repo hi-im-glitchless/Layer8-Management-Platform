@@ -90,6 +90,20 @@ router.put('/team-members/:id', requireRole('MANAGER'), async (req, res) => {
 });
 
 /**
+ * POST /team-members/init-backlog
+ * Initialize 4 backlog ("No Man's Landing") entries if they don't exist (MANAGER+)
+ */
+router.post('/team-members/init-backlog', requireRole('MANAGER'), async (req, res) => {
+  try {
+    const backlogMembers = await assignmentService.getOrCreateBacklogMembers(4);
+    res.status(201).json({ backlogMembers });
+  } catch (error) {
+    console.error('[schedule routes] Error initializing backlog members:', error);
+    res.status(500).json({ error: 'Failed to initialize backlog members' });
+  }
+});
+
+/**
  * DELETE /team-members/:id
  * Archive a team member (ADMIN+)
  */

@@ -80,6 +80,18 @@ export function useReorderTeamMembers() {
   })
 }
 
+export function useInitBacklogMembers() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => scheduleApi.initBacklogMembers(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
+    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to initialize backlog members'),
+  })
+}
+
 // ── Assignments ────────────────────────────────────────────────────
 
 export function useAssignments(year: number, quarter?: number) {

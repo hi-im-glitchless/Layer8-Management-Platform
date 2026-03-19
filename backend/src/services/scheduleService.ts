@@ -2,9 +2,10 @@ import { prisma } from '@/db/prisma.js';
 
 /**
  * List active team members ordered by displayOrder, with user info.
+ * Real members come first, backlog members last.
  */
 export async function listTeamMembers() {
-  return prisma.teamMember.findMany({
+  const members = await prisma.teamMember.findMany({
     where: { status: 'active' },
     orderBy: { displayOrder: 'asc' },
     include: {
@@ -12,6 +13,12 @@ export async function listTeamMembers() {
         select: { username: true, displayName: true, avatarUrl: true },
       },
     },
+  });
+
+  // Sort: real members first (by displayOrder), backlog members last (by displayOrder)
+  return members.sort((a, b) => {
+    if (a.isBacklog !== b.isBacklog) return a.isBacklog ? 1 : -1;
+    return a.displayOrder - b.displayOrder;
   });
 }
 
