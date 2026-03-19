@@ -297,14 +297,14 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         <div className="overflow-auto max-h-[calc(100vh-220px)] border border-border rounded-md">
           <table className="border-collapse w-full">
             <thead>
-              <tr className="sticky top-0 z-20 bg-background">
-                <th className="sticky left-0 z-30 bg-background border border-border px-3 py-2 text-left text-sm font-semibold min-w-[160px]">
+              <tr className="sticky top-0 z-30 bg-background">
+                <th className="sticky left-0 z-40 bg-background border border-border px-3 py-2 text-left text-sm font-semibold min-w-[160px] max-w-[200px]">
                   Team
                 </th>
                 {weeks.map((week) => (
                   <th
                     key={week.toISOString()}
-                    className="border border-border px-2 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[100px]"
+                    className="border border-border px-2 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap min-w-[120px] overflow-hidden text-ellipsis"
                   >
                     {formatWeekLabel(week)}
                   </th>
@@ -313,8 +313,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             </thead>
             <tbody>
               {teamMembers.map((member) => (
-                <tr key={member.id} className="hover:bg-muted/30">
-                  <td className="sticky left-0 z-10 bg-background border border-border px-3 py-2 text-sm font-medium whitespace-nowrap min-w-[160px]">
+                <tr key={member.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="sticky left-0 z-20 bg-background border border-border px-3 py-2 text-sm font-medium min-w-[160px] max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap">
                     {member.user.displayName || member.user.username}
                   </td>
                   {weeks.map((week) => {
@@ -324,7 +324,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                     return (
                       <td
                         key={week.toISOString()}
-                        className={`border border-border p-1 min-w-[100px] h-[56px] align-top${fullyOut ? ' bg-muted' : ''}`}
+                        className={`border border-border p-1 min-w-[120px] h-[60px] align-top${fullyOut ? ' bg-muted' : ''}`}
                         onMouseEnter={() => handleCellHover(member.id, weekStr)}
                       >
                         {fullyOut ? (
