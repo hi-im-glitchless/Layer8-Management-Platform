@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import multer from 'multer';
 import { requireRole } from '../middleware/auth.js';
 import * as scheduleService from '../services/scheduleService.js';
 import * as assignmentService from '../services/assignmentService.js';
 import * as absenceService from '../services/absenceService.js';
 import * as holidayService from '../services/holidayService.js';
+import { parseExcelFile, importScheduleData } from '../services/importService.js';
 
 const router = Router();
 
@@ -423,6 +425,76 @@ router.get('/project-colors', async (req, res) => {
   } catch (error) {
     console.error('[schedule routes] Error searching project colors:', error);
     res.status(500).json({ error: 'Failed to search project colors' });
+  }
+});
+
+// ── Excel Import ─────────────────────────────────────────────────
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    if (allowed.includes(file.mimetype) || /\.xlsx?$/i.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .xlsx and .xls files are allowed'));
+    }
+  },
+});
+
+/**
+ * POST /import
+ * Import schedule data from an Excel file (MANAGER+)
+ */
+router.post('/import', requireRole('MANAGER'), (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
+      }
+      return res.status(400).json({ error: err.message });
+    }
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const yearSchema = z.coerce.number().int().min(2000).max(2100);
+    const year = yearSchema.parse(req.body.year || new Date().getFullYear());
+
+    const parsed = parseExcelFile(req.file.buffer);
+
+    if (parsed.assignments.length === 0) {
+      return res.status(400).json({
+        error: 'No assignments found in the uploaded file. Check that the file contains dates in the header row and team member names in the first column.',
+      });
+    }
+
+    const result = await importScheduleData(parsed, year, req.session.userId ?? null);
+
+    res.json({
+      imported: result.imported,
+      skipped: result.skipped,
+      errors: result.errors,
+      summary: {
+        membersFound: parsed.memberNames.length,
+        weeksFound: parsed.weekCount,
+        totalParsed: parsed.assignments.length,
+      },
+    });
+  } catch (error) {
+    console.error('[schedule routes] Error importing Excel:', error);
+    res.status(500).json({ error: 'Failed to import schedule data' });
   }
 });
 
