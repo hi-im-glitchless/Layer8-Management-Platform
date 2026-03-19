@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/features/auth/hooks'
 import { useTeamMembers, useAssignments, useAbsences, useHolidays, useToggleLock } from '../hooks'
 import { getWeeksInRange, getQuarterDateRange, formatWeekLabel } from '../constants'
 import { AvailabilityDots } from './AvailabilityDots'
@@ -20,6 +21,9 @@ interface ModalState {
 }
 
 export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
+  const { hasRole } = useAuth()
+  const canEdit = hasRole('MANAGER')
+
   const teamMembersQuery = useTeamMembers()
   const assignmentsQuery = useAssignments(year, quarter ?? undefined)
   const holidaysQuery = useHolidays()
@@ -102,13 +106,14 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   }, [assignmentMap])
 
   const handleCellClick = useCallback((teamMemberId: string, weekStart: Date, assignment: Assignment | undefined) => {
+    if (!canEdit) return
     setModalState({
       open: true,
       teamMemberId,
       weekStart: weekStart.toISOString().split('T')[0],
       assignment,
     })
-  }, [])
+  }, [canEdit])
 
   const toggleLockMutation = useToggleLock()
 
@@ -181,6 +186,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                         <>
                           <AssignmentCell
                             assignment={assignment}
+                            canEdit={canEdit}
                             onCellClick={() => handleCellClick(member.id, week, assignment)}
                             onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
                           />

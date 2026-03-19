@@ -6,6 +6,7 @@ import { ASSIGNMENT_STATUSES } from '../constants'
 
 interface AssignmentCellProps {
   assignment: Assignment | undefined
+  canEdit?: boolean
   onCellClick: () => void
   onLockToggle?: (e: React.MouseEvent) => void
 }
@@ -30,10 +31,14 @@ function getContrastColor(hex: string): string {
 
 export const AssignmentCell = memo(function AssignmentCell({
   assignment,
+  canEdit = true,
   onCellClick,
   onLockToggle,
 }: AssignmentCellProps) {
   if (!assignment) {
+    if (!canEdit) {
+      return <div className="h-full min-h-[40px]" />
+    }
     return (
       <div
         className="group h-full min-h-[40px] flex items-center justify-center cursor-pointer rounded-sm border border-transparent hover:border-border hover:bg-muted/50 transition-colors"
@@ -47,13 +52,14 @@ export const AssignmentCell = memo(function AssignmentCell({
   const isLocked = assignment.isLocked
   const isSplit = assignment.splitProjectName && assignment.splitProjectColor
   const textColor = getContrastColor(assignment.projectColor)
+  const isClickable = canEdit && !isLocked
 
   if (isSplit) {
     const splitTextColor = getContrastColor(assignment.splitProjectColor!)
     return (
       <div
-        className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden ${isLocked ? 'opacity-75 ring-1 ring-muted-foreground/30' : 'cursor-pointer'}`}
-        onClick={isLocked ? undefined : onCellClick}
+        className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden ${isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'}`}
+        onClick={isClickable ? onCellClick : undefined}
       >
         <div
           className="flex-1 flex items-center px-1.5 min-w-0"
@@ -82,9 +88,9 @@ export const AssignmentCell = memo(function AssignmentCell({
 
   return (
     <div
-      className={`group h-full min-h-[40px] flex items-center rounded-sm px-1.5 relative ${isLocked ? 'opacity-75 ring-1 ring-muted-foreground/30' : 'cursor-pointer'}`}
+      className={`group h-full min-h-[40px] flex items-center rounded-sm px-1.5 relative ${isClickable ? 'cursor-pointer' : !canEdit ? '' : 'opacity-75 ring-1 ring-muted-foreground/30'}`}
       style={{ backgroundColor: assignment.projectColor }}
-      onClick={isLocked ? undefined : onCellClick}
+      onClick={isClickable ? onCellClick : undefined}
     >
       <TooltipProvider>
         <Tooltip>
@@ -101,7 +107,7 @@ export const AssignmentCell = memo(function AssignmentCell({
       <span className="text-xs font-medium truncate" style={{ color: textColor }}>
         {assignment.projectName}
       </span>
-      {isLocked ? (
+      {canEdit && (isLocked ? (
         <button
           className="ml-auto shrink-0 p-0.5 rounded hover:bg-black/10 transition-colors"
           onClick={(e) => {
@@ -121,6 +127,9 @@ export const AssignmentCell = memo(function AssignmentCell({
         >
           <Lock className="w-3 h-3" style={{ color: textColor }} />
         </button>
+      ))}
+      {!canEdit && isLocked && (
+        <Lock className="ml-auto w-3 h-3 shrink-0" style={{ color: textColor }} />
       )}
     </div>
   )
