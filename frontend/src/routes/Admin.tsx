@@ -46,10 +46,12 @@ export function Admin() {
             <Activity className="h-4 w-4" />
             Sessions
           </TabsTrigger>
+          {/* Hidden: LLM config not currently in use
           <TabsTrigger value="llm" className="gap-2">
             <Bot className="h-4 w-4" />
             LLM
           </TabsTrigger>
+          */}
           <TabsTrigger value="audit" className="gap-2">
             <FileText className="h-4 w-4" />
             Audit
@@ -64,9 +66,11 @@ export function Admin() {
           <SessionManagement />
         </TabsContent>
 
+        {/* Hidden: LLM config not currently in use
         <TabsContent value="llm">
           <LLMSettings />
         </TabsContent>
+        */}
 
         <TabsContent value="audit">
           <AuditLogViewer adminMode={true} />
