@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { ApiError } from '@/lib/api'
 import { scheduleApi } from './api'
 import type {
   CreateAssignmentRequest,
@@ -8,6 +9,14 @@ import type {
   CreateHolidayRequest,
   UpdateHolidayRequest,
 } from './types'
+
+function handleMutationError(error: Error, fallbackMessage: string) {
+  if (error instanceof ApiError && error.status === 403) {
+    toast.error('Permission denied: you do not have access to perform this action')
+  } else {
+    toast.error(error.message || fallbackMessage)
+  }
+}
 
 // ── Team Members ───────────────────────────────────────────────────
 
@@ -27,9 +36,7 @@ export function useCreateTeamMember() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
       toast.success('Team member added successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to add team member')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to add team member'),
   })
 }
 
@@ -43,9 +50,7 @@ export function useUpdateTeamMember() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
       toast.success('Team member updated successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update team member')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to update team member'),
   })
 }
 
@@ -58,9 +63,7 @@ export function useArchiveTeamMember() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
       toast.success('Team member archived successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to archive team member')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to archive team member'),
   })
 }
 
@@ -73,9 +76,7 @@ export function useReorderTeamMembers() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
       toast.success('Team order updated')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to reorder team members')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to reorder team members'),
   })
 }
 
@@ -97,9 +98,7 @@ export function useUpsertAssignment() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
       toast.success('Assignment saved successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save assignment')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to save assignment'),
   })
 }
 
@@ -113,9 +112,7 @@ export function useUpdateAssignment() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
       toast.success('Assignment updated successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update assignment')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to update assignment'),
   })
 }
 
@@ -128,9 +125,7 @@ export function useDeleteAssignment() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
       toast.success('Assignment deleted successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete assignment')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to delete assignment'),
   })
 }
 
@@ -144,9 +139,7 @@ export function useSwapAssignments() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
       toast.success('Assignments swapped successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to swap assignments')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to swap assignments'),
   })
 }
 
@@ -159,9 +152,7 @@ export function useToggleLock() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
       toast.success('Lock toggled successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to toggle lock')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to toggle lock'),
   })
 }
 
@@ -183,9 +174,7 @@ export function useToggleAbsence() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'absences'] })
       toast.success('Absence updated successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update absence')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to update absence'),
   })
 }
 
@@ -207,9 +196,7 @@ export function useCreateHoliday() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'holidays'] })
       toast.success('Holiday created successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create holiday')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to create holiday'),
   })
 }
 
@@ -223,9 +210,7 @@ export function useUpdateHoliday() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'holidays'] })
       toast.success('Holiday updated successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update holiday')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to update holiday'),
   })
 }
 
@@ -238,9 +223,7 @@ export function useDeleteHoliday() {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'holidays'] })
       toast.success('Holiday deleted successfully')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete holiday')
-    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to delete holiday'),
   })
 }
 
