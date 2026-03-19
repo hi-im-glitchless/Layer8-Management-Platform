@@ -203,7 +203,7 @@ export const AssignmentCell = memo(function AssignmentCell({
       ref={setRefs}
       {...attributes}
       {...listeners}
-      className={`group h-full min-h-[40px] flex items-center rounded-sm px-1.5 relative ${
+      className={`group h-full min-h-[40px] flex flex-col justify-between rounded-sm px-1.5 py-1 relative ${
         isClickable ? 'cursor-pointer' : !canEdit ? '' : 'opacity-75 ring-1 ring-muted-foreground/30'
       } ${isDragging ? 'opacity-40' : ''} ${
         isDropTarget && !isLocked ? 'ring-2 ring-primary' : ''
@@ -211,46 +211,50 @@ export const AssignmentCell = memo(function AssignmentCell({
       style={{ backgroundColor: assignment.projectColor }}
       onClick={isClickable ? (e) => onCellClick(e) : undefined}
     >
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className={`w-5 h-3 rounded-sm shrink-0 mr-1.5 ${STATUS_DOT_COLORS[assignment.status]} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
-              onClick={isClickable ? (e) => handleStatusClick(e, assignment.status, assignment.id) : undefined}
-            />
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            {isClickable ? 'Click to cycle status' : getStatusLabel(assignment.status)}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <span className="text-xs font-medium truncate" style={{ color: textColor }}>
-        {assignment.projectName}
-      </span>
-      {canEdit && (isLocked ? (
-        <button
-          className="ml-auto shrink-0 p-0.5 rounded hover:bg-black/10 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation()
-            onLockToggle?.(e)
-          }}
-        >
-          <Lock className="w-3 h-3" style={{ color: textColor }} />
-        </button>
-      ) : (
-        <button
-          className="ml-auto shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-black/10 transition-all"
-          onClick={(e) => {
-            e.stopPropagation()
-            onLockToggle?.(e)
-          }}
-        >
-          <Lock className="w-3 h-3" style={{ color: textColor }} />
-        </button>
-      ))}
-      {!canEdit && isLocked && (
-        <Lock className="ml-auto w-3 h-3 shrink-0" style={{ color: textColor }} />
-      )}
+      <div className="flex items-start justify-between gap-0.5">
+        <span className="text-xs font-medium leading-tight line-clamp-2" style={{ color: textColor }}>
+          {assignment.projectName}
+        </span>
+        {canEdit && (isLocked ? (
+          <button
+            className="shrink-0 p-0.5 rounded hover:bg-black/10 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              onLockToggle?.(e)
+            }}
+          >
+            <Lock className="w-3 h-3" style={{ color: textColor }} />
+          </button>
+        ) : (
+          <button
+            className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-black/10 transition-all"
+            onClick={(e) => {
+              e.stopPropagation()
+              onLockToggle?.(e)
+            }}
+          >
+            <Lock className="w-3 h-3" style={{ color: textColor }} />
+          </button>
+        ))}
+        {!canEdit && isLocked && (
+          <Lock className="w-3 h-3 shrink-0" style={{ color: textColor }} />
+        )}
+      </div>
+      <div className="flex items-center">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className={`w-5 h-3 rounded-sm shrink-0 ${STATUS_DOT_COLORS[assignment.status]} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
+                onClick={isClickable ? (e) => handleStatusClick(e, assignment.status, assignment.id) : undefined}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {isClickable ? 'Click to cycle status' : getStatusLabel(assignment.status)}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </div>
   )
 })
