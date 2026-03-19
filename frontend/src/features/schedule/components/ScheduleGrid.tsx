@@ -382,7 +382,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       <tbody>
         {teamMembers.map((member, rowIdx) => (
           <tr key={member.id} className={`hover:bg-muted/30 transition-colors${rowIdx % 2 === 0 ? ' bg-muted/5' : ''}`}>
-            <td className={`sticky left-0 z-20 border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap${rowIdx % 2 === 0 ? ' bg-muted/5' : ' bg-background'}`}>
+            <td className={`sticky left-0 z-20 border-b border-r border-border/40 dark:border-border/25 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap${rowIdx % 2 === 0 ? ' bg-muted/5' : ' bg-background'}`}>
               {member.user?.displayName || member.user?.username || member.displayName || 'Unknown'}
             </td>
             {weekSlice.map((week) => {
@@ -392,7 +392,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
               return (
                 <td
                   key={week.toISOString()}
-                  className={`border-b border-r border-border/50 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
+                  className={`border-b border-r border-border/40 dark:border-border/25 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
                   onMouseEnter={() => handleCellHover(member.id, weekStr)}
                 >
                   {fullyOut ? (
@@ -460,12 +460,12 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             {quarterChunks.map((chunk, idx) => (
               <div key={chunk.label}>
                 {idx > 0 && (
-                  <div className="bg-muted/60 border-y border-border/50 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
+                  <div className="bg-muted/60 border-y border-border/40 dark:border-border/25 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
                     {chunk.label}
                   </div>
                 )}
                 {idx === 0 && (
-                  <div className="bg-muted/60 border-b border-border/50 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
+                  <div className="bg-muted/60 border-b border-border/40 dark:border-border/25 px-4 py-1.5 text-xs font-semibold text-muted-foreground tracking-wide">
                     {chunk.label}
                   </div>
                 )}
