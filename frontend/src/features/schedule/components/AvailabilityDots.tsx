@@ -1,7 +1,7 @@
 import { memo, useMemo, useCallback } from 'react'
 import { useAuth } from '@/features/auth/hooks'
 import { useToggleAbsence } from '../hooks'
-import { LEGEND_COLORS } from '../constants'
+import { LEGEND_COLORS, toLocalDateString } from '../constants'
 import type { Absence, Holiday } from '../types'
 
 interface AvailabilityDotsProps {
@@ -23,7 +23,7 @@ function getDaysOfWeek(weekStart: Date): Date[] {
 }
 
 function formatDateKey(date: Date): string {
-  return date.toISOString().split('T')[0]
+  return toLocalDateString(date)
 }
 
 export const AvailabilityDots = memo(function AvailabilityDots({
@@ -43,7 +43,7 @@ export const AvailabilityDots = memo(function AvailabilityDots({
     const map = new Set<string>()
     for (const a of absences) {
       if (a.teamMemberId === teamMemberId) {
-        map.add(new Date(a.date).toISOString().split('T')[0])
+        map.add(toLocalDateString(new Date(a.date)))
       }
     }
     return map

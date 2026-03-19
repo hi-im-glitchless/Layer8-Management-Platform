@@ -1,6 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { AssignmentCell } from './AssignmentCell'
 import { AvailabilityDots } from './AvailabilityDots'
+import { toLocalDateString } from '../constants'
 import type { Assignment, Absence, Holiday, TeamMember, AssignmentStatus } from '../types'
 
 interface NoMansLandingProps {
@@ -62,7 +63,7 @@ export function NoMansLanding({
           {weekSlice.map((week) => {
             const assignment = getAssignment(member.id, week)
             const fullyOut = isFullyAbsent(member.id, week)
-            const weekStr = week.toISOString().split('T')[0]
+            const weekStr = toLocalDateString(week)
             return (
               <td
                 key={week.toISOString()}

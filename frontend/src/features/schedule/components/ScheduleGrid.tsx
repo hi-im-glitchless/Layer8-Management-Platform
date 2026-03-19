@@ -24,7 +24,7 @@ import {
   useInitBacklogMembers,
 } from '../hooks'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
-import { getWeeksInRange, getQuarterDateRange, formatWeekLabel, QUARTER_LABELS } from '../constants'
+import { getWeeksInRange, getQuarterDateRange, formatWeekLabel, QUARTER_LABELS, toLocalDateString } from '../constants'
 import { AvailabilityDots } from './AvailabilityDots'
 import { AssignmentCell } from './AssignmentCell'
 import { AssignmentModal } from './AssignmentModal'
@@ -107,8 +107,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     const end = new Date(last)
     end.setDate(end.getDate() + 4)
     return {
-      dateStart: first.toISOString().split('T')[0],
-      dateEnd: end.toISOString().split('T')[0],
+      dateStart: toLocalDateString(first),
+      dateEnd: toLocalDateString(end),
     }
   }, [weeks])
 
@@ -121,7 +121,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     const map = new Map<string, Assignment>()
     for (const a of assignments) {
       const weekDate = new Date(a.weekStart)
-      const key = `${a.teamMemberId}-${weekDate.toISOString().split('T')[0]}`
+      const key = `${a.teamMemberId}-${toLocalDateString(weekDate)}`
       map.set(key, a)
     }
     return map
@@ -143,7 +143,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const absenceSet = useMemo(() => {
     const set = new Set<string>()
     for (const a of absences) {
-      set.add(`${a.teamMemberId}-${new Date(a.date).toISOString().split('T')[0]}`)
+      set.add(`${a.teamMemberId}-${toLocalDateString(new Date(a.date))}`)
     }
     return set
   }, [absences])
@@ -152,7 +152,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     const set = new Set<string>()
     for (const h of holidays) {
       const date = new Date(year, h.month - 1, h.day)
-      set.add(date.toISOString().split('T')[0])
+      set.add(toLocalDateString(date))
     }
     return set
   }, [holidays, year])
@@ -168,7 +168,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       // Find the Monday of this week
       const monday = new Date(hDate)
       monday.setDate(monday.getDate() - (hDay - 1))
-      const key = monday.toISOString().split('T')[0]
+      const key = toLocalDateString(monday)
       const list = map.get(key) ?? []
       list.push(h.name)
       map.set(key, list)
@@ -189,7 +189,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     for (let i = 0; i < 5; i++) {
       const d = new Date(weekStart)
       d.setDate(d.getDate() + i)
-      const dateKey = d.toISOString().split('T')[0]
+      const dateKey = toLocalDateString(d)
       const hasAbsence = absenceSet.has(`${teamMemberId}-${dateKey}`)
       const hasHoliday = holidaySet.has(dateKey)
       if (!hasAbsence && !hasHoliday) return false
@@ -200,7 +200,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const isLoading = teamMembersQuery.isLoading || assignmentsQuery.isLoading || absencesQuery.isLoading || holidaysQuery.isLoading
 
   const getAssignment = useCallback((teamMemberId: string, weekStart: Date): Assignment | undefined => {
-    const key = `${teamMemberId}-${weekStart.toISOString().split('T')[0]}`
+    const key = `${teamMemberId}-${toLocalDateString(weekStart)}`
     return assignmentMap.get(key)
   }, [assignmentMap])
 
@@ -221,7 +221,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     setModalState({
       open: true,
       teamMemberId,
-      weekStart: weekStart.toISOString().split('T')[0],
+      weekStart: toLocalDateString(weekStart),
       assignment,
     })
   }, [canEdit])
@@ -349,7 +349,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             Team
           </th>
           {weekSlice.map((week) => {
-            const weekKey = week.toISOString().split('T')[0]
+            const weekKey = toLocalDateString(week)
             const weekHolidays = holidaysByWeek.get(weekKey)
             const hasHoliday = weekHolidays && weekHolidays.length > 0
             return (
@@ -385,7 +385,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             {weekSlice.map((week) => {
               const assignment = getAssignment(member.id, week)
               const fullyOut = isFullyAbsent(member.id, week)
-              const weekStr = week.toISOString().split('T')[0]
+              const weekStr = toLocalDateString(week)
               return (
                 <td
                   key={week.toISOString()}
