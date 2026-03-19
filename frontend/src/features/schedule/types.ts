@@ -84,6 +84,8 @@ export const UpdateAssignmentSchema = z.object({
   status: z.enum(['placeholder', 'needs-reqs', 'confirmed']).optional(),
   splitProjectName: z.string().max(100).nullable().optional(),
   splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  teamMemberId: z.string().min(1).optional(),
+  weekStart: z.string().min(1).optional(),
 })
 
 export type UpdateAssignmentRequest = z.infer<typeof UpdateAssignmentSchema>

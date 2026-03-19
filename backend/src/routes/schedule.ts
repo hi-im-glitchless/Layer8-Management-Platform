@@ -195,12 +195,15 @@ router.put('/assignments/:id', requireRole('MANAGER'), async (req, res) => {
       isLocked: z.boolean().optional(),
       splitProjectName: z.string().max(100).nullable().optional(),
       splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+      teamMemberId: z.string().min(1).optional(),
+      weekStart: z.string().min(1).optional(),
     });
     const data = schema.parse(req.body);
-    const assignment = await assignmentService.updateAssignment(id, {
-      ...data,
-      createdBy: req.session.userId ?? null,
-    });
+    const updateData: Record<string, unknown> = { ...data, createdBy: req.session.userId ?? null };
+    if (data.weekStart) {
+      updateData.weekStart = new Date(data.weekStart);
+    }
+    const assignment = await assignmentService.updateAssignment(id, updateData);
     res.json({ assignment });
   } catch (error) {
     if (error instanceof z.ZodError) {
