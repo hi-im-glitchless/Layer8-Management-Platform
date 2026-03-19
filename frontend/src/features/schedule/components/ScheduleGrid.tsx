@@ -88,17 +88,24 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     return getWeeksInRange(start, end)
   }, [year, quarter])
 
-  /** Split weeks into quarterly chunks for "All Year" vertical layout */
+  /** Split weeks into quarterly chunks for "All Year" vertical layout.
+   *  Each week is assigned to exactly one quarter based on its Monday month,
+   *  so no week appears in two grids. */
   const quarterChunks = useMemo(() => {
     if (quarter !== null) return null
-    const chunks: { label: string; weeks: Date[] }[] = []
-    for (let q = 1; q <= 4; q++) {
-      const { start, end } = getQuarterDateRange(year, q)
-      const qWeeks = getWeeksInRange(start, end)
-      chunks.push({ label: QUARTER_LABELS[q - 1], weeks: qWeeks })
+    const chunks: { label: string; weeks: Date[] }[] = [
+      { label: QUARTER_LABELS[0], weeks: [] },
+      { label: QUARTER_LABELS[1], weeks: [] },
+      { label: QUARTER_LABELS[2], weeks: [] },
+      { label: QUARTER_LABELS[3], weeks: [] },
+    ]
+    for (const week of weeks) {
+      const month = week.getMonth() // 0-11
+      const q = Math.floor(month / 3) // 0-3
+      chunks[q].weeks.push(week)
     }
     return chunks
-  }, [year, quarter])
+  }, [weeks, quarter])
 
   const dateRange = useMemo(() => {
     if (weeks.length === 0) return { dateStart: '', dateEnd: '' }

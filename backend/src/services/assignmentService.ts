@@ -4,17 +4,30 @@ import { upsertProjectColor } from '@/services/scheduleService.js';
 /**
  * Get the date range for a year/quarter filter.
  */
+/**
+ * Get the date range for fetching assignments.
+ * Extends start back to the Monday of the week containing the period start,
+ * so assignments on boundary weeks (e.g., Dec 29 for a Jan 1 year start) are included.
+ */
 function getDateRange(year: number, quarter?: number): { start: Date; end: Date } {
+  let start: Date;
+  let end: Date;
+
   if (quarter) {
     const startMonth = (quarter - 1) * 3;
-    const start = new Date(year, startMonth, 1);
-    const end = new Date(year, startMonth + 3, 1);
-    return { start, end };
+    start = new Date(year, startMonth, 1);
+    end = new Date(year, startMonth + 3, 1);
+  } else {
+    start = new Date(year, 0, 1);
+    end = new Date(year + 1, 0, 1);
   }
-  return {
-    start: new Date(year, 0, 1),
-    end: new Date(year + 1, 0, 1),
-  };
+
+  // Extend start back to the Monday of the week containing the start date
+  const day = start.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diff);
+
+  return { start, end };
 }
 
 /**
