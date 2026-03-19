@@ -46,8 +46,10 @@ export async function listAssignments(params: {
 }
 
 /**
- * Create or update an assignment by unique key (teamMemberId, weekStart, projectName).
- * Also upserts the project color for autocomplete.
+ * Create or update an assignment by (teamMemberId, weekStart).
+ * Uses a transaction to find-then-update/create, preventing data loss
+ * when the project name changes on an existing slot.
+ * Also upserts project colors for autocomplete.
  */
 export async function upsertAssignment(data: {
   teamMemberId: string;
@@ -57,6 +59,7 @@ export async function upsertAssignment(data: {
   weekStart: Date;
   splitProjectName?: string | null;
   splitProjectColor?: string | null;
+  splitProjectStatus?: string | null;
   createdBy?: string | null;
 }) {
   await upsertProjectColor(data.projectName, data.projectColor);
@@ -65,31 +68,44 @@ export async function upsertAssignment(data: {
     await upsertProjectColor(data.splitProjectName, data.splitProjectColor);
   }
 
-  return prisma.assignment.upsert({
-    where: {
-      teamMemberId_weekStart_projectName: {
-        teamMemberId: data.teamMemberId,
-        weekStart: data.weekStart,
-        projectName: data.projectName,
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.assignment.findUnique({
+      where: {
+        teamMemberId_weekStart: {
+          teamMemberId: data.teamMemberId,
+          weekStart: data.weekStart,
+        },
       },
-    },
-    update: {
-      projectColor: data.projectColor,
-      status: data.status,
-      splitProjectName: data.splitProjectName ?? null,
-      splitProjectColor: data.splitProjectColor ?? null,
-      createdBy: data.createdBy ?? null,
-    },
-    create: {
-      teamMemberId: data.teamMemberId,
-      projectName: data.projectName,
-      projectColor: data.projectColor,
-      status: data.status,
-      weekStart: data.weekStart,
-      splitProjectName: data.splitProjectName ?? null,
-      splitProjectColor: data.splitProjectColor ?? null,
-      createdBy: data.createdBy ?? null,
-    },
+    });
+
+    if (existing) {
+      return tx.assignment.update({
+        where: { id: existing.id },
+        data: {
+          projectName: data.projectName,
+          projectColor: data.projectColor,
+          status: data.status,
+          splitProjectName: data.splitProjectName ?? null,
+          splitProjectColor: data.splitProjectColor ?? null,
+          splitProjectStatus: data.splitProjectStatus ?? null,
+          createdBy: data.createdBy ?? null,
+        },
+      });
+    }
+
+    return tx.assignment.create({
+      data: {
+        teamMemberId: data.teamMemberId,
+        projectName: data.projectName,
+        projectColor: data.projectColor,
+        status: data.status,
+        weekStart: data.weekStart,
+        splitProjectName: data.splitProjectName ?? null,
+        splitProjectColor: data.splitProjectColor ?? null,
+        splitProjectStatus: data.splitProjectStatus ?? null,
+        createdBy: data.createdBy ?? null,
+      },
+    });
   });
 }
 
@@ -160,6 +176,7 @@ export async function swapAssignments(idA: string, idB: string) {
         isLocked: a.isLocked,
         splitProjectName: a.splitProjectName,
         splitProjectColor: a.splitProjectColor,
+        splitProjectStatus: a.splitProjectStatus,
         createdBy: a.createdBy,
       },
     }),
@@ -174,6 +191,7 @@ export async function swapAssignments(idA: string, idB: string) {
         isLocked: b.isLocked,
         splitProjectName: b.splitProjectName,
         splitProjectColor: b.splitProjectColor,
+        splitProjectStatus: b.splitProjectStatus,
         createdBy: b.createdBy,
       },
     }),

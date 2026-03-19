@@ -133,6 +133,9 @@ export const AssignmentCell = memo(function AssignmentCell({
           className="flex-1 flex items-center px-1.5 min-w-0"
           style={{ backgroundColor: assignment.projectColor }}
         >
+          <div
+            className={`w-2 h-2 rounded-full shrink-0 mr-1 ${STATUS_DOT_COLORS[assignment.status]}`}
+          />
           <span className="text-xs font-medium truncate" style={{ color: textColor }}>
             {assignment.projectName}
           </span>
@@ -141,6 +144,9 @@ export const AssignmentCell = memo(function AssignmentCell({
           className="flex-1 flex items-center px-1.5 min-w-0"
           style={{ backgroundColor: assignment.splitProjectColor! }}
         >
+          <div
+            className={`w-2 h-2 rounded-full shrink-0 mr-1 ${STATUS_DOT_COLORS[(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder']}`}
+          />
           <span className="text-xs font-medium truncate" style={{ color: splitTextColor }}>
             {assignment.splitProjectName}
           </span>

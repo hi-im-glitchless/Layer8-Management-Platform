@@ -189,14 +189,15 @@ model Assignment {
   weekStart         DateTime // Monday of the week (ISO date)
   isLocked          Boolean  @default(false)
   splitProjectName  String?  // Second project name for split cells
-  splitProjectColor String?  // Second project color for split cells
-  createdBy         String?  // User ID who last modified
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  splitProjectColor  String?  // Second project color for split cells
+  splitProjectStatus String?  // Status for split project half
+  createdBy          String?  // User ID who last modified
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
 
-  @@unique([teamMemberId, weekStart, projectName])
+  @@unique([teamMemberId, weekStart])
   @@index([teamMemberId])
   @@index([weekStart])
   @@index([projectName])

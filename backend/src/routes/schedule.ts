@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { requireRole } from '../middleware/auth.js';
 import * as scheduleService from '../services/scheduleService.js';
 import * as assignmentService from '../services/assignmentService.js';
@@ -141,6 +142,7 @@ router.post('/assignments', requireRole('MANAGER'), async (req, res) => {
       weekStart: z.string().min(1),
       splitProjectName: z.string().max(100).nullable().optional(),
       splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+      splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
     });
     const data = schema.parse(req.body);
     const assignment = await assignmentService.upsertAssignment({
@@ -152,6 +154,9 @@ router.post('/assignments', requireRole('MANAGER'), async (req, res) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return res.status(409).json({ error: 'Assignment conflict' });
     }
     console.error('[schedule routes] Error creating assignment:', error);
     res.status(500).json({ error: 'Failed to create assignment' });
@@ -195,6 +200,7 @@ router.put('/assignments/:id', requireRole('MANAGER'), async (req, res) => {
       isLocked: z.boolean().optional(),
       splitProjectName: z.string().max(100).nullable().optional(),
       splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+      splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
       teamMemberId: z.string().min(1).optional(),
       weekStart: z.string().min(1).optional(),
     });

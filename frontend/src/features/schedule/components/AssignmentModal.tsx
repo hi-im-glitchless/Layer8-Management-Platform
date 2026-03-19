@@ -35,6 +35,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
   const [isSplit, setIsSplit] = useState(false)
   const [splitProjectName, setSplitProjectName] = useState('')
   const [splitProjectColor, setSplitProjectColor] = useState(COLOR_PALETTE[1].hex)
+  const [splitProjectStatus, setSplitProjectStatus] = useState<AssignmentStatus>('placeholder')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -55,6 +56,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
         setIsSplit(!!assignment.splitProjectName)
         setSplitProjectName(assignment.splitProjectName ?? '')
         setSplitProjectColor(assignment.splitProjectColor ?? COLOR_PALETTE[1].hex)
+        setSplitProjectStatus(assignment.splitProjectStatus ?? 'placeholder')
       } else {
         setProjectName('')
         setProjectColor(COLOR_PALETTE[0].hex)
@@ -62,6 +64,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
         setIsSplit(false)
         setSplitProjectName('')
         setSplitProjectColor(COLOR_PALETTE[1].hex)
+        setSplitProjectStatus('placeholder')
       }
       setError(null)
       setShowSuggestions(false)
@@ -83,6 +86,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
       weekStart,
       splitProjectName: isSplit && splitProjectName.trim() ? splitProjectName.trim() : null,
       splitProjectColor: isSplit && splitProjectName.trim() ? splitProjectColor : null,
+      splitProjectStatus: isSplit && splitProjectName.trim() ? splitProjectStatus : null,
     }
 
     const result = CreateAssignmentSchema.safeParse(data)
@@ -220,6 +224,23 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                   selectedColor={splitProjectColor}
                   onColorSelect={setSplitProjectColor}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Status: {splitProjectName.trim() || 'Second Project'}</Label>
+                <div className="flex gap-2">
+                  {ASSIGNMENT_STATUSES.map((s) => (
+                    <Button
+                      key={s.value}
+                      type="button"
+                      variant={splitProjectStatus === s.value ? 'default' : 'outline'}
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => setSplitProjectStatus(s.value)}
+                    >
+                      {s.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

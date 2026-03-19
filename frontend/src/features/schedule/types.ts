@@ -31,6 +31,7 @@ export interface Assignment {
   isLocked: boolean
   splitProjectName: string | null
   splitProjectColor: string | null
+  splitProjectStatus: AssignmentStatus | null
   createdBy: string | null
   createdAt: string
   updatedAt: string
@@ -74,6 +75,7 @@ export const CreateAssignmentSchema = z.object({
   weekStart: z.string().min(1),
   splitProjectName: z.string().max(100).nullable().optional(),
   splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
 })
 
 export type CreateAssignmentRequest = z.infer<typeof CreateAssignmentSchema>
@@ -84,6 +86,7 @@ export const UpdateAssignmentSchema = z.object({
   status: z.enum(['placeholder', 'needs-reqs', 'confirmed']).optional(),
   splitProjectName: z.string().max(100).nullable().optional(),
   splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
   teamMemberId: z.string().min(1).optional(),
   weekStart: z.string().min(1).optional(),
 })
