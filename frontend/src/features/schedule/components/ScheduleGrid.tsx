@@ -345,7 +345,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     <table className="border-collapse w-full table-fixed">
       <thead>
         <tr className="sticky top-0 z-30 bg-background">
-          <th className="sticky left-0 z-40 bg-background border-b border-r border-border/50 px-3 py-2 text-left text-sm font-semibold w-[250px] min-w-[200px] max-w-[250px]">
+          <th className="sticky left-0 z-40 bg-background border-b border-r border-border/50 px-3 py-2 text-left text-sm font-semibold w-[140px] min-w-[120px] max-w-[140px]">
             Team
           </th>
           {weekSlice.map((week) => {
@@ -379,7 +379,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       <tbody>
         {teamMembers.map((member) => (
           <tr key={member.id} className="hover:bg-muted/30 transition-colors">
-            <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[250px] min-w-[200px] max-w-[250px] overflow-hidden text-ellipsis whitespace-nowrap">
+            <td className="sticky left-0 z-20 bg-background border-b border-r border-border/50 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap">
               {member.user?.displayName || member.user?.username || member.displayName || 'Unknown'}
             </td>
             {weekSlice.map((week) => {
@@ -389,7 +389,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
               return (
                 <td
                   key={week.toISOString()}
-                  className={`border-b border-r border-border/50 p-0.5 min-w-[150px] h-[56px] align-top${fullyOut ? ' bg-muted' : ''}`}
+                  className={`border-b border-r border-border/50 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
                   onMouseEnter={() => handleCellHover(member.id, weekStr)}
                 >
                   {fullyOut ? (
