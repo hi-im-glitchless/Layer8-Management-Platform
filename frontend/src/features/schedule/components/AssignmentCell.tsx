@@ -39,6 +39,9 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
   return (
     <div className="flex flex-col gap-2 py-1 max-w-[220px]">
       <div className="flex flex-col gap-0.5">
+        {assignment.client && (
+          <span className="text-[10px] text-muted-foreground">{assignment.client.name}</span>
+        )}
         <span className="text-xs font-semibold">{assignment.projectName}</span>
         <StatusBadge status={assignment.status} />
       </div>
@@ -46,6 +49,15 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
         <div className="flex flex-col gap-0.5 border-t border-border/30 pt-1.5">
           <span className="text-xs font-semibold">{assignment.splitProjectName}</span>
           <StatusBadge status={(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'} />
+        </div>
+      )}
+      {assignment.tags && assignment.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 border-t border-border/30 pt-1.5">
+          {assignment.tags.map((tag: string) => (
+            <span key={tag} className="px-1.5 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
+              {tag}
+            </span>
+          ))}
         </div>
       )}
     </div>
@@ -145,7 +157,7 @@ export const AssignmentCell = memo(function AssignmentCell({
         style={{ backgroundColor: assignment.projectColor }}
       >
         <span className="text-xs font-medium truncate" style={{ color: textColor }}>
-          {assignment.projectName}
+          {assignment.client ? `${assignment.client.name} - ${assignment.projectName}` : assignment.projectName}
         </span>
       </div>
     )
@@ -186,7 +198,7 @@ export const AssignmentCell = memo(function AssignmentCell({
                   </Tooltip>
                 </TooltipProvider>
                 <span className="text-xs font-medium truncate" style={{ color: textColor }}>
-                  {assignment.projectName}
+                  {assignment.client ? `${assignment.client.name} - ${assignment.projectName}` : assignment.projectName}
                 </span>
               </div>
               <div
@@ -250,7 +262,7 @@ export const AssignmentCell = memo(function AssignmentCell({
           >
             <div className="flex items-start justify-between gap-0.5">
               <span className="text-xs font-medium leading-tight line-clamp-2" style={{ color: textColor }}>
-                {assignment.projectName}
+                {assignment.client ? `${assignment.client.name} - ${assignment.projectName}` : assignment.projectName}
               </span>
               {canEdit && (isLocked ? (
                 <button
