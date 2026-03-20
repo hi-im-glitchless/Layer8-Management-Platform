@@ -35,6 +35,9 @@ export interface Assignment {
   splitProjectColor: string | null
   splitProjectStatus: AssignmentStatus | null
   createdBy: string | null
+  clientId: string | null
+  tags: string[]
+  client: Client | null
   createdAt: string
   updatedAt: string
 }
@@ -67,7 +70,42 @@ export interface ProjectColor {
   lastUsedAt: string
 }
 
+export interface Client {
+  id: string
+  name: string
+  color: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateClientRequest {
+  name: string
+  color: string
+}
+
+export interface UpdateClientRequest {
+  name?: string
+  color?: string
+}
+
+export const PREDEFINED_TAGS = [
+  'Web', 'Mobile', 'Externa', 'Interna', 'Red Team',
+  'Phishing', 'OSINT', 'Esoterico', 'Cert', 'Outro',
+] as const
+
+export type ProjectTag = (typeof PREDEFINED_TAGS)[number]
+
 // ── Zod validation schemas (forms / requests) ──────────────────────
+
+export const CreateClientSchema = z.object({
+  name: z.string().min(1).max(100),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+})
+
+export const UpdateClientSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+})
 
 export const CreateAssignmentSchema = z.object({
   teamMemberId: z.string().min(1),
@@ -78,6 +116,8 @@ export const CreateAssignmentSchema = z.object({
   splitProjectName: z.string().max(100).nullable().optional(),
   splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
   splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
+  clientId: z.string().nullable().optional(),
+  tags: z.array(z.string()).optional(),
 })
 
 export type CreateAssignmentRequest = z.infer<typeof CreateAssignmentSchema>
@@ -91,6 +131,8 @@ export const UpdateAssignmentSchema = z.object({
   splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
   teamMemberId: z.string().min(1).optional(),
   weekStart: z.string().min(1).optional(),
+  clientId: z.string().nullable().optional(),
+  tags: z.array(z.string()).optional(),
 })
 
 export type UpdateAssignmentRequest = z.infer<typeof UpdateAssignmentSchema>
