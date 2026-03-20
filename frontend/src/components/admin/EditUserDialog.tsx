@@ -36,6 +36,7 @@ function generatePassword(): string {
 
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const [username, setUsername] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [role, setRole] = useState<Role>('NORMAL')
   const [newPassword, setNewPassword] = useState('')
 
@@ -46,6 +47,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   useEffect(() => {
     if (user) {
       setUsername(user.username)
+      setDisplayName(user.displayName ?? '')
       setRole(user.role as Role)
       setNewPassword('')
     }
@@ -68,10 +70,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     }
 
     try {
+      const trimmedDisplayName = displayName.trim()
       await updateUser.mutateAsync({
         id: user.id,
         data: {
           username: username !== user.username ? username : undefined,
+          displayName: trimmedDisplayName !== (user.displayName ?? '') ? trimmedDisplayName : undefined,
           role: role !== (user.role as Role) ? role : undefined,
         },
       })
@@ -149,6 +153,19 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
               </div>
 
               <div>
+                <Label htmlFor="edit-displayName">Display Name</Label>
+                <Input
+                  id="edit-displayName"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="e.g. Jose Abreu"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Full name shown in the UI (max 50 characters)
+                </p>
+              </div>
+
+              <div>
                 <Label htmlFor="edit-role">Role</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as Role)}>
                   <SelectTrigger id="edit-role">
@@ -157,7 +174,6 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                   <SelectContent>
                     <SelectItem value="NORMAL">Normal</SelectItem>
                     <SelectItem value="PM">Project Manager</SelectItem>
-                    <SelectItem value="MANAGER">Manager</SelectItem>
                     <SelectItem value="ADMIN">Admin</SelectItem>
                   </SelectContent>
                 </Select>
