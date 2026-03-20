@@ -72,6 +72,14 @@ export const scheduleApi = {
     )
   },
 
+  async getMyAssignments(params: { year: number; quarter?: number }) {
+    const searchParams = new URLSearchParams({ year: String(params.year) })
+    if (params.quarter) searchParams.set('quarter', String(params.quarter))
+    return apiClient<{ assignments: Assignment[] }>(
+      `/api/schedule/assignments/me?${searchParams.toString()}`
+    )
+  },
+
   async upsertAssignment(data: CreateAssignmentRequest) {
     return apiClient<Assignment>('/api/schedule/assignments', {
       method: 'POST',
