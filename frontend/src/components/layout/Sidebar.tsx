@@ -42,9 +42,9 @@ const navigationGroups: NavGroup[] = [
     label: 'Tools',
     items: [
       // Hidden: tools not currently in use
-      // { to: '/template-adapter', icon: FileCode, label: 'Template Adapter', minRole: 'MANAGER' },
+      // { to: '/template-adapter', icon: FileCode, label: 'Template Adapter', minRole: 'PM' },
       // Hidden: tools not currently in use
-      // { to: '/executive-report', icon: FileText, label: 'Executive Report', minRole: 'MANAGER' },
+      // { to: '/executive-report', icon: FileText, label: 'Executive Report', minRole: 'PM' },
       // Hidden: tools not currently in use
       // { to: '/documents', icon: FileUp, label: 'Documents' },
       { to: '/schedule', icon: Calendar, label: 'Schedule' },
