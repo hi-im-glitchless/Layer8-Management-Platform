@@ -29,6 +29,18 @@ export const COLOR_PALETTE = [
   { name: 'Sea Blue', hex: '#6BA3BF' },
   { name: 'Mauve', hex: '#B87B95' },
   { name: 'Olive', hex: '#8FA86B' },
+  { name: 'Coral', hex: '#D4897A' },
+  { name: 'Sky', hex: '#7AB8D4' },
+  { name: 'Mint', hex: '#7BC4A8' },
+  { name: 'Peach', hex: '#D4A87A' },
+  { name: 'Lavender', hex: '#A88BC4' },
+  { name: 'Steel', hex: '#8A9BB5' },
+  { name: 'Burgundy', hex: '#A06070' },
+  { name: 'Forest', hex: '#6B9B7B' },
+  { name: 'Sand', hex: '#C4B08A' },
+  { name: 'Amethyst', hex: '#8B7AAF' },
+  { name: 'Terracotta', hex: '#B8806B' },
+  { name: 'Aqua', hex: '#6BB5B0' },
 ] as const
 
 // ── Status Dot Colors (theme-aware) ──────────────────────────────
