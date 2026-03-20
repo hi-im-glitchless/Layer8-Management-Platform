@@ -3,7 +3,6 @@ import { LEGEND_COLORS, STATUS_DOT_COLORS } from '../constants'
 const LEGEND_ITEMS = [
   { color: LEGEND_COLORS.absence, label: 'Absence' },
   { color: LEGEND_COLORS.holiday, label: 'Holiday' },
-  { color: LEGEND_COLORS.other, label: 'Other' },
   { color: STATUS_DOT_COLORS.placeholder, label: 'Placeholder' },
   { color: STATUS_DOT_COLORS['needs-reqs'], label: 'Needs Reqs' },
   { color: STATUS_DOT_COLORS.confirmed, label: 'Confirmed' },
