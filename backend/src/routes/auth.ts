@@ -16,7 +16,7 @@ import {
   isTrustedDevice,
 } from '@/services/session.js';
 import { requireAuth, requirePendingTOTP } from '@/middleware/auth.js';
-import { loginRateLimiter } from '@/middleware/rateLimit.js';
+import { authRateLimiter } from '@/middleware/rateLimit.js';
 import { auditMiddleware } from '@/middleware/audit.js';
 import { createClient } from 'redis';
 
@@ -57,7 +57,7 @@ const passwordChangeSchema = z.object({
  * POST /api/auth/login
  * Initial login with username and password
  */
-router.post('/login', loginRateLimiter, auditMiddleware('auth.login'), async (req: Request, res: Response) => {
+router.post('/login', authRateLimiter, auditMiddleware('auth.login'), async (req: Request, res: Response) => {
   try {
     const { username, password } = loginSchema.parse(req.body);
 
@@ -163,7 +163,7 @@ router.post('/login', loginRateLimiter, auditMiddleware('auth.login'), async (re
  * POST /api/auth/login/totp
  * Verify TOTP code after password login
  */
-router.post('/login/totp', loginRateLimiter, requirePendingTOTP, auditMiddleware('auth.totp.verify'), async (req: Request, res: Response) => {
+router.post('/login/totp', authRateLimiter, requirePendingTOTP, auditMiddleware('auth.totp.verify'), async (req: Request, res: Response) => {
   try {
     const { code, rememberDevice } = totpCodeSchema.parse(req.body);
 
@@ -233,7 +233,7 @@ router.post('/login/totp', loginRateLimiter, requirePendingTOTP, auditMiddleware
  * Generate TOTP secret and QR code for user setup
  * User must be authenticated but TOTP not yet verified
  */
-router.post('/totp/setup', auditMiddleware('auth.totp.setup'), async (req: Request, res: Response) => {
+router.post('/totp/setup', authRateLimiter, auditMiddleware('auth.totp.setup'), async (req: Request, res: Response) => {
   try {
     // Check if user is authenticated (userId exists, but totpVerified not required for setup)
     if (!req.session.userId) {
@@ -274,7 +274,7 @@ router.post('/totp/setup', auditMiddleware('auth.totp.setup'), async (req: Reque
  * POST /api/auth/totp/verify-setup
  * Verify TOTP code during setup to enable TOTP
  */
-router.post('/totp/verify-setup', auditMiddleware('auth.totp.complete'), async (req: Request, res: Response) => {
+router.post('/totp/verify-setup', authRateLimiter, auditMiddleware('auth.totp.complete'), async (req: Request, res: Response) => {
   try {
     // Check authentication
     if (!req.session.userId || !req.session.pendingTOTPSecret) {
@@ -320,7 +320,7 @@ router.post('/totp/verify-setup', auditMiddleware('auth.totp.complete'), async (
  * POST /api/auth/password/change
  * Change user password
  */
-router.post('/password/change', auditMiddleware('auth.password.change'), async (req: Request, res: Response) => {
+router.post('/password/change', authRateLimiter, auditMiddleware('auth.password.change'), async (req: Request, res: Response) => {
   try {
     // Check authentication
     if (!req.session.userId) {
