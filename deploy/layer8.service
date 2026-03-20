@@ -1,0 +1,20 @@
+[Unit]
+Description=Layer8 Backend
+After=network.target redis-server.service
+Requires=redis-server.service
+
+[Service]
+Type=simple
+User=layer8
+Group=layer8
+WorkingDirectory=/opt/layer8/backend
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/opt/layer8/backend/.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=layer8
+
+[Install]
+WantedBy=multi-user.target

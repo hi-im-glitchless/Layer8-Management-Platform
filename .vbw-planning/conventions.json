@@ -1,0 +1,44 @@
+{
+  "conventions": [
+    {
+      "rule": "Backend files use camelCase, frontend components use PascalCase, Python uses snake_case",
+      "scope": "naming",
+      "source": "codebase-analysis"
+    },
+    {
+      "rule": "Use @/ import alias for src directory in both backend and frontend",
+      "scope": "imports",
+      "source": "codebase-analysis"
+    },
+    {
+      "rule": "Feature modules follow features/{domain}/api.ts + hooks.ts pattern",
+      "scope": "frontend",
+      "source": "codebase-analysis"
+    },
+    {
+      "rule": "Routes delegate to service layer; no business logic in route handlers",
+      "scope": "backend",
+      "source": "codebase-analysis"
+    },
+    {
+      "rule": "Zod validation at all boundaries (env config, route input, form schemas)",
+      "scope": "validation",
+      "source": "codebase-analysis"
+    },
+    {
+      "rule": "TanStack Query for all server state management; no manual fetch calls",
+      "scope": "frontend",
+      "source": "codebase-analysis"
+    },
+    {
+      "rule": "Pydantic models for all FastAPI request/response schemas",
+      "scope": "python",
+      "source": "codebase-analysis"
+    },
+    {
+      "rule": "Commit format: {type}({scope}): {description}",
+      "scope": "git",
+      "source": "codebase-analysis"
+    }
+  ]
+}

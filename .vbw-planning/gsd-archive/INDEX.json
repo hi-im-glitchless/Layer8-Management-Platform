@@ -1,0 +1,50 @@
+{
+  "imported_at": "2026-02-12T18:10:37Z",
+  "gsd_version": "unknown",
+  "phases_total": 5,
+  "phases_complete": 4,
+  "milestones": [
+    "Overview",
+    "Phases",
+    "Phase Details",
+    "Progress"
+  ],
+  "quick_paths": {
+    "roadmap": "gsd-archive/ROADMAP.md",
+    "project": "gsd-archive/PROJECT.md",
+    "phases": "gsd-archive/phases/",
+    "config": "gsd-archive/config.json"
+  },
+  "phases": [
+    {
+      "num": 1,
+      "slug": "foundation-security-web-ui-design",
+      "plans": 6,
+      "status": "complete"
+    },
+    {
+      "num": 1,
+      "slug": "01.1-ui-ux-visual-polish-dark-theme-logo-integration-login-aesthetics",
+      "plans": 3,
+      "status": "complete"
+    },
+    {
+      "num": 2,
+      "slug": "sanitization-infrastructure",
+      "plans": 8,
+      "status": "complete"
+    },
+    {
+      "num": 2,
+      "slug": "02.1-profile-page-completion",
+      "plans": 2,
+      "status": "complete"
+    },
+    {
+      "num": 3,
+      "slug": "llm-integration",
+      "plans": 3,
+      "status": "in_progress"
+    }
+  ]
+}
