@@ -352,8 +352,33 @@ router.get('/absences', requireAuth, async (req, res) => {
       dateEnd: z.string().min(1),
     });
     const params = schema.parse(req.query);
+
+    const isAdmin = req.session.role === 'ADMIN';
+    let effectiveTeamMemberId = params.teamMemberId;
+
+    if (!isAdmin) {
+      // Look up the requesting user's own TeamMember record
+      const ownMember = await prisma.teamMember.findUnique({
+        where: { userId: req.session.userId },
+        select: { id: true },
+      });
+
+      if (params.teamMemberId) {
+        // Non-admin requesting another user's absences — verify ownership
+        if (!ownMember || params.teamMemberId !== ownMember.id) {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
+      } else {
+        // No teamMemberId specified — scope to own record
+        if (!ownMember) {
+          return res.json({ absences: [] });
+        }
+        effectiveTeamMemberId = ownMember.id;
+      }
+    }
+
     const absences = await absenceService.listAbsences({
-      teamMemberId: params.teamMemberId,
+      teamMemberId: effectiveTeamMemberId,
       dateStart: new Date(params.dateStart),
       dateEnd: new Date(params.dateEnd),
     });
