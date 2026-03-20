@@ -22,9 +22,9 @@ export function Schedule() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
         <div className="flex items-center gap-2">
-          {hasRole('MANAGER') && <ExcelImportDialog year={selectedYear} />}
+          {hasRole('PM') && <ExcelImportDialog year={selectedYear} />}
           {hasRole('ADMIN') && <HolidayManager />}
-          {hasRole('MANAGER') && <TeamManagementPanel />}
+          {hasRole('PM') && <TeamManagementPanel />}
           <YearPicker selectedYear={selectedYear} onYearChange={setSelectedYear} />
         </div>
       </div>
