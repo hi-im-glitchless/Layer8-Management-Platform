@@ -194,15 +194,19 @@ model Assignment {
   splitProjectColor  String?  // Second project color for split cells
   splitProjectStatus String?  // Status for split project half
   createdBy          String?  // User ID who last modified
+  clientId           String?  // Optional client association
+  tags               String   @default("[]") // JSON array of tag strings e.g. ["Web", "Red Team"]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  client     Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@unique([teamMemberId, weekStart])
   @@index([teamMemberId])
   @@index([weekStart])
   @@index([projectName])
+  @@index([clientId])
 }
 
 model Absence {
@@ -245,4 +249,14 @@ model ProjectColor {
 
   @@index([usageCount])
   @@index([lastUsedAt])
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   // Hex color code
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments Assignment[]
 }
