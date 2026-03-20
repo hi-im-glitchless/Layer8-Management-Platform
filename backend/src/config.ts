@@ -14,6 +14,9 @@ const envSchema = z.object({
   GHOSTWRITER_URL: z.string().url('GHOSTWRITER_URL must be a valid URL').optional(),
   GHOSTWRITER_API_TOKEN: z.string().optional(),
   GHOSTWRITER_REPORT_ID: z.string().optional().transform((v) => v ? Number(v) : undefined),
+  FEATURE_TEMPLATE_ADAPTER: z.string().default('false').transform(v => v === 'true'),
+  FEATURE_EXECUTIVE_REPORT: z.string().default('false').transform(v => v === 'true'),
+  FEATURE_DOCUMENT_PROCESSING: z.string().default('false').transform(v => v === 'true'),
 });
 
 const parsed = envSchema.safeParse(process.env);
