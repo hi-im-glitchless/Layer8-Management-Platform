@@ -3,7 +3,7 @@
 
 export const LEGEND_COLORS = {
   available: 'bg-green-600 dark:bg-green-500',
-  absence: 'bg-orange-500 dark:bg-orange-400',
+  absence: 'bg-red-600 dark:bg-red-500',
   holiday: 'bg-red-600 dark:bg-red-500',
   other: 'bg-slate-400 dark:bg-slate-500',
 } as const

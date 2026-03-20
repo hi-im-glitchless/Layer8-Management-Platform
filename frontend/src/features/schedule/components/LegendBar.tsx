@@ -1,10 +1,12 @@
-import { LEGEND_COLORS } from '../constants'
+import { LEGEND_COLORS, STATUS_DOT_COLORS } from '../constants'
 
 const LEGEND_ITEMS = [
-  { color: LEGEND_COLORS.available, label: 'Disponivel' },
-  { color: LEGEND_COLORS.absence, label: 'Ausencia' },
-  { color: LEGEND_COLORS.holiday, label: 'Feriado PT' },
-  { color: LEGEND_COLORS.other, label: 'Outro' },
+  { color: LEGEND_COLORS.absence, label: 'Absence' },
+  { color: LEGEND_COLORS.holiday, label: 'Holiday' },
+  { color: LEGEND_COLORS.other, label: 'Other' },
+  { color: STATUS_DOT_COLORS.placeholder, label: 'Placeholder' },
+  { color: STATUS_DOT_COLORS['needs-reqs'], label: 'Needs Reqs' },
+  { color: STATUS_DOT_COLORS.confirmed, label: 'Confirmed' },
 ] as const
 
 export function LegendBar() {
@@ -16,7 +18,7 @@ export function LegendBar() {
           <span>{item.label}</span>
         </div>
       ))}
-      <span className="ml-auto text-muted-foreground/60">Ctrl+Click: copiar/colar</span>
+      <span className="ml-auto text-muted-foreground/60">Ctrl+Click: copy/paste</span>
     </div>
   )
 }
