@@ -199,6 +199,10 @@ router.post('/login/totp', authRateLimiter, requirePendingTOTP, auditMiddleware(
     // TOTP verified - complete login
     req.session.totpVerified = true;
     req.session.awaitingTOTP = false;
+    // Ensure createdAt is set (defensive — should already exist from login)
+    if (!req.session.createdAt) {
+      req.session.createdAt = Date.now();
+    }
 
     // Handle "remember this device"
     if (rememberDevice) {
@@ -301,6 +305,10 @@ router.post('/totp/verify-setup', authRateLimiter, auditMiddleware('auth.totp.co
     // Clear pending secret and mark as verified
     req.session.pendingTOTPSecret = undefined;
     req.session.totpVerified = true;
+    // Ensure createdAt is set (defensive — should already exist from login)
+    if (!req.session.createdAt) {
+      req.session.createdAt = Date.now();
+    }
 
     return res.json({
       success: true,
