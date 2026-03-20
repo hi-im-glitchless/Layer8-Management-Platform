@@ -21,6 +21,7 @@ router.get('/', async (req, res) => {
       select: {
         id: true,
         username: true,
+        displayName: true,
         role: true,
         isActive: true,
         totpEnabled: true,
@@ -51,6 +52,7 @@ router.post('/', auditMiddleware('admin.user.create'), async (req, res) => {
         .min(3, 'Username must be at least 3 characters')
         .max(50, 'Username must be at most 50 characters')
         .regex(/^[a-zA-Z0-9_]+$/, 'Username must be alphanumeric with underscores only'),
+      displayName: z.string().min(1, 'Display name is required').max(50).trim(),
       password: z.string().min(8, 'Password must be at least 8 characters'),
       role: z.enum(['NORMAL', 'PM', 'ADMIN']).optional().default('NORMAL'),
     });
@@ -73,6 +75,7 @@ router.post('/', auditMiddleware('admin.user.create'), async (req, res) => {
     const user = await prisma.user.create({
       data: {
         username: validated.username,
+        displayName: validated.displayName,
         passwordHash,
         role: validated.role,
         mustResetPassword: true, // Force password change on first login
@@ -81,6 +84,7 @@ router.post('/', auditMiddleware('admin.user.create'), async (req, res) => {
       select: {
         id: true,
         username: true,
+        displayName: true,
         role: true,
         isActive: true,
         totpEnabled: true,
@@ -115,6 +119,7 @@ router.put('/:id', auditMiddleware('admin.user.update'), async (req, res) => {
         .max(50)
         .regex(/^[a-zA-Z0-9_]+$/)
         .optional(),
+      displayName: z.string().max(50).trim().optional(),
       role: z.enum(['NORMAL', 'PM', 'ADMIN']).optional(),
       isActive: z.boolean().optional(),
     });
@@ -147,6 +152,7 @@ router.put('/:id', auditMiddleware('admin.user.update'), async (req, res) => {
       select: {
         id: true,
         username: true,
+        displayName: true,
         role: true,
         isActive: true,
         totpEnabled: true,

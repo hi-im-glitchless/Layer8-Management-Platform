@@ -109,10 +109,15 @@ export function UserManagement() {
             <TableBody>
               {data?.users.map((user: AdminUser) => (
                 <TableRow key={user.id} className="hover:bg-muted/50 transition-colors">
-                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell className="font-medium">
+                    <div>{user.displayName || user.username}</div>
+                    {user.displayName && (
+                      <div className="text-xs text-muted-foreground">{user.username}</div>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge
-                      variant={user.role === 'ADMIN' ? 'destructive' : user.role === 'MANAGER' ? 'default' : 'secondary'}
+                      variant={user.role === 'ADMIN' ? 'destructive' : user.role === 'PM' ? 'default' : 'secondary'}
                       className="gap-1"
                     >
                       {user.role === 'ADMIN' && <Shield className="h-3 w-3" />}
