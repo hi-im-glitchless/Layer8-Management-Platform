@@ -9,6 +9,8 @@ import * as assignmentService from '../services/assignmentService.js';
 import * as absenceService from '../services/absenceService.js';
 import * as holidayService from '../services/holidayService.js';
 import { parseExcelFile, importScheduleData } from '../services/importService.js';
+import * as clientService from '../services/clientService.js';
+import { VALID_TAGS } from '../services/assignmentService.js';
 
 const router = Router();
 
@@ -182,6 +184,8 @@ router.post('/assignments', requireRole('PM'), async (req, res) => {
       splitProjectName: z.string().max(100).nullable().optional(),
       splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
       splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
+      clientId: z.string().cuid().nullable().optional(),
+      tags: z.array(z.string()).optional(),
     });
     const data = schema.parse(req.body);
     const assignment = await assignmentService.upsertAssignment({
@@ -242,6 +246,8 @@ router.put('/assignments/:id', requireRole('PM'), async (req, res) => {
       splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
       teamMemberId: z.string().min(1).optional(),
       weekStart: z.string().min(1).optional(),
+      clientId: z.string().cuid().nullable().optional(),
+      tags: z.array(z.string()).optional(),
     });
     const data = schema.parse(req.body);
     const updateData: Record<string, unknown> = { ...data, createdBy: req.session.userId ?? null };
@@ -449,6 +455,98 @@ router.get('/project-colors', async (req, res) => {
     console.error('[schedule routes] Error searching project colors:', error);
     res.status(500).json({ error: 'Failed to search project colors' });
   }
+});
+
+// ── Clients ──────────────────────────────────────────────────────
+
+/**
+ * GET /clients
+ * List all clients (accessible to all authenticated users)
+ */
+router.get('/clients', async (_req, res) => {
+  try {
+    const clients = await clientService.listClients();
+    res.json({ clients });
+  } catch (error) {
+    console.error('[schedule routes] Error listing clients:', error);
+    res.status(500).json({ error: 'Failed to list clients' });
+  }
+});
+
+/**
+ * POST /clients
+ * Create a client (ADMIN only)
+ */
+router.post('/clients', requireRole('ADMIN'), async (req, res) => {
+  try {
+    const schema = z.object({
+      name: z.string().min(1).max(100),
+      color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+    });
+    const data = schema.parse(req.body);
+    const client = await clientService.createClient(data.name, data.color);
+    res.status(201).json({ client });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    if (error instanceof Error && error.message.includes('already exists')) {
+      return res.status(409).json({ error: error.message });
+    }
+    console.error('[schedule routes] Error creating client:', error);
+    res.status(500).json({ error: 'Failed to create client' });
+  }
+});
+
+/**
+ * PUT /clients/:id
+ * Update a client (ADMIN only)
+ */
+router.put('/clients/:id', requireRole('ADMIN'), async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const schema = z.object({
+      name: z.string().min(1).max(100).optional(),
+      color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+    });
+    const data = schema.parse(req.body);
+    const client = await clientService.updateClient(id, data);
+    res.json({ client });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    if (error instanceof Error && error.message.includes('already exists')) {
+      return res.status(409).json({ error: error.message });
+    }
+    console.error('[schedule routes] Error updating client:', error);
+    res.status(500).json({ error: 'Failed to update client' });
+  }
+});
+
+/**
+ * DELETE /clients/:id
+ * Delete a client (ADMIN only)
+ */
+router.delete('/clients/:id', requireRole('ADMIN'), async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    await clientService.deleteClient(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[schedule routes] Error deleting client:', error);
+    res.status(500).json({ error: 'Failed to delete client' });
+  }
+});
+
+// ── Project Tags ─────────────────────────────────────────────────
+
+/**
+ * GET /project-tags
+ * Return the predefined list of project tags (static, no DB needed)
+ */
+router.get('/project-tags', (_req, res) => {
+  res.json({ tags: [...VALID_TAGS] });
 });
 
 // ── Excel Import ─────────────────────────────────────────────────
