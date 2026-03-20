@@ -378,7 +378,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             return (
               <th
                 key={week.toISOString()}
-                className={`border-b-2 border-r border-slate-400 dark:border-slate-600 px-1 py-2.5 text-center text-xs font-medium whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${isCurrentWeek ? ' bg-blue-200 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200 font-bold' : ' text-muted-foreground'}${hasHoliday && !isCurrentWeek ? ' bg-red-100 dark:bg-red-900/40' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
+                className={`border-b-2 border-r border-slate-400 dark:border-slate-600 px-1 py-2.5 text-center text-xs font-medium whitespace-nowrap min-w-[150px] overflow-hidden text-ellipsis${isCurrentWeek ? ' bg-blue-500 dark:bg-blue-700 text-white font-bold ring-1 ring-blue-600 dark:ring-blue-500' : ' text-muted-foreground'}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
               >
                 {hasHoliday ? (
                   <TooltipProvider>
@@ -426,7 +426,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
               return (
                 <td
                   key={week.toISOString()}
-                  className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : isCurrentWeek ? ' bg-blue-50/50 dark:bg-blue-950/20' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
+                  className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : isCurrentWeek ? ' bg-blue-100/70 dark:bg-blue-950/40' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
                   onMouseEnter={() => handleCellHover(member.id, weekStr)}
                 >
                   {fullyOut ? (
