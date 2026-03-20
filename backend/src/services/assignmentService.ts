@@ -3,7 +3,7 @@ import { upsertProjectColor } from '@/services/scheduleService.js';
 
 /** Predefined valid tag values for assignment categorization. */
 export const VALID_TAGS = [
-  'Web', 'Mobile', 'Externa', 'Interna', 'Red Team',
+  'Web', 'Mobile', 'API', 'Externa', 'Interna', 'Red Team',
   'Phishing', 'OSINT', 'Esoterico', 'Cert', 'Outro',
 ] as const;
 
