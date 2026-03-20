@@ -103,8 +103,8 @@ function App() {
               <Route path="/documents" element={<Documents />} />
               <Route path="/schedule" element={<Schedule />} />
 
-              {/* Manager+ routes */}
-              <Route element={<RoleProtectedRoute minRole="MANAGER" />}>
+              {/* PM+ routes */}
+              <Route element={<RoleProtectedRoute minRole="PM" />}>
                 <Route path="/template-adapter" element={<TemplateAdapter />} />
                 <Route path="/executive-report" element={<ExecutiveReport />} />
               </Route>
