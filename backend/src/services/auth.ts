@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import argon2 from 'argon2';
 import { TOTP, generateSecret, generateURI, NobleCryptoPlugin, ScureBase32Plugin } from 'otplib';
 import QRCode from 'qrcode';
@@ -167,4 +168,43 @@ export async function resetFailedAttempts(userId: string): Promise<void> {
       lockedUntil: null,
     },
   });
+}
+
+/**
+ * Check a password against the haveibeenpwned Passwords API using k-anonymity.
+ * Non-blocking: returns { breached: false, count: 0 } on any failure.
+ */
+export async function checkPasswordBreach(password: string): Promise<{ breached: boolean; count: number }> {
+  try {
+    const sha1 = createHash('sha1').update(password).digest('hex').toUpperCase();
+    const prefix = sha1.slice(0, 5);
+    const suffix = sha1.slice(5);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+
+    const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Layer8-PasswordCheck' },
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.warn(`haveibeenpwned API returned ${response.status}`);
+      return { breached: false, count: 0 };
+    }
+
+    const text = await response.text();
+    for (const line of text.split('\n')) {
+      const [hashSuffix, countStr] = line.trim().split(':');
+      if (hashSuffix === suffix) {
+        return { breached: true, count: parseInt(countStr, 10) || 0 };
+      }
+    }
+
+    return { breached: false, count: 0 };
+  } catch (error) {
+    console.warn('haveibeenpwned check failed (non-blocking):', error instanceof Error ? error.message : error);
+    return { breached: false, count: 0 };
+  }
 }

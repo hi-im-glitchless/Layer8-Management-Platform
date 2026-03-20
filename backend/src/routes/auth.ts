@@ -9,6 +9,7 @@ import {
   checkAccountLock,
   incrementFailedAttempts,
   resetFailedAttempts,
+  checkPasswordBreach,
 } from '@/services/auth.js';
 import {
   createTrustedDevice,
@@ -345,6 +346,9 @@ router.post('/password/change', auditMiddleware('auth.password.change'), async (
       }
     }
 
+    // Check password against haveibeenpwned (non-blocking)
+    const breachResult = await checkPasswordBreach(newPassword);
+
     // Hash new password and update
     const newPasswordHash = await hashPassword(newPassword);
     await prisma.user.update({
@@ -361,6 +365,9 @@ router.post('/password/change', auditMiddleware('auth.password.change'), async (
     return res.json({
       success: true,
       message: 'Password changed successfully',
+      ...(breachResult.breached && {
+        warning: `This password has appeared in ${breachResult.count.toLocaleString()} known data breaches. Consider choosing a different password.`,
+      }),
     });
 
   } catch (error) {
