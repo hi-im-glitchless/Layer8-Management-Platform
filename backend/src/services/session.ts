@@ -224,3 +224,70 @@ export async function cleanupExpiredSessions(): Promise<number> {
     return 0;
   }
 }
+
+// --- Concurrent session tracking ---
+
+const MAX_CONCURRENT_SESSIONS = 3;
+
+function userSessionsKey(userId: string): string {
+  return `user:sessions:${userId}`;
+}
+
+/**
+ * Track a new session for a user. If the user exceeds the concurrent session
+ * limit, the oldest sessions are destroyed.
+ */
+export async function trackSession(
+  userId: string,
+  sessionId: string,
+  createdAt: number
+): Promise<void> {
+  try {
+    if (!redisClient.isReady) return;
+
+    const key = userSessionsKey(userId);
+
+    // Add session to sorted set (score = creation timestamp)
+    await redisClient.zAdd(key, { score: createdAt, value: sessionId });
+
+    // Set expiry on the sorted set (24h + buffer to auto-cleanup)
+    await redisClient.expire(key, 25 * 60 * 60);
+
+    // Check how many sessions exist
+    const count = await redisClient.zCard(key);
+
+    if (count > MAX_CONCURRENT_SESSIONS) {
+      // Get the oldest sessions that exceed the limit
+      const excess = count - MAX_CONCURRENT_SESSIONS;
+      const oldestSessions = await redisClient.zRange(key, 0, excess - 1);
+
+      for (const oldSessionId of oldestSessions) {
+        // Destroy the session in the Redis session store
+        await redisClient.del(`layer8:sess:${oldSessionId}`);
+        // Remove from the tracking set
+        await redisClient.zRem(key, oldSessionId);
+      }
+
+      console.log(
+        `[session service] Evicted ${oldestSessions.length} oldest session(s) for user ${userId}`
+      );
+    }
+  } catch (error) {
+    console.error('[session service] Error tracking session:', error);
+  }
+}
+
+/**
+ * Remove a session from user tracking (called on logout).
+ */
+export async function untrackSession(
+  userId: string,
+  sessionId: string
+): Promise<void> {
+  try {
+    if (!redisClient.isReady) return;
+    await redisClient.zRem(userSessionsKey(userId), sessionId);
+  } catch (error) {
+    console.error('[session service] Error untracking session:', error);
+  }
+}

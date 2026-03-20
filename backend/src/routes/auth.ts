@@ -14,6 +14,8 @@ import {
 import {
   createTrustedDevice,
   isTrustedDevice,
+  trackSession,
+  untrackSession,
 } from '@/services/session.js';
 import { requireAuth, requirePendingTOTP } from '@/middleware/auth.js';
 import { authRateLimiter } from '@/middleware/rateLimit.js';
@@ -105,6 +107,9 @@ router.post('/login', authRateLimiter, auditMiddleware('auth.login'), async (req
     req.session.createdAt = Date.now();
     req.session.lastActivity = Date.now();
     req.session.ipAddress = req.ip || req.socket.remoteAddress || null;
+
+    // Track session for concurrent limit enforcement
+    await trackSession(user.id, req.sessionID, Date.now());
 
     // Check if user must reset password
     if (user.mustResetPassword) {
@@ -394,7 +399,15 @@ router.post('/password/change', authRateLimiter, auditMiddleware('auth.password.
  * POST /api/auth/logout
  * Destroy session and log out
  */
-router.post('/logout', auditMiddleware('auth.logout'), (req: Request, res: Response) => {
+router.post('/logout', auditMiddleware('auth.logout'), async (req: Request, res: Response) => {
+  // Capture before destroy clears session data
+  const userId = req.session.userId;
+  const sessionId = req.sessionID;
+
+  if (userId) {
+    await untrackSession(userId, sessionId);
+  }
+
   req.session.destroy((err) => {
     if (err) {
       console.error('Logout error:', err);
