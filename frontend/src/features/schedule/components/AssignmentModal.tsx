@@ -7,15 +7,22 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Trash2 } from 'lucide-react'
 import { ColorPalette } from './ColorPalette'
-import { useUpsertAssignment, useDeleteAssignment, useSearchProjectColors } from '../hooks'
+import { useUpsertAssignment, useDeleteAssignment, useSearchProjectColors, useClients } from '../hooks'
 import { ASSIGNMENT_STATUSES, COLOR_PALETTE } from '../constants'
-import { CreateAssignmentSchema } from '../types'
+import { CreateAssignmentSchema, PREDEFINED_TAGS } from '../types'
 import type { Assignment, AssignmentStatus, ProjectColor } from '../types'
 
 interface AssignmentModalProps {
@@ -38,6 +45,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
   const [splitProjectStatus, setSplitProjectStatus] = useState<AssignmentStatus>('placeholder')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [clientId, setClientId] = useState<string | null>(null)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
 
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
@@ -46,6 +55,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
   const deleteMutation = useDeleteAssignment()
   const projectColorsQuery = useSearchProjectColors(projectName)
   const suggestions: ProjectColor[] = projectColorsQuery.data?.projectColors ?? []
+  const clientsQuery = useClients()
+  const clients = clientsQuery.data?.clients ?? []
 
   useEffect(() => {
     if (open) {
@@ -57,6 +68,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
         setSplitProjectName(assignment.splitProjectName ?? '')
         setSplitProjectColor(assignment.splitProjectColor ?? COLOR_PALETTE[1].hex)
         setSplitProjectStatus(assignment.splitProjectStatus ?? 'placeholder')
+        setClientId(assignment.clientId ?? null)
+        setSelectedTags(assignment.tags ?? [])
       } else {
         setProjectName('')
         setProjectColor(COLOR_PALETTE[0].hex)
@@ -65,6 +78,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
         setSplitProjectName('')
         setSplitProjectColor(COLOR_PALETTE[1].hex)
         setSplitProjectStatus('placeholder')
+        setClientId(null)
+        setSelectedTags([])
       }
       setError(null)
       setShowSuggestions(false)
@@ -77,6 +92,24 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
     setShowSuggestions(false)
   }
 
+  const handleClientChange = (value: string) => {
+    if (value === '__none__') {
+      setClientId(null)
+      return
+    }
+    setClientId(value)
+    const selected = clients.find((c) => c.id === value)
+    if (selected) {
+      setProjectColor(selected.color)
+    }
+  }
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    )
+  }
+
   const handleSave = () => {
     const data = {
       teamMemberId,
@@ -87,6 +120,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
       splitProjectName: isSplit && splitProjectName.trim() ? splitProjectName.trim() : null,
       splitProjectColor: isSplit && splitProjectName.trim() ? splitProjectColor : null,
       splitProjectStatus: isSplit && splitProjectName.trim() ? splitProjectStatus : null,
+      clientId: clientId || null,
+      tags: selectedTags,
     }
 
     const result = CreateAssignmentSchema.safeParse(data)
@@ -120,6 +155,42 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Client Selection */}
+          <div className="space-y-2">
+            <Label>Client</Label>
+            <Select value={clientId ?? '__none__'} onValueChange={handleClientChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="No client">
+                  {clientId ? (
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-sm shrink-0 inline-block"
+                        style={{ backgroundColor: clients.find((c) => c.id === clientId)?.color }}
+                      />
+                      {clients.find((c) => c.id === clientId)?.name}
+                    </span>
+                  ) : (
+                    'No client'
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No client</SelectItem>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-sm shrink-0 inline-block"
+                        style={{ backgroundColor: c.color }}
+                      />
+                      {c.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Project Name with Autocomplete */}
           <div className="space-y-2">
             <Label htmlFor="projectName">Project Name</Label>
@@ -190,6 +261,27 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                 >
                   {s.label}
                 </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-2">
+            <Label>Tags</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {PREDEFINED_TAGS.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+                    selectedTags.includes(tag)
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-transparent text-muted-foreground border-border hover:border-primary/50'
+                  }`}
+                >
+                  {tag}
+                </button>
               ))}
             </div>
           </div>
