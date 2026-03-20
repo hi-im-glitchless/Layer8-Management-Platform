@@ -321,11 +321,13 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                 </div>
               </div>
 
-              {/* Color Palette */}
-              <div className="space-y-2">
-                <Label>Color</Label>
-                <ColorPalette selectedColor={projectColor} onColorSelect={setProjectColor} />
-              </div>
+              {/* Color Palette — only when no client selected (client provides color) */}
+              {!clientId && (
+                <div className="space-y-2">
+                  <Label>Color</Label>
+                  <ColorPalette selectedColor={projectColor} onColorSelect={setProjectColor} />
+                </div>
+              )}
 
               {/* Status Selector */}
               <div className="space-y-2">
@@ -375,14 +377,16 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                   />
                 </div>
 
-                {/* Split Color */}
-                <div className="space-y-2">
-                  <Label>Color</Label>
-                  <ColorPalette
-                    selectedColor={splitProjectColor}
-                    onColorSelect={setSplitProjectColor}
-                  />
-                </div>
+                {/* Split Color — only when no split client selected */}
+                {!splitClientId && (
+                  <div className="space-y-2">
+                    <Label>Color</Label>
+                    <ColorPalette
+                      selectedColor={splitProjectColor}
+                      onColorSelect={setSplitProjectColor}
+                    />
+                  </div>
+                )}
 
                 {/* Split Status */}
                 <div className="space-y-2">

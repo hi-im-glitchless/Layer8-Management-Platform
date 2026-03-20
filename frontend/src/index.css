@@ -54,7 +54,7 @@
 :root {
   --radius: 0.5rem;
 
-  /* AI Template Regenerator Light Theme: Clean white background with cool blue accent */
+  /* Layer 8 - Management Platform Light Theme: Clean white background with cool blue accent */
   --background: oklch(1 0 0); /* pure white #ffffff */
   --foreground: oklch(0.145 0 0); /* near-black #09090b */
   --card: oklch(1 0 0); /* white cards */
@@ -95,7 +95,7 @@
 }
 
 .dark {
-  /* AI Template Regenerator Dark Theme: True black with cool blue accent — matches login page */
+  /* Layer 8 - Management Platform Dark Theme: True black with cool blue accent — matches login page */
   --background: oklch(0 0 0); /* pure black #000000 */
   --foreground: oklch(0.98 0 0); /* near-white #fafafa */
   --card: oklch(0.12 0.005 260); /* slightly elevated surface */

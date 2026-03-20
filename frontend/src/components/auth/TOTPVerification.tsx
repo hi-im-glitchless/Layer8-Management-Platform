@@ -26,13 +26,6 @@ export function TOTPVerification({ onSubmit, onBack, isLoading }: TOTPVerificati
     inputRef.current?.focus();
   }, []);
 
-  // Auto-submit when 6 digits are entered
-  useEffect(() => {
-    if (code.length === 6 && !isLoading) {
-      handleSubmit();
-    }
-  }, [code, isLoading]);
-
   const handleSubmit = async () => {
     if (code.length === 6) {
       await onSubmit(code, rememberDevice);

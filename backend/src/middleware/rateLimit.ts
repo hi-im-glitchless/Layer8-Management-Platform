@@ -31,8 +31,13 @@ function userOrIpKey(req: Request): string {
   if (req.session?.userId) {
     return `user:${req.session.userId}`;
   }
-  return req.ip || req.socket.remoteAddress || 'unknown';
+  // Normalize IPv6-mapped IPv4 (::ffff:127.0.0.1 → 127.0.0.1)
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  return ip.replace(/^::ffff:/, '');
 }
+
+// Disable the IPv6 key generator validation (we handle IPv6 normalization manually above)
+const validate = { keyGeneratorIpFallback: false } as const;
 
 const skipInTest = () => process.env.NODE_ENV === 'test';
 
@@ -61,6 +66,7 @@ export const mutationRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
   keyGenerator: userOrIpKey,
+  validate,
   message: 'Too many requests. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -76,6 +82,7 @@ export const readRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100,
   keyGenerator: userOrIpKey,
+  validate,
   message: 'Too many requests. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false,

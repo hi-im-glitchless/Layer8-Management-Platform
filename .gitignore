@@ -54,3 +54,29 @@ backend/uploads/
 # Temporary files
 tmp/
 temp/
+
+# Test data and leftovers
+Alocação/
+Alocação2024_2025.xlsx
+test-templates/
+image.png
+index.html
+backend/dev.db.old
+backend/prisma/dev.db.old
+backend/prisma/migrations.old/
+
+# VBW planning internals (keep planning artifacts, exclude ephemeral state)
+.vbw-planning/.cache/
+.vbw-planning/.agent-pids
+.vbw-planning/.watchdog-pid
+.vbw-planning/.vbw-session
+.vbw-planning/.vbw-context
+.vbw-planning/.context-usage
+.vbw-planning/.skills-section-stripped
+.vbw-planning/.todo-flat-migrated
+.vbw-planning/.event-log.jsonl
+.vbw-planning/.events/
+.vbw-planning/.execution-state.json
+.vbw-planning/.cost-ledger.json
+.vbw-planning/.notification-log.jsonl
+.vbw-planning/.session-log.jsonl

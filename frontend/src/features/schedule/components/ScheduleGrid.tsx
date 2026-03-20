@@ -48,6 +48,7 @@ interface DragData {
   assignment: Assignment | undefined
   teamMemberId: string
   weekStart: string
+  side?: 'left' | 'right'
 }
 
 interface ClipboardAssignment {
@@ -257,27 +258,183 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     const sourceData = active.data.current as DragData | undefined
     const targetData = over.data.current as DragData | undefined
     if (!sourceData || !targetData) return
+    if (!sourceData.assignment) return
 
     if (targetData.assignment?.isLocked) {
       toast.error('Cannot drop onto a locked cell')
       return
     }
 
-    if (sourceData.assignment && targetData.assignment) {
+    const srcAssignment = sourceData.assignment
+    const srcSide = sourceData.side
+    const tgtAssignment = targetData.assignment
+    const tgtSide = targetData.side
+    const isSrcSplit = !!(srcAssignment.splitProjectName && srcAssignment.splitProjectColor)
+
+    // Helper: extract project data from one side of an assignment
+    const getProjectFromSide = (a: Assignment, side?: 'left' | 'right') => {
+      if (side === 'right' && a.splitProjectName) {
+        return {
+          projectName: a.splitProjectName,
+          projectColor: a.splitProjectColor!,
+          status: (a.splitProjectStatus as AssignmentStatus) ?? 'placeholder',
+          clientId: a.splitClientId ?? null,
+          tags: a.splitTags,
+        }
+      }
+      return {
+        projectName: a.projectName,
+        projectColor: a.projectColor,
+        status: a.status,
+        clientId: a.clientId ?? null,
+        tags: a.tags,
+      }
+    }
+
+    // Case 1: Dragging from a split cell
+    if (isSrcSplit && srcSide) {
+      const draggedProject = getProjectFromSide(srcAssignment, srcSide)
+
+      // Remove the dragged side from the source split
+      if (srcSide === 'left') {
+        // Promote right to primary, clear split
+        updateMutation.mutate({
+          id: srcAssignment.id,
+          data: {
+            projectName: srcAssignment.splitProjectName!,
+            projectColor: srcAssignment.splitProjectColor!,
+            status: (srcAssignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder',
+            clientId: srcAssignment.splitClientId ?? null,
+            tags: typeof srcAssignment.splitTags === 'string' ? JSON.parse(srcAssignment.splitTags || '[]') : (srcAssignment.splitTags ?? []),
+            splitProjectName: null,
+            splitProjectColor: null,
+            splitProjectStatus: null,
+          },
+        })
+      } else {
+        // Clear split fields, keep primary
+        updateMutation.mutate({
+          id: srcAssignment.id,
+          data: {
+            splitProjectName: null,
+            splitProjectColor: null,
+            splitProjectStatus: null,
+          },
+        })
+      }
+
+      // Place the dragged project in the target
+      const parsedTags = typeof draggedProject.tags === 'string'
+        ? JSON.parse(draggedProject.tags || '[]')
+        : (draggedProject.tags ?? [])
+
+      if (tgtAssignment && tgtSide) {
+        // Dropping onto a side of another split — replace that side
+        if (tgtSide === 'left') {
+          updateMutation.mutate({
+            id: tgtAssignment.id,
+            data: {
+              projectName: draggedProject.projectName,
+              projectColor: draggedProject.projectColor,
+              status: draggedProject.status,
+              clientId: draggedProject.clientId,
+              tags: parsedTags,
+            },
+          })
+        } else {
+          updateMutation.mutate({
+            id: tgtAssignment.id,
+            data: {
+              splitProjectName: draggedProject.projectName,
+              splitProjectColor: draggedProject.projectColor,
+              splitProjectStatus: draggedProject.status,
+            },
+          })
+        }
+      } else if (!tgtAssignment) {
+        // Dropping onto empty cell
+        upsertMutation.mutate({
+          teamMemberId: targetData.teamMemberId,
+          weekStart: targetData.weekStart,
+          projectName: draggedProject.projectName,
+          projectColor: draggedProject.projectColor,
+          status: draggedProject.status,
+          clientId: draggedProject.clientId,
+          tags: parsedTags,
+        })
+      } else {
+        // Dropping onto a non-split cell — swap the whole thing
+        swapMutation.mutate({
+          idA: srcAssignment.id,
+          idB: tgtAssignment.id,
+        })
+      }
+      return
+    }
+
+    // Case 2: Dragging a non-split onto a split cell side
+    if (tgtAssignment && tgtSide) {
+      const isTgtSplit = !!(tgtAssignment.splitProjectName && tgtAssignment.splitProjectColor)
+      if (isTgtSplit) {
+        const replacedProject = getProjectFromSide(tgtAssignment, tgtSide)
+
+        // Replace the target side with the source project
+        if (tgtSide === 'left') {
+          updateMutation.mutate({
+            id: tgtAssignment.id,
+            data: {
+              projectName: srcAssignment.projectName,
+              projectColor: srcAssignment.projectColor,
+              status: srcAssignment.status,
+              clientId: srcAssignment.clientId ?? null,
+              tags: typeof srcAssignment.tags === 'string' ? JSON.parse(srcAssignment.tags || '[]') : (srcAssignment.tags ?? []),
+            },
+          })
+        } else {
+          updateMutation.mutate({
+            id: tgtAssignment.id,
+            data: {
+              splitProjectName: srcAssignment.projectName,
+              splitProjectColor: srcAssignment.projectColor,
+              splitProjectStatus: srcAssignment.status,
+            },
+          })
+        }
+
+        // Put the replaced project back in the source cell
+        const parsedReplacedTags = typeof replacedProject.tags === 'string'
+          ? JSON.parse(replacedProject.tags || '[]')
+          : (replacedProject.tags ?? [])
+        updateMutation.mutate({
+          id: srcAssignment.id,
+          data: {
+            projectName: replacedProject.projectName,
+            projectColor: replacedProject.projectColor,
+            status: replacedProject.status,
+            clientId: replacedProject.clientId,
+            tags: parsedReplacedTags,
+          },
+        })
+        return
+      }
+    }
+
+    // Case 3: Normal (non-split) drag
+    if (tgtAssignment) {
       swapMutation.mutate({
-        idA: sourceData.assignment.id,
-        idB: targetData.assignment.id,
+        idA: srcAssignment.id,
+        idB: tgtAssignment.id,
       })
-    } else if (sourceData.assignment && !targetData.assignment) {
+    } else {
       updateMutation.mutate({
-        id: sourceData.assignment.id,
+        id: srcAssignment.id,
         data: {
           teamMemberId: targetData.teamMemberId,
           weekStart: targetData.weekStart,
         },
       })
     }
-  }, [swapMutation, updateMutation])
+  }, [swapMutation, updateMutation, upsertMutation])
 
   // ── Paste handler ───────────────────────────────────────────────
 
@@ -408,9 +565,9 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-400 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap`}>
               <div className="flex items-center gap-1.5">
                 {member.user?.avatarUrl ? (
-                  <img src={member.user.avatarUrl} alt="" className="w-5 h-5 rounded-full shrink-0 object-cover" />
+                  <img src={member.user.avatarUrl} alt="" className="w-9 h-9 rounded-full shrink-0 object-cover" />
                 ) : (
-                  <div className="w-5 h-5 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                  <div className="w-9 h-9 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-300">
                     {(member.displayName || member.user?.displayName || member.user?.username || '?').charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -524,16 +681,23 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           </div>
         )}
         <DragOverlay>
-          {activeDragId && activeDragData?.assignment ? (
-            <AssignmentCell
-              assignment={activeDragData.assignment}
-              teamMemberId={activeDragData.teamMemberId}
-              weekStart={activeDragData.weekStart}
-              canEdit={canEdit}
-              isDragOverlay={true}
-              onCellClick={() => {}}
-            />
-          ) : null}
+          {activeDragId && activeDragData?.assignment ? (() => {
+            const a = activeDragData.assignment!
+            // When dragging the right side of a split, show split project in overlay
+            const overlayAssignment = activeDragData.side === 'right' && a.splitProjectName
+              ? { ...a, projectName: a.splitProjectName, projectColor: a.splitProjectColor!, status: (a.splitProjectStatus ?? 'placeholder') as AssignmentStatus, client: a.splitClient ?? null, splitProjectName: null, splitProjectColor: null }
+              : a
+            return (
+              <AssignmentCell
+                assignment={overlayAssignment}
+                teamMemberId={activeDragData.teamMemberId}
+                weekStart={activeDragData.weekStart}
+                canEdit={canEdit}
+                isDragOverlay={true}
+                onCellClick={() => {}}
+              />
+            )
+          })() : null}
         </DragOverlay>
       </DndContext>
       <AssignmentModal

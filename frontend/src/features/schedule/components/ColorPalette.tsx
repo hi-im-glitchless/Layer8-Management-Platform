@@ -9,7 +9,7 @@ interface ColorPaletteProps {
 export function ColorPalette({ selectedColor, onColorSelect }: ColorPaletteProps) {
   return (
     <TooltipProvider>
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-6 gap-2 p-1">
         {COLOR_PALETTE.map((color) => {
           const isSelected = selectedColor === color.hex
           return (

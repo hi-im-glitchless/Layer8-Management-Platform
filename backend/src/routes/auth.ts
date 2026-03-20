@@ -310,10 +310,17 @@ router.post('/totp/verify-setup', authRateLimiter, auditMiddleware('auth.totp.co
     // Clear pending secret and mark as verified
     req.session.pendingTOTPSecret = undefined;
     req.session.totpVerified = true;
-    // Ensure createdAt is set (defensive — should already exist from login)
+    req.session.awaitingTOTP = false;
+    // Ensure createdAt/lastActivity are set (defensive — should already exist from login)
     if (!req.session.createdAt) {
       req.session.createdAt = Date.now();
     }
+    req.session.lastActivity = Date.now();
+
+    // Force session save before responding (ensures /auth/me sees updated state)
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err) => (err ? reject(err) : resolve()));
+    });
 
     return res.json({
       success: true,

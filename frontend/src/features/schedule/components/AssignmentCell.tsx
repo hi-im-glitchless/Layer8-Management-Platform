@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, type ReactNode } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { Lock, Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
@@ -44,18 +44,14 @@ function parseTags(tags: unknown): string[] {
   return []
 }
 
-function RichTooltipContent({ assignment }: { assignment: Assignment }) {
-  const isSplit = assignment.splitProjectName && assignment.splitProjectColor
-  const tags = parseTags(assignment.tags)
+function ProjectTooltipBlock({ client, name, status, tags }: { client?: string; name: string; status: AssignmentStatus; tags: string[] }) {
   return (
-    <div className="flex flex-col gap-2 py-1 max-w-[220px]">
-      <div className="flex flex-col gap-0.5">
-        {assignment.client && (
-          <span className="text-[10px] text-muted-foreground">{assignment.client.name}</span>
-        )}
-        <span className="text-xs font-semibold">{assignment.projectName}</span>
-        <StatusBadge status={assignment.status} />
-      </div>
+    <div className="flex flex-col gap-0.5">
+      {client && (
+        <span className="text-[10px] text-muted-foreground">{client}</span>
+      )}
+      <span className="text-xs font-semibold">{name}</span>
+      <StatusBadge status={status} />
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-0.5">
           {tags.map((tag: string) => (
@@ -65,27 +61,47 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
           ))}
         </div>
       )}
-      {isSplit && (() => {
-        const splitTags = parseTags(assignment.splitTags)
-        return (
-          <div className="flex flex-col gap-0.5 border-t border-border/30 pt-1.5">
-            {assignment.splitClient && (
-              <span className="text-[10px] text-muted-foreground">{assignment.splitClient.name}</span>
-            )}
-            <span className="text-xs font-semibold">{assignment.splitProjectName}</span>
-            <StatusBadge status={(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'} />
-            {splitTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-0.5">
-                {splitTags.map((tag: string) => (
-                  <span key={tag} className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/20 text-blue-400 dark:bg-blue-400/20 dark:text-blue-300 border border-blue-500/30">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      })()}
+    </div>
+  )
+}
+
+function RichTooltipContent({ assignment }: { assignment: Assignment }) {
+  const isSplit = assignment.splitProjectName && assignment.splitProjectColor
+  const tags = parseTags(assignment.tags)
+
+  if (isSplit) {
+    const splitTags = parseTags(assignment.splitTags)
+    return (
+      <div className="flex gap-3 py-1">
+        <div className="max-w-[180px]">
+          <ProjectTooltipBlock
+            client={assignment.client?.name}
+            name={assignment.projectName}
+            status={assignment.status}
+            tags={tags}
+          />
+        </div>
+        <div className="w-px bg-border/40 shrink-0" />
+        <div className="max-w-[180px]">
+          <ProjectTooltipBlock
+            client={assignment.splitClient?.name}
+            name={assignment.splitProjectName!}
+            status={(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'}
+            tags={splitTags}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2 py-1 max-w-[220px]">
+      <ProjectTooltipBlock
+        client={assignment.client?.name}
+        name={assignment.projectName}
+        status={assignment.status}
+        tags={tags}
+      />
     </div>
   )
 }
@@ -96,6 +112,177 @@ function getContrastColor(hex: string): string {
   const b = parseInt(hex.slice(5, 7), 16)
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   return luminance > 0.5 ? '#1a1a1a' : '#ffffff'
+}
+
+/** A single draggable+droppable half of a split cell */
+function SplitHalf({
+  assignment,
+  cellId,
+  teamMemberId,
+  weekStart,
+  side,
+  bgColor,
+  label,
+  status,
+  canEdit,
+  isLocked,
+  onStatusClick,
+}: {
+  assignment: Assignment
+  cellId: string
+  teamMemberId: string
+  weekStart: string
+  side: 'left' | 'right'
+  bgColor: string
+  label: string
+  status: AssignmentStatus
+  canEdit: boolean
+  isLocked: boolean
+  onStatusClick?: (e: React.MouseEvent) => void
+}) {
+  const halfId = `${cellId}:${side}`
+  const isDraggable = canEdit && !isLocked
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging,
+  } = useDraggable({
+    id: halfId,
+    disabled: !isDraggable,
+    data: { assignment, teamMemberId, weekStart, side },
+  })
+
+  const {
+    setNodeRef: setDropRef,
+    isOver,
+  } = useDroppable({
+    id: halfId,
+    data: { assignment, teamMemberId, weekStart, side },
+  })
+
+  const setRefs = (el: HTMLDivElement | null) => {
+    setDragRef(el)
+    setDropRef(el)
+  }
+
+  const textColor = getContrastColor(bgColor)
+
+  return (
+    <div
+      ref={setRefs}
+      {...attributes}
+      {...listeners}
+      className={`flex-1 flex items-center px-1.5 min-w-0 ${
+        isDragging ? 'opacity-40' : ''
+      } ${isOver ? 'ring-2 ring-primary ring-inset' : ''}`}
+      style={{ backgroundColor: bgColor }}
+    >
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[status]} ${isDraggable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
+              onClick={isDraggable ? onStatusClick : undefined}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {isDraggable ? 'Click to cycle status' : getStatusLabel(status)}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <span className="text-xs font-medium truncate" style={{ color: textColor }}>
+        {label}
+      </span>
+    </div>
+  )
+}
+
+/** Split cell wrapper — renders two SplitHalf components side by side */
+function SplitCell({
+  assignment,
+  cellId,
+  teamMemberId,
+  weekStart,
+  canEdit,
+  isClickable,
+  isLocked,
+  onCellClick,
+  onStatusCycle,
+  handleStatusClick,
+}: {
+  assignment: Assignment
+  cellId: string
+  teamMemberId: string
+  weekStart: string
+  canEdit: boolean
+  isClickable: boolean
+  isLocked: boolean
+  onCellClick: (e?: React.MouseEvent) => void
+  onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
+  handleStatusClick: (e: React.MouseEvent, status: AssignmentStatus, assignmentId: string) => void
+}) {
+  const leftLabel = assignment.client
+    ? `${assignment.client.name} - ${assignment.projectName}`
+    : assignment.projectName
+  const splitStatus = (assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'
+
+  return (
+    <TooltipProvider delayDuration={1000}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden relative ${
+              isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'
+            }`}
+            onClick={isClickable ? (e) => onCellClick(e) : undefined}
+          >
+            <SplitHalf
+              assignment={assignment}
+              cellId={cellId}
+              teamMemberId={teamMemberId}
+              weekStart={weekStart}
+              side="left"
+              bgColor={assignment.projectColor}
+              label={leftLabel}
+              status={assignment.status}
+              canEdit={canEdit}
+              isLocked={isLocked}
+              onStatusClick={(e) => handleStatusClick(e, assignment.status, assignment.id)}
+            />
+            <SplitHalf
+              assignment={assignment}
+              cellId={cellId}
+              teamMemberId={teamMemberId}
+              weekStart={weekStart}
+              side="right"
+              bgColor={assignment.splitProjectColor!}
+              label={assignment.splitProjectName!}
+              status={splitStatus}
+              canEdit={canEdit}
+              isLocked={isLocked}
+              onStatusClick={(e) => {
+                e.stopPropagation()
+                if (!onStatusCycle) return
+                const currentIdx = STATUS_CYCLE.indexOf(splitStatus)
+                const nextIdx = (currentIdx + 1) % STATUS_CYCLE.length
+                onStatusCycle(`split:${assignment.id}`, STATUS_CYCLE[nextIdx])
+              }}
+            />
+            {isLocked && (
+              <div className="absolute top-0.5 right-0.5">
+                <Lock className="w-3 h-3 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-md p-2">
+          <RichTooltipContent assignment={assignment} />
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 export const AssignmentCell = memo(function AssignmentCell({
@@ -190,83 +377,19 @@ export const AssignmentCell = memo(function AssignmentCell({
   }
 
   if (isSplit) {
-    const splitTextColor = getContrastColor(assignment.splitProjectColor!)
     return (
-      <TooltipProvider delayDuration={1000}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              ref={setRefs}
-              {...attributes}
-              {...listeners}
-              className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden ${
-                isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'
-              } ${isDragging ? 'opacity-40' : ''} ${
-                isDropTarget ? 'ring-2 ring-primary' : ''
-              } ${isLocked && isDropTarget ? 'cursor-not-allowed' : ''}`}
-              onClick={isClickable ? (e) => onCellClick(e) : undefined}
-            >
-              <div
-                className="flex-1 flex items-center px-1.5 min-w-0"
-                style={{ backgroundColor: assignment.projectColor }}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[assignment.status]} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
-                        onClick={isClickable ? (e) => handleStatusClick(e, assignment.status, assignment.id) : undefined}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {isClickable ? 'Click to cycle status' : getStatusLabel(assignment.status)}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <span className="text-xs font-medium truncate" style={{ color: textColor }}>
-                  {assignment.client ? `${assignment.client.name} - ${assignment.projectName}` : assignment.projectName}
-                </span>
-              </div>
-              <div
-                className="flex-1 flex items-center px-1.5 min-w-0"
-                style={{ backgroundColor: assignment.splitProjectColor! }}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder']} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
-                        onClick={isClickable ? (e) => {
-                          e.stopPropagation()
-                          if (!onStatusCycle) return
-                          const splitStatus = (assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'
-                          const currentIdx = STATUS_CYCLE.indexOf(splitStatus)
-                          const nextIdx = (currentIdx + 1) % STATUS_CYCLE.length
-                          onStatusCycle(`split:${assignment.id}`, STATUS_CYCLE[nextIdx])
-                        } : undefined}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {isClickable ? 'Click to cycle status' : getStatusLabel((assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder')}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <span className="text-xs font-medium truncate" style={{ color: splitTextColor }}>
-                  {assignment.splitProjectName}
-                </span>
-              </div>
-              {isLocked && (
-                <div className="absolute top-0.5 right-0.5">
-                  <Lock className="w-3 h-3 text-muted-foreground" />
-                </div>
-              )}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-md p-2">
-            <RichTooltipContent assignment={assignment} />
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <SplitCell
+        assignment={assignment}
+        cellId={cellId}
+        teamMemberId={teamMemberId}
+        weekStart={weekStart}
+        canEdit={canEdit}
+        isClickable={isClickable}
+        isLocked={isLocked}
+        onCellClick={onCellClick}
+        onStatusCycle={onStatusCycle}
+        handleStatusClick={handleStatusClick}
+      />
     )
   }
 

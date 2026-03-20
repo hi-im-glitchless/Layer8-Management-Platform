@@ -4,9 +4,9 @@
 
 ## Active Context
 
-**Work:** Phase 9 — Team Schedule & Allocation (not started)
-**Last shipped:** Phase 8 — Role-Based Access Control (2026-02-18)
-**Next action:** Plan Phase 9 (Schedule), or /vbw:status to review progress
+**Work:** Phase 11 — UI Cleanup & Role Simplification (not started)
+**Last shipped:** Phase 10 — Schedule Visual Polish (2026-03-19)
+**Next action:** Discuss Phase 11, or /vbw:status to review progress
 
 ## VBW Rules
 
