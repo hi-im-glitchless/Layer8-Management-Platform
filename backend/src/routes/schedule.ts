@@ -148,6 +148,42 @@ router.delete('/team-members/backlog/:id', requireRole('PM'), async (req, res) =
 // ── Assignments ───────────────────────────────────────────────────
 
 /**
+ * GET /assignments/me
+ * List the authenticated user's assignments filtered by year and optional quarter.
+ * Resolves the user's TeamMember record via userId, then delegates to assignmentService.
+ * Must be defined before GET /assignments to avoid Express matching "/me" as a param.
+ */
+router.get('/assignments/me', async (req, res) => {
+  try {
+    const schema = z.object({
+      year: z.coerce.number().int().min(2000).max(2100),
+      quarter: z.coerce.number().int().min(1).max(4).optional(),
+    });
+    const params = schema.parse(req.query);
+
+    const teamMember = await prisma.teamMember.findUnique({
+      where: { userId: req.session.userId },
+    });
+
+    if (!teamMember) {
+      return res.status(404).json({ error: 'No team member profile linked to your account' });
+    }
+
+    const assignments = await assignmentService.listAssignments({
+      ...params,
+      teamMemberId: teamMember.id,
+    });
+    res.json({ assignments });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    console.error('[schedule routes] Error listing user assignments:', error);
+    res.status(500).json({ error: 'Failed to list assignments' });
+  }
+});
+
+/**
  * GET /assignments
  * List assignments filtered by year and optional quarter
  */
