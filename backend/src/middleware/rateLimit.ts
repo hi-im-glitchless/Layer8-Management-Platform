@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { createClient } from 'redis';
@@ -15,27 +16,71 @@ redisClient.connect().catch((err) => {
   console.warn('Rate limiting will use memory store as fallback');
 });
 
+/** Helper: build a RedisStore if Redis is connected, else undefined (memory fallback) */
+function makeStore(prefix: string) {
+  return redisClient.isReady
+    ? new RedisStore({
+        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+        prefix,
+      })
+    : undefined;
+}
+
+/** Helper: key generator that uses userId when authenticated, IP when not */
+function userOrIpKey(req: Request): string {
+  if (req.session?.userId) {
+    return `user:${req.session.userId}`;
+  }
+  return req.ip || req.socket.remoteAddress || 'unknown';
+}
+
+const skipInTest = () => process.env.NODE_ENV === 'test';
+
 /**
- * Rate limiter for login endpoint
- * 5 attempts per 5 minutes per IP
+ * Auth rate limiter — 5 req/min per IP
+ * For login, register, password change, MFA endpoints
  */
-export const loginRateLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 5, // 5 attempts
+export const authRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5,
   message: 'Too many requests. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  // Only use Redis store if connected, otherwise fall back to memory
-  store: redisClient.isReady
-    ? new RedisStore({
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-        prefix: 'rl:login:',
-      })
-    : undefined,
-  skip: (req) => {
-    // Skip rate limiting in test environment
-    return process.env.NODE_ENV === 'test';
-  },
+  store: makeStore('rl:auth:'),
+  skip: skipInTest,
+});
+
+// Keep the old name as an alias so existing imports still work
+export const loginRateLimiter = authRateLimiter;
+
+/**
+ * Mutation rate limiter — 30 req/min per authenticated user (or per IP)
+ * For POST/PUT/DELETE on data endpoints
+ */
+export const mutationRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30,
+  keyGenerator: userOrIpKey,
+  message: 'Too many requests. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('rl:mutation:'),
+  skip: skipInTest,
+});
+
+/**
+ * Read rate limiter — 100 req/min per authenticated user (or per IP)
+ * For GET on data endpoints
+ */
+export const readRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100,
+  keyGenerator: userOrIpKey,
+  message: 'Too many requests. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('rl:read:'),
+  skip: skipInTest,
 });
 
 /**
@@ -48,13 +93,6 @@ export const generalRateLimiter = rateLimit({
   message: 'Too many requests. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  store: redisClient.isReady
-    ? new RedisStore({
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-        prefix: 'rl:general:',
-      })
-    : undefined,
-  skip: (req) => {
-    return process.env.NODE_ENV === 'test';
-  },
+  store: makeStore('rl:general:'),
+  skip: skipInTest,
 });
