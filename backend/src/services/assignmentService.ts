@@ -1,6 +1,24 @@
 import { prisma } from '@/db/prisma.js';
 import { upsertProjectColor } from '@/services/scheduleService.js';
 
+/** Predefined valid tag values for assignment categorization. */
+export const VALID_TAGS = [
+  'Web', 'Mobile', 'Externa', 'Interna', 'Red Team',
+  'Phishing', 'OSINT', 'Esoterico', 'Cert', 'Outro',
+] as const;
+
+/**
+ * Validate that all tags are from the predefined set.
+ * Returns the validated array or throws on invalid tags.
+ */
+function validateTags(tags: string[]): string[] {
+  const invalid = tags.filter((t) => !(VALID_TAGS as readonly string[]).includes(t));
+  if (invalid.length > 0) {
+    throw new Error(`Invalid tags: ${invalid.join(', ')}. Valid tags: ${VALID_TAGS.join(', ')}`);
+  }
+  return tags;
+}
+
 /**
  * Get the date range for a year/quarter filter.
  */
@@ -54,6 +72,7 @@ export async function listAssignments(params: {
           },
         },
       },
+      client: true,
     },
   });
 }
@@ -74,11 +93,24 @@ export async function upsertAssignment(data: {
   splitProjectColor?: string | null;
   splitProjectStatus?: string | null;
   createdBy?: string | null;
+  clientId?: string | null;
+  tags?: string[];
 }) {
   await upsertProjectColor(data.projectName, data.projectColor);
 
   if (data.splitProjectName && data.splitProjectColor) {
     await upsertProjectColor(data.splitProjectName, data.splitProjectColor);
+  }
+
+  // Validate tags if provided
+  const validatedTags = data.tags ? validateTags(data.tags) : undefined;
+
+  // Validate clientId exists if provided
+  if (data.clientId) {
+    const client = await prisma.client.findUnique({ where: { id: data.clientId } });
+    if (!client) {
+      throw new Error(`Client with id "${data.clientId}" not found`);
+    }
   }
 
   return prisma.$transaction(async (tx) => {
@@ -91,6 +123,11 @@ export async function upsertAssignment(data: {
       },
     });
 
+    const clientAndTagData = {
+      ...(data.clientId !== undefined ? { clientId: data.clientId } : {}),
+      ...(validatedTags !== undefined ? { tags: JSON.stringify(validatedTags) } : {}),
+    };
+
     if (existing) {
       return tx.assignment.update({
         where: { id: existing.id },
@@ -102,6 +139,7 @@ export async function upsertAssignment(data: {
           splitProjectColor: data.splitProjectColor ?? null,
           splitProjectStatus: data.splitProjectStatus ?? null,
           createdBy: data.createdBy ?? null,
+          ...clientAndTagData,
         },
       });
     }
@@ -117,6 +155,8 @@ export async function upsertAssignment(data: {
         splitProjectColor: data.splitProjectColor ?? null,
         splitProjectStatus: data.splitProjectStatus ?? null,
         createdBy: data.createdBy ?? null,
+        clientId: data.clientId ?? null,
+        tags: validatedTags ? JSON.stringify(validatedTags) : '[]',
       },
     });
   });
@@ -136,6 +176,11 @@ export async function updateAssignment(
     splitProjectName?: string | null;
     splitProjectColor?: string | null;
     createdBy?: string | null;
+    clientId?: string | null;
+    tags?: string[];
+    teamMemberId?: string;
+    weekStart?: Date;
+    splitProjectStatus?: string | null;
   }
 ) {
   const existing = await prisma.assignment.findUniqueOrThrow({ where: { id } });
@@ -144,9 +189,29 @@ export async function updateAssignment(
     throw new Error('Cannot update a locked assignment. Unlock it first.');
   }
 
+  // Validate tags if provided
+  if (data.tags) {
+    validateTags(data.tags);
+  }
+
+  // Validate clientId exists if provided (and not null — null means unlink)
+  if (data.clientId) {
+    const client = await prisma.client.findUnique({ where: { id: data.clientId } });
+    if (!client) {
+      throw new Error(`Client with id "${data.clientId}" not found`);
+    }
+  }
+
+  // Build update payload, converting tags array to JSON string
+  const { tags, ...rest } = data;
+  const updateData: Record<string, unknown> = { ...rest };
+  if (tags !== undefined) {
+    updateData.tags = JSON.stringify(tags);
+  }
+
   return prisma.assignment.update({
     where: { id },
-    data,
+    data: updateData,
   });
 }
 
@@ -177,7 +242,7 @@ export async function swapAssignments(idA: string, idB: string) {
     // Temporarily clear A's unique key fields
     prisma.assignment.delete({ where: { id: idA } }),
     prisma.assignment.delete({ where: { id: idB } }),
-    // Re-create with swapped positions
+    // Re-create with swapped positions (project data including clientId/tags stays with content)
     prisma.assignment.create({
       data: {
         id: idA,
@@ -191,6 +256,8 @@ export async function swapAssignments(idA: string, idB: string) {
         splitProjectColor: a.splitProjectColor,
         splitProjectStatus: a.splitProjectStatus,
         createdBy: a.createdBy,
+        clientId: a.clientId,
+        tags: a.tags,
       },
     }),
     prisma.assignment.create({
@@ -206,6 +273,8 @@ export async function swapAssignments(idA: string, idB: string) {
         splitProjectColor: b.splitProjectColor,
         splitProjectStatus: b.splitProjectStatus,
         createdBy: b.createdBy,
+        clientId: b.clientId,
+        tags: b.tags,
       },
     }),
   ]);
