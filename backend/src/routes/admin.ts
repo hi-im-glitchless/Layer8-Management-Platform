@@ -52,7 +52,7 @@ router.use(requireRole('ADMIN'));
  * GET /api/admin/sessions
  * List all active sessions
  */
-router.get('/sessions', async (req, res) => {
+router.get('/sessions', requireRole('ADMIN'), async (req, res) => {
   try {
     const sessions = await getActiveSessions();
     res.json({ sessions });
@@ -66,7 +66,7 @@ router.get('/sessions', async (req, res) => {
  * DELETE /api/admin/sessions/:sessionId
  * Terminate a specific session
  */
-router.delete('/sessions/:sessionId', auditMiddleware('admin.session.terminate'), async (req, res) => {
+router.delete('/sessions/:sessionId', requireRole('ADMIN'), auditMiddleware('admin.session.terminate'), async (req, res) => {
   try {
     const sessionId = req.params.sessionId as string;
     const currentSession = req.session as any;
@@ -93,7 +93,7 @@ router.delete('/sessions/:sessionId', auditMiddleware('admin.session.terminate')
  * POST /api/admin/sessions/cleanup
  * Clean up expired sessions and trusted devices
  */
-router.post('/sessions/cleanup', auditMiddleware('admin.session.cleanup'), async (req, res) => {
+router.post('/sessions/cleanup', requireRole('ADMIN'), auditMiddleware('admin.session.cleanup'), async (req, res) => {
   try {
     const [sessionsCleared, devicesCleared] = await Promise.all([
       cleanupExpiredSessions(),
@@ -114,7 +114,7 @@ router.post('/sessions/cleanup', auditMiddleware('admin.session.cleanup'), async
  * GET /api/admin/llm-settings
  * Returns current LLM settings (API key masked)
  */
-router.get('/llm-settings', async (req, res) => {
+router.get('/llm-settings', requireRole('ADMIN'), async (req, res) => {
   try {
     const settings = await getLlmSettings();
 
@@ -145,7 +145,7 @@ router.get('/llm-settings', async (req, res) => {
  * PUT /api/admin/llm-settings
  * Updates LLM settings
  */
-router.put('/llm-settings', async (req, res) => {
+router.put('/llm-settings', requireRole('ADMIN'), async (req, res) => {
   try {
     const { defaultModel, templateAdapterModel, executiveReportModel, anthropicApiKey, fallbackEnabled } = req.body;
 
@@ -227,7 +227,7 @@ router.put('/llm-settings', async (req, res) => {
  * GET /api/admin/llm-status
  * Returns provider status
  */
-router.get('/llm-status', async (req, res) => {
+router.get('/llm-status', requireRole('ADMIN'), async (req, res) => {
   try {
     const client = await createLLMClient();
     const statuses = await client.checkStatus();
@@ -242,7 +242,7 @@ router.get('/llm-status', async (req, res) => {
  * POST /api/admin/llm-start-cliproxy
  * Spawns the CLIProxyAPI process and polls for readiness
  */
-router.post('/llm-start-cliproxy', async (req, res) => {
+router.post('/llm-start-cliproxy', requireRole('ADMIN'), async (req, res) => {
   try {
     // Check if CLIProxyAPI is already running (either tracked or external)
     const client = await createLLMClient();
@@ -298,7 +298,7 @@ router.post('/llm-start-cliproxy', async (req, res) => {
  * POST /api/admin/llm-stop-cliproxy
  * Kills the CLIProxyAPI process (tracked or discovered via pgrep)
  */
-router.post('/llm-stop-cliproxy', async (req, res) => {
+router.post('/llm-stop-cliproxy', requireRole('ADMIN'), async (req, res) => {
   try {
     // Try tracked process first
     if (isCliproxyTrackedAndRunning()) {
@@ -334,7 +334,7 @@ router.post('/llm-stop-cliproxy', async (req, res) => {
  * GET /api/admin/gotenberg-status
  * Returns Gotenberg service availability
  */
-router.get('/gotenberg-status', async (req, res) => {
+router.get('/gotenberg-status', requireRole('ADMIN'), async (req, res) => {
   try {
     const health = await checkGotenbergHealth();
     res.json({ gotenberg: health });
