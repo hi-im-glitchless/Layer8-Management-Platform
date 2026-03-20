@@ -34,8 +34,19 @@ function StatusBadge({ status }: { status: AssignmentStatus }) {
   )
 }
 
+/** Parse tags safely — handles both string (JSON from SQLite) and array */
+function parseTags(tags: unknown): string[] {
+  if (Array.isArray(tags)) return tags
+  if (typeof tags === 'string') {
+    try { const parsed = JSON.parse(tags); return Array.isArray(parsed) ? parsed : [] }
+    catch { return [] }
+  }
+  return []
+}
+
 function RichTooltipContent({ assignment }: { assignment: Assignment }) {
   const isSplit = assignment.splitProjectName && assignment.splitProjectColor
+  const tags = parseTags(assignment.tags)
   return (
     <div className="flex flex-col gap-2 py-1 max-w-[220px]">
       <div className="flex flex-col gap-0.5">
@@ -51,9 +62,9 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
           <StatusBadge status={(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'} />
         </div>
       )}
-      {assignment.tags && assignment.tags.length > 0 && (
+      {tags.length > 0 && (
         <div className="flex flex-wrap gap-1 border-t border-border/30 pt-1.5">
-          {assignment.tags.map((tag: string) => (
+          {tags.map((tag: string) => (
             <span key={tag} className="px-1.5 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
               {tag}
             </span>
