@@ -154,7 +154,7 @@ export const AssignmentCell = memo(function AssignmentCell({
   if (isSplit) {
     const splitTextColor = getContrastColor(assignment.splitProjectColor!)
     return (
-      <TooltipProvider delayDuration={2000}>
+      <TooltipProvider delayDuration={1000}>
         <Tooltip>
           <TooltipTrigger asChild>
             <div
@@ -233,7 +233,7 @@ export const AssignmentCell = memo(function AssignmentCell({
   }
 
   return (
-    <TooltipProvider delayDuration={2000}>
+    <TooltipProvider delayDuration={1000}>
       <Tooltip>
         <TooltipTrigger asChild>
           <div
