@@ -1,19 +1,12 @@
 import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Calendar, FileCode, FileText, Inbox } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Calendar } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks'
-import { useActiveSession } from '@/features/adapter/hooks'
-import { useActiveReportSession } from '@/features/executive-report/hooks'
 import { useMyAssignments } from '@/features/schedule/hooks'
 import { buildProjectTimeline, getCurrentProject, getNextProject } from '@/features/dashboard/utils'
 import { ProjectCard } from '@/features/dashboard/components/ProjectCard'
 import { NoScheduleState } from '@/features/dashboard/components/NoScheduleState'
 import { ApiError } from '@/lib/api'
-import type { WizardStep } from '@/features/adapter/types'
-import type { ReportWizardStep } from '@/features/executive-report/types'
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -22,33 +15,9 @@ function getGreeting(): string {
   return 'Good evening'
 }
 
-const adapterStepLabels: Record<WizardStep, string> = {
-  upload: 'Uploading template',
-  verify: 'Verifying mappings',
-  preview: 'Previewing output',
-  download: 'Ready to download',
-}
-
-const reportStepLabels: Record<ReportWizardStep, string> = {
-  upload: 'Uploading report',
-  'sanitize-review': 'Reviewing sanitization',
-  generate: 'Generating report',
-  review: 'Reviewing report',
-  download: 'Ready to download',
-}
-
 export function Dashboard() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const name = user?.displayName || user?.username || ''
-
-  const adapterQuery = useActiveSession()
-  const reportQuery = useActiveReportSession()
-
-  const adapterSession = adapterQuery.error ? null : (adapterQuery.data?.session ?? null)
-  const reportSession = reportQuery.error ? null : (reportQuery.data?.session ?? null)
-  const isLoading = adapterQuery.isLoading || reportQuery.isLoading
-  const hasAnySessions = adapterSession !== null || reportSession !== null
 
   // Schedule data
   const currentYear = new Date().getFullYear()
@@ -76,11 +45,9 @@ export function Dashboard() {
         <h1 className="text-3xl font-bold tracking-tight">
           {name ? `${getGreeting()}, ${name}` : getGreeting()}
         </h1>
-        <p className="text-muted-foreground mt-2">
-          Your AI-powered security reporting hub
-        </p>
       </div>
 
+      {/* Template Adaptation and Executive Report action cards — hidden for now
       <div className="grid gap-4 md:grid-cols-2">
         <Card
           className="cursor-pointer border bg-card transition-colors hover:bg-accent/10"
@@ -112,6 +79,7 @@ export function Dashboard() {
           </CardHeader>
         </Card>
       </div>
+      */}
 
       {/* Schedule Section */}
       <div className="space-y-4">
@@ -121,7 +89,7 @@ export function Dashboard() {
         </div>
 
         {assignmentsQuery.isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-lg border bg-card p-4 space-y-3">
               <Skeleton className="h-5 w-3/4" />
               <Skeleton className="h-4 w-1/2" />
@@ -140,34 +108,37 @@ export function Dashboard() {
             <Calendar className="mb-3 h-8 w-8 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">No upcoming projects</p>
           </div>
-        ) : currentProject || nextProject ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {currentProject && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Current Project
-                </p>
-                <ProjectCard project={currentProject} variant="current" />
-              </div>
-            )}
-            {nextProject && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Next Project
-                </p>
-                <ProjectCard project={nextProject} variant="next" />
-              </div>
-            )}
-          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-lg border bg-card px-6 py-8 text-center">
-            <Calendar className="mb-3 h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">No active projects this week</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Current Project
+              </p>
+              {currentProject ? (
+                <ProjectCard project={currentProject} variant="current" />
+              ) : (
+                <div className="flex items-center justify-center rounded-lg border bg-card px-6 py-8 text-center">
+                  <p className="text-sm text-muted-foreground">No project this week</p>
+                </div>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Next Project
+              </p>
+              {nextProject ? (
+                <ProjectCard project={nextProject} variant="next" />
+              ) : (
+                <div className="flex items-center justify-center rounded-lg border bg-card px-6 py-8 text-center">
+                  <p className="text-sm text-muted-foreground">No upcoming projects</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Activity — hidden for now
       <div className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Recent Activity</h2>
 
@@ -248,6 +219,7 @@ export function Dashboard() {
           </Card>
         )}
       </div>
+      */}
     </div>
   )
 }

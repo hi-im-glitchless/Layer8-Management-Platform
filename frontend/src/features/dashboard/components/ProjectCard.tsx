@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import type { DashboardProject } from '@/features/dashboard/types'
 import { format, addDays, parseISO } from 'date-fns'
 
@@ -31,13 +30,16 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
           )}
         </div>
 
-        {/* Tags */}
+        {/* Tags as blue pills */}
         {project.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {project.tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
+              <span
+                key={tag}
+                className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/20 text-blue-400 dark:bg-blue-400/20 dark:text-blue-300 border border-blue-500/30"
+              >
                 {tag}
-              </Badge>
+              </span>
             ))}
           </div>
         )}
@@ -46,7 +48,8 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
         <div className="mt-auto pt-1 text-sm text-muted-foreground">
           {variant === 'current' ? (
             <p>
-              Ends: <span className="font-medium text-foreground">{format(endFriday, 'dd MMM yyyy')}</span>
+              {format(startMonday, 'dd MMM yyyy')} &rarr;{' '}
+              <span className="font-medium text-foreground">{format(endFriday, 'dd MMM yyyy')}</span>
             </p>
           ) : (
             <div className="flex flex-col gap-0.5">
