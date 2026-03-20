@@ -47,10 +47,15 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
         {/* Footer: variant-specific info */}
         <div className="mt-auto pt-1 text-sm text-muted-foreground">
           {variant === 'current' ? (
-            <p>
-              {format(startMonday, 'dd MMM yyyy')} &rarr;{' '}
-              <span className="font-medium text-foreground">{format(endFriday, 'dd MMM yyyy')}</span>
-            </p>
+            <div className="flex flex-col gap-0.5">
+              <p>
+                {format(startMonday, 'dd MMM')} &rarr;{' '}
+                <span className="font-medium text-foreground">{format(endFriday, 'dd MMM')}</span>
+              </p>
+              <p>
+                Duration: <span className="font-medium text-foreground">{project.durationWeeks} week{project.durationWeeks !== 1 ? 's' : ''}</span>
+              </p>
+            </div>
           ) : (
             <div className="flex flex-col gap-0.5">
               <p>
