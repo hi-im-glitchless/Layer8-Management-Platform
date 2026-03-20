@@ -10,6 +10,7 @@ import { config } from './config.js';
 import { connectRedis, createRedisStore } from './db/redis.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { generalRateLimiter } from './middleware/rateLimit.js';
+import { requireFeature } from './middleware/features.js';
 import { validateSession } from './middleware/session.js';
 import authRouter from './routes/auth.js';
 import auditRouter from './routes/audit.js';
@@ -152,26 +153,26 @@ async function startServer() {
     // Mount LLM routes
     app.use('/api/llm', llmRouter);
 
-    // Mount deny list routes
-    app.use('/api/deny-list', denyListRouter);
+    // Mount deny list routes (gated: template adapter support route)
+    app.use('/api/deny-list', requireFeature('FEATURE_TEMPLATE_ADAPTER'), denyListRouter);
 
-    // Mount document routes
-    app.use('/api/documents', documentsRouter);
+    // Mount document routes (gated)
+    app.use('/api/documents', requireFeature('FEATURE_DOCUMENT_PROCESSING'), documentsRouter);
 
-    // Mount Ghostwriter routes
-    app.use('/api/ghostwriter', ghostwriterRouter);
+    // Mount Ghostwriter routes (gated: executive report support route)
+    app.use('/api/ghostwriter', requireFeature('FEATURE_EXECUTIVE_REPORT'), ghostwriterRouter);
 
-    // Mount template adapter routes
-    app.use('/api/adapter', templateAdapterRouter);
+    // Mount template adapter routes (gated)
+    app.use('/api/adapter', requireFeature('FEATURE_TEMPLATE_ADAPTER'), templateAdapterRouter);
 
-    // Mount executive report routes
-    app.use('/api/report', executiveReportRouter);
+    // Mount executive report routes (gated)
+    app.use('/api/report', requireFeature('FEATURE_EXECUTIVE_REPORT'), executiveReportRouter);
 
     // Mount schedule routes
     app.use('/api/schedule', scheduleRouter);
 
-    // Mount sanitization routes
-    app.use('/api', sanitizationRouter);
+    // Mount sanitization routes (gated: template adapter support route)
+    app.use('/api', requireFeature('FEATURE_TEMPLATE_ADAPTER'), sanitizationRouter);
 
     // Check sanitizer service readiness (optional - don't block server start)
     waitForSanitizer(10000, 2000).then(ready => {
