@@ -34,7 +34,7 @@ export const AvailabilityDots = memo(function AvailabilityDots({
   year,
 }: AvailabilityDotsProps) {
   const { hasRole } = useAuth()
-  const canToggle = hasRole('MANAGER')
+  const canToggle = hasRole('PM')
   const toggleAbsence = useToggleAbsence()
 
   const days = useMemo(() => getDaysOfWeek(weekStart), [weekStart])

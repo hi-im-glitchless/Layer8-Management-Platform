@@ -58,7 +58,7 @@ interface ClipboardAssignment {
 
 export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const { hasRole } = useAuth()
-  const canEdit = hasRole('MANAGER')
+  const canEdit = hasRole('PM')
 
   const teamMembersQuery = useTeamMembers()
   const assignmentsQuery = useAssignments(year, quarter ?? undefined)
