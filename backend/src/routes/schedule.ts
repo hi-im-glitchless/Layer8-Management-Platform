@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma.js';
 import multer from 'multer';
-import { requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 import * as scheduleService from '../services/scheduleService.js';
 import * as assignmentService from '../services/assignmentService.js';
 import * as absenceService from '../services/absenceService.js';
@@ -20,7 +20,7 @@ const router = Router();
  * GET /team-members
  * List all active team members with user info
  */
-router.get('/team-members', async (req, res) => {
+router.get('/team-members', requireAuth, async (req, res) => {
   try {
     const teamMembers = await scheduleService.listTeamMembers();
     res.json({ teamMembers });
@@ -154,7 +154,7 @@ router.delete('/team-members/backlog/:id', requireRole('PM'), async (req, res) =
  * Resolves the user's TeamMember record via userId, then delegates to assignmentService.
  * Must be defined before GET /assignments to avoid Express matching "/me" as a param.
  */
-router.get('/assignments/me', async (req, res) => {
+router.get('/assignments/me', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       year: z.coerce.number().int().min(2000).max(2100),
@@ -188,7 +188,7 @@ router.get('/assignments/me', async (req, res) => {
  * GET /assignments
  * List assignments filtered by year and optional quarter
  */
-router.get('/assignments', async (req, res) => {
+router.get('/assignments', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       year: z.coerce.number().int().min(2000).max(2100),
@@ -344,7 +344,7 @@ router.post('/assignments/:id/lock', requireRole('PM'), async (req, res) => {
  * GET /absences
  * List absences filtered by date range and optional team member
  */
-router.get('/absences', async (req, res) => {
+router.get('/absences', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       teamMemberId: z.string().min(1).optional(),
@@ -403,7 +403,7 @@ router.post('/absences/toggle', requireRole('PM'), async (req, res) => {
  * GET /holidays
  * List all holidays
  */
-router.get('/holidays', async (req, res) => {
+router.get('/holidays', requireAuth, async (req, res) => {
   try {
     const holidays = await holidayService.listHolidays();
     res.json({ holidays });
@@ -483,7 +483,7 @@ router.delete('/holidays/:id', requireRole('ADMIN'), async (req, res) => {
  * GET /project-colors
  * Search project colors for autocomplete
  */
-router.get('/project-colors', async (req, res) => {
+router.get('/project-colors', requireAuth, async (req, res) => {
   try {
     const search = typeof req.query.search === 'string' ? req.query.search : '';
     const projectColors = await scheduleService.searchProjectColors(search);
@@ -500,7 +500,7 @@ router.get('/project-colors', async (req, res) => {
  * GET /clients
  * List all clients (accessible to all authenticated users)
  */
-router.get('/clients', async (_req, res) => {
+router.get('/clients', requireAuth, async (_req, res) => {
   try {
     const clients = await clientService.listClients();
     res.json({ clients });
@@ -582,7 +582,7 @@ router.delete('/clients/:id', requireRole('ADMIN'), async (req, res) => {
  * GET /project-tags
  * Return the predefined list of project tags (static, no DB needed)
  */
-router.get('/project-tags', (_req, res) => {
+router.get('/project-tags', requireAuth, (_req, res) => {
   res.json({ tags: [...VALID_TAGS] });
 });
 
