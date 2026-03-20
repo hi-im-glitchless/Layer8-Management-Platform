@@ -1,4 +1,30 @@
 import { Request, Response, NextFunction } from 'express';
+import { logAuditEvent } from '../services/audit.js';
+
+/**
+ * Fire-and-forget audit log for denied access attempts
+ */
+function logAccessDenied(req: Request, reason: string, statusCode: number) {
+  const ipAddress =
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.ip ||
+    req.socket.remoteAddress ||
+    'unknown';
+
+  logAuditEvent({
+    userId: req.session.userId ?? null,
+    action: 'access.denied',
+    ipAddress,
+    details: {
+      method: req.method,
+      path: req.originalUrl,
+      statusCode,
+      reason,
+    },
+  }).catch((err) => {
+    console.error('[auth middleware] Failed to log access denied event:', err);
+  });
+}
 
 /**
  * Middleware to require authentication
@@ -6,17 +32,20 @@ import { Request, Response, NextFunction } from 'express';
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
+    logAccessDenied(req, 'Not authenticated', 401);
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
   // Check if user needs to verify TOTP
   if (req.session.awaitingTOTP) {
+    logAccessDenied(req, 'TOTP verification required', 401);
     return res.status(401).json({ error: 'TOTP verification required' });
   }
 
   // For users with TOTP enabled, ensure it's been verified in this session
   // (totpVerified is set after successful TOTP or trusted device validation)
   if (!req.session.totpVerified) {
+    logAccessDenied(req, 'TOTP verification required', 401);
     return res.status(401).json({ error: 'TOTP verification required' });
   }
 
@@ -36,6 +65,7 @@ const ROLE_HIERARCHY: Record<string, number> = {
 export function requireRole(minimumRole: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.session.userId || !req.session.totpVerified) {
+      logAccessDenied(req, 'Not authenticated', 401);
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
@@ -43,6 +73,7 @@ export function requireRole(minimumRole: string) {
     const requiredLevel = ROLE_HIERARCHY[minimumRole] ?? Infinity;
 
     if (userLevel < requiredLevel) {
+      logAccessDenied(req, `Insufficient role: has ${req.session.role ?? 'none'}, needs ${minimumRole}`, 403);
       return res.status(403).json({ error: 'Forbidden' });
     }
 
