@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import path from 'path';
@@ -30,6 +31,34 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cookieParser()); // Required for CSRF cookie parsing
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Tailwind requires inline styles
+      imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'"],
+      connectSrc: ["'self'", config.FRONTEND_URL],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      baseUri: ["'self'"],
+    },
+  },
+  hsts: false, // No domain assigned yet
+  crossOriginEmbedderPolicy: false, // May interfere with external image loading
+  xContentTypeOptions: true,
+  xFrameOptions: { action: 'deny' },
+  referrerPolicy: { policy: 'strict-origin' },
+}));
+
+// Permissions-Policy header (not built into helmet)
+app.use((_req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 
 app.use(cors({
   origin: config.FRONTEND_URL,
