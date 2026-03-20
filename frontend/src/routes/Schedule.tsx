@@ -6,6 +6,7 @@ import { LegendBar } from '@/features/schedule/components/LegendBar'
 import { TeamManagementPanel } from '@/features/schedule/components/TeamManagementPanel'
 import { HolidayManager } from '@/features/schedule/components/HolidayManager'
 import { ExcelImportDialog } from '@/features/schedule/components/ExcelImportDialog'
+import { ClientManager } from '@/features/schedule/components/ClientManager'
 import { useAuth } from '@/features/auth/hooks'
 
 function getCurrentQuarter(): number {
@@ -24,6 +25,7 @@ export function Schedule() {
         <div className="flex items-center gap-2">
           {hasRole('PM') && <ExcelImportDialog year={selectedYear} />}
           {hasRole('ADMIN') && <HolidayManager />}
+          <ClientManager />
           {hasRole('PM') && <TeamManagementPanel />}
           <YearPicker selectedYear={selectedYear} onYearChange={setSelectedYear} />
         </div>
