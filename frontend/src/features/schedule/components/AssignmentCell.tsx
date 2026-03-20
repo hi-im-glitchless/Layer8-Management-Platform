@@ -122,73 +122,82 @@ export const AssignmentCell = memo(function AssignmentCell({
   if (isSplit) {
     const splitTextColor = getContrastColor(assignment.splitProjectColor!)
     return (
-      <div
-        ref={setRefs}
-        {...attributes}
-        {...listeners}
-        className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden ${
-          isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'
-        } ${isDragging ? 'opacity-40' : ''} ${
-          isDropTarget ? 'ring-2 ring-primary' : ''
-        } ${isLocked && isDropTarget ? 'cursor-not-allowed' : ''}`}
-        onClick={isClickable ? (e) => onCellClick(e) : undefined}
-      >
-        <div
-          className="flex-1 flex items-center px-1.5 min-w-0"
-          style={{ backgroundColor: assignment.projectColor }}
-        >
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[assignment.status]} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
-                  onClick={isClickable ? (e) => handleStatusClick(e, assignment.status, assignment.id) : undefined}
-                />
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {isClickable ? 'Click to cycle status' : getStatusLabel(assignment.status)}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <span className="text-xs font-medium truncate" style={{ color: textColor }}>
-            {assignment.projectName}
-          </span>
-        </div>
-        <div
-          className="flex-1 flex items-center px-1.5 min-w-0"
-          style={{ backgroundColor: assignment.splitProjectColor! }}
-        >
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder']} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
-                  onClick={isClickable ? (e) => {
-                    e.stopPropagation()
-                    if (!onStatusCycle) return
-                    const splitStatus = (assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'
-                    const currentIdx = STATUS_CYCLE.indexOf(splitStatus)
-                    const nextIdx = (currentIdx + 1) % STATUS_CYCLE.length
-                    // For split status cycling, we use a special convention: prefix with 'split:' to indicate it's the split half
-                    onStatusCycle(`split:${assignment.id}`, STATUS_CYCLE[nextIdx])
-                  } : undefined}
-                />
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {isClickable ? 'Click to cycle status' : getStatusLabel((assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <span className="text-xs font-medium truncate" style={{ color: splitTextColor }}>
-            {assignment.splitProjectName}
-          </span>
-        </div>
-        {isLocked && (
-          <div className="absolute top-0.5 right-0.5">
-            <Lock className="w-3 h-3 text-muted-foreground" />
-          </div>
-        )}
-      </div>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              ref={setRefs}
+              {...attributes}
+              {...listeners}
+              className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden ${
+                isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'
+              } ${isDragging ? 'opacity-40' : ''} ${
+                isDropTarget ? 'ring-2 ring-primary' : ''
+              } ${isLocked && isDropTarget ? 'cursor-not-allowed' : ''}`}
+              onClick={isClickable ? (e) => onCellClick(e) : undefined}
+            >
+              <div
+                className="flex-1 flex items-center px-1.5 min-w-0"
+                style={{ backgroundColor: assignment.projectColor }}
+              >
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[assignment.status]} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
+                        onClick={isClickable ? (e) => handleStatusClick(e, assignment.status, assignment.id) : undefined}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {isClickable ? 'Click to cycle status' : getStatusLabel(assignment.status)}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <span className="text-xs font-medium truncate" style={{ color: textColor }}>
+                  {assignment.projectName}
+                </span>
+              </div>
+              <div
+                className="flex-1 flex items-center px-1.5 min-w-0"
+                style={{ backgroundColor: assignment.splitProjectColor! }}
+              >
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder']} ${isClickable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
+                        onClick={isClickable ? (e) => {
+                          e.stopPropagation()
+                          if (!onStatusCycle) return
+                          const splitStatus = (assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'
+                          const currentIdx = STATUS_CYCLE.indexOf(splitStatus)
+                          const nextIdx = (currentIdx + 1) % STATUS_CYCLE.length
+                          // For split status cycling, we use a special convention: prefix with 'split:' to indicate it's the split half
+                          onStatusCycle(`split:${assignment.id}`, STATUS_CYCLE[nextIdx])
+                        } : undefined}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {isClickable ? 'Click to cycle status' : getStatusLabel((assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder')}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <span className="text-xs font-medium truncate" style={{ color: splitTextColor }}>
+                  {assignment.splitProjectName}
+                </span>
+              </div>
+              {isLocked && (
+                <div className="absolute top-0.5 right-0.5">
+                  <Lock className="w-3 h-3 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {assignment.projectName} / {assignment.splitProjectName}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 
