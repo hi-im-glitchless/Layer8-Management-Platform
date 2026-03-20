@@ -3,6 +3,7 @@ import type { Role } from '@/lib/rbac'
 export interface AdminUser {
   id: string
   username: string
+  displayName?: string | null
   role: Role
   isActive: boolean
   totpEnabled: boolean
@@ -21,12 +22,14 @@ export interface ActiveSession {
 
 export interface CreateUserRequest {
   username: string
+  displayName: string
   password: string
   role?: Role
 }
 
 export interface UpdateUserRequest {
   username?: string
+  displayName?: string
   role?: Role
   isActive?: boolean
 }
