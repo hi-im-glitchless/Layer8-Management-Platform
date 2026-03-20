@@ -65,18 +65,15 @@ backend/dev.db.old
 backend/prisma/dev.db.old
 backend/prisma/migrations.old/
 
-# VBW planning internals (keep planning artifacts, exclude ephemeral state)
-.vbw-planning/.cache/
-.vbw-planning/.agent-pids
-.vbw-planning/.watchdog-pid
-.vbw-planning/.vbw-session
-.vbw-planning/.vbw-context
-.vbw-planning/.context-usage
-.vbw-planning/.skills-section-stripped
-.vbw-planning/.todo-flat-migrated
-.vbw-planning/.event-log.jsonl
-.vbw-planning/.events/
-.vbw-planning/.execution-state.json
-.vbw-planning/.cost-ledger.json
-.vbw-planning/.notification-log.jsonl
-.vbw-planning/.session-log.jsonl
+# Planning directories (dev-only, not needed for deployment)
+.planning/
+.vbw-planning/
+
+# Dev notes
+CLAUDE.md
+VISION.md
+VERIFICATION.md
+
+# Python bytecode
+__pycache__/
+*.pyc
