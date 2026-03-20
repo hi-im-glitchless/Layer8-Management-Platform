@@ -10,6 +10,7 @@ import { config } from './config.js';
 import { connectRedis, createRedisStore } from './db/redis.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { generalRateLimiter } from './middleware/rateLimit.js';
+import { validateSession } from './middleware/session.js';
 import authRouter from './routes/auth.js';
 import auditRouter from './routes/audit.js';
 import usersRouter from './routes/users.js';
@@ -107,12 +108,15 @@ async function startServer() {
       cookie: {
         httpOnly: true,
         secure: config.NODE_ENV === 'production',
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours (matches absolute session expiry)
         sameSite: 'lax',
       },
     });
 
     app.use(sessionMiddleware);
+
+    // Validate session expiry (must run BEFORE activity tracker updates lastActivity)
+    app.use(validateSession);
 
     // Track session activity (lastActivity, ipAddress) for admin session monitoring
     app.use((req, res, next) => {
