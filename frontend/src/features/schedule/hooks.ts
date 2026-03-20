@@ -8,6 +8,8 @@ import type {
   CreateAbsenceRequest,
   CreateHolidayRequest,
   UpdateHolidayRequest,
+  CreateClientRequest,
+  UpdateClientRequest,
 } from './types'
 
 function handleMutationError(error: Error, fallbackMessage: string) {
@@ -266,6 +268,66 @@ export function useImportExcel() {
       toast.success(`Imported ${data.imported} assignments (${data.skipped} skipped)`)
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to import Excel file'),
+  })
+}
+
+// ── Clients ───────────────────────────────────────────────────────
+
+export function useClients() {
+  return useQuery({
+    queryKey: ['schedule', 'clients'],
+    queryFn: () => scheduleApi.getClients(),
+  })
+}
+
+export function useCreateClient() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: CreateClientRequest) => scheduleApi.createClient(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'clients'] })
+      toast.success('Client created successfully')
+    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to create client'),
+  })
+}
+
+export function useUpdateClient() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateClientRequest }) =>
+      scheduleApi.updateClient(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'clients'] })
+      toast.success('Client updated successfully')
+    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to update client'),
+  })
+}
+
+export function useDeleteClient() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => scheduleApi.deleteClient(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'clients'] })
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
+      toast.success('Client deleted successfully')
+    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to delete client'),
+  })
+}
+
+// ── Project Tags ──────────────────────────────────────────────────
+
+export function useProjectTags() {
+  return useQuery({
+    queryKey: ['schedule', 'project-tags'],
+    queryFn: () => scheduleApi.getProjectTags(),
+    staleTime: Infinity,
   })
 }
 
