@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma.js';
 import multer from 'multer';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { readRateLimiter, mutationRateLimiter } from '../middleware/rateLimit.js';
 import * as scheduleService from '../services/scheduleService.js';
 import * as assignmentService from '../services/assignmentService.js';
 import * as absenceService from '../services/absenceService.js';
@@ -20,7 +21,7 @@ const router = Router();
  * GET /team-members
  * List all active team members with user info
  */
-router.get('/team-members', requireAuth, async (req, res) => {
+router.get('/team-members', requireAuth, readRateLimiter, async (req, res) => {
   try {
     const teamMembers = await scheduleService.listTeamMembers();
     res.json({ teamMembers });
@@ -34,7 +35,7 @@ router.get('/team-members', requireAuth, async (req, res) => {
  * POST /team-members
  * Create a new team member (PM+)
  */
-router.post('/team-members', requireRole('PM'), async (req, res) => {
+router.post('/team-members', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({ userId: z.string().min(1) });
     const data = schema.parse(req.body);
@@ -54,7 +55,7 @@ router.post('/team-members', requireRole('PM'), async (req, res) => {
  * Reorder team members (PM+)
  * Must be defined before /:id to avoid route conflict
  */
-router.put('/team-members/reorder', requireRole('PM'), async (req, res) => {
+router.put('/team-members/reorder', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       orderedIds: z.array(z.string().min(1)).min(1),
@@ -75,7 +76,7 @@ router.put('/team-members/reorder', requireRole('PM'), async (req, res) => {
  * PUT /team-members/:id
  * Update a team member (PM+)
  */
-router.put('/team-members/:id', requireRole('PM'), async (req, res) => {
+router.put('/team-members/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     const schema = z.object({
@@ -99,7 +100,7 @@ router.put('/team-members/:id', requireRole('PM'), async (req, res) => {
  * POST /team-members/add-backlog
  * Add a single backlog ("No Man's Landing") row (PM+)
  */
-router.post('/team-members/add-backlog', requireRole('PM'), async (req, res) => {
+router.post('/team-members/add-backlog', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const member = await assignmentService.addBacklogMember();
     res.status(201).json({ member });
@@ -113,7 +114,7 @@ router.post('/team-members/add-backlog', requireRole('PM'), async (req, res) => 
  * DELETE /team-members/:id
  * Archive a team member (ADMIN+)
  */
-router.delete('/team-members/:id', requireRole('ADMIN'), async (req, res) => {
+router.delete('/team-members/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     await scheduleService.archiveTeamMember(id);
@@ -128,7 +129,7 @@ router.delete('/team-members/:id', requireRole('ADMIN'), async (req, res) => {
  * DELETE /team-members/backlog/:id
  * Delete a backlog row and its assignments (PM+)
  */
-router.delete('/team-members/backlog/:id', requireRole('PM'), async (req, res) => {
+router.delete('/team-members/backlog/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     const member = await prisma.teamMember.findUnique({ where: { id } });
@@ -154,7 +155,7 @@ router.delete('/team-members/backlog/:id', requireRole('PM'), async (req, res) =
  * Resolves the user's TeamMember record via userId, then delegates to assignmentService.
  * Must be defined before GET /assignments to avoid Express matching "/me" as a param.
  */
-router.get('/assignments/me', requireAuth, async (req, res) => {
+router.get('/assignments/me', requireAuth, readRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       year: z.coerce.number().int().min(2000).max(2100),
@@ -188,7 +189,7 @@ router.get('/assignments/me', requireAuth, async (req, res) => {
  * GET /assignments
  * List assignments filtered by year and optional quarter
  */
-router.get('/assignments', requireAuth, async (req, res) => {
+router.get('/assignments', requireAuth, readRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       year: z.coerce.number().int().min(2000).max(2100),
@@ -210,7 +211,7 @@ router.get('/assignments', requireAuth, async (req, res) => {
  * POST /assignments
  * Create or upsert an assignment (PM+)
  */
-router.post('/assignments', requireRole('PM'), async (req, res) => {
+router.post('/assignments', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       teamMemberId: z.string().min(1),
@@ -248,7 +249,7 @@ router.post('/assignments', requireRole('PM'), async (req, res) => {
  * Swap two assignments (PM+)
  * Must be defined before /:id to avoid route conflict
  */
-router.post('/assignments/swap', requireRole('PM'), async (req, res) => {
+router.post('/assignments/swap', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       idA: z.string().min(1),
@@ -270,7 +271,7 @@ router.post('/assignments/swap', requireRole('PM'), async (req, res) => {
  * PUT /assignments/:id
  * Update an assignment (PM+)
  */
-router.put('/assignments/:id', requireRole('PM'), async (req, res) => {
+router.put('/assignments/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     const schema = z.object({
@@ -309,7 +310,7 @@ router.put('/assignments/:id', requireRole('PM'), async (req, res) => {
  * DELETE /assignments/:id
  * Delete an assignment (PM+), 409 if locked
  */
-router.delete('/assignments/:id', requireRole('PM'), async (req, res) => {
+router.delete('/assignments/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     await assignmentService.deleteAssignment(id);
@@ -327,7 +328,7 @@ router.delete('/assignments/:id', requireRole('PM'), async (req, res) => {
  * POST /assignments/:id/lock
  * Toggle lock status on an assignment (PM+)
  */
-router.post('/assignments/:id/lock', requireRole('PM'), async (req, res) => {
+router.post('/assignments/:id/lock', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     const assignment = await assignmentService.toggleLock(id);
@@ -344,7 +345,7 @@ router.post('/assignments/:id/lock', requireRole('PM'), async (req, res) => {
  * GET /absences
  * List absences filtered by date range and optional team member
  */
-router.get('/absences', requireAuth, async (req, res) => {
+router.get('/absences', requireAuth, readRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       teamMemberId: z.string().min(1).optional(),
@@ -396,7 +397,7 @@ router.get('/absences', requireAuth, async (req, res) => {
  * POST /absences/toggle
  * Toggle an absence (create if missing, delete if exists) (PM+)
  */
-router.post('/absences/toggle', requireRole('PM'), async (req, res) => {
+router.post('/absences/toggle', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       teamMemberId: z.string().min(1),
@@ -428,7 +429,7 @@ router.post('/absences/toggle', requireRole('PM'), async (req, res) => {
  * GET /holidays
  * List all holidays
  */
-router.get('/holidays', requireAuth, async (req, res) => {
+router.get('/holidays', requireAuth, readRateLimiter, async (req, res) => {
   try {
     const holidays = await holidayService.listHolidays();
     res.json({ holidays });
@@ -442,7 +443,7 @@ router.get('/holidays', requireAuth, async (req, res) => {
  * POST /holidays
  * Create a holiday (ADMIN+)
  */
-router.post('/holidays', requireRole('ADMIN'), async (req, res) => {
+router.post('/holidays', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       name: z.string().min(1).max(100),
@@ -466,7 +467,7 @@ router.post('/holidays', requireRole('ADMIN'), async (req, res) => {
  * PUT /holidays/:id
  * Update a holiday (ADMIN+)
  */
-router.put('/holidays/:id', requireRole('ADMIN'), async (req, res) => {
+router.put('/holidays/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     const schema = z.object({
@@ -491,7 +492,7 @@ router.put('/holidays/:id', requireRole('ADMIN'), async (req, res) => {
  * DELETE /holidays/:id
  * Delete a holiday (ADMIN+)
  */
-router.delete('/holidays/:id', requireRole('ADMIN'), async (req, res) => {
+router.delete('/holidays/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     await holidayService.deleteHoliday(id);
@@ -508,7 +509,7 @@ router.delete('/holidays/:id', requireRole('ADMIN'), async (req, res) => {
  * GET /project-colors
  * Search project colors for autocomplete
  */
-router.get('/project-colors', requireAuth, async (req, res) => {
+router.get('/project-colors', requireAuth, readRateLimiter, async (req, res) => {
   try {
     const search = typeof req.query.search === 'string' ? req.query.search : '';
     const projectColors = await scheduleService.searchProjectColors(search);
@@ -525,7 +526,7 @@ router.get('/project-colors', requireAuth, async (req, res) => {
  * GET /clients
  * List all clients (accessible to all authenticated users)
  */
-router.get('/clients', requireAuth, async (_req, res) => {
+router.get('/clients', requireAuth, readRateLimiter, async (_req, res) => {
   try {
     const clients = await clientService.listClients();
     res.json({ clients });
@@ -539,7 +540,7 @@ router.get('/clients', requireAuth, async (_req, res) => {
  * POST /clients
  * Create a client (ADMIN only)
  */
-router.post('/clients', requireRole('ADMIN'), async (req, res) => {
+router.post('/clients', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       name: z.string().min(1).max(100),
@@ -564,7 +565,7 @@ router.post('/clients', requireRole('ADMIN'), async (req, res) => {
  * PUT /clients/:id
  * Update a client (ADMIN only)
  */
-router.put('/clients/:id', requireRole('ADMIN'), async (req, res) => {
+router.put('/clients/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     const schema = z.object({
@@ -590,7 +591,7 @@ router.put('/clients/:id', requireRole('ADMIN'), async (req, res) => {
  * DELETE /clients/:id
  * Delete a client (ADMIN only)
  */
-router.delete('/clients/:id', requireRole('ADMIN'), async (req, res) => {
+router.delete('/clients/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     await clientService.deleteClient(id);
@@ -607,7 +608,7 @@ router.delete('/clients/:id', requireRole('ADMIN'), async (req, res) => {
  * GET /project-tags
  * Return the predefined list of project tags (static, no DB needed)
  */
-router.get('/project-tags', requireAuth, (_req, res) => {
+router.get('/project-tags', requireAuth, readRateLimiter, (_req, res) => {
   res.json({ tags: [...VALID_TAGS] });
 });
 
@@ -633,7 +634,7 @@ const upload = multer({
  * POST /import
  * Import schedule data from an Excel file (PM+)
  */
-router.post('/import', requireRole('PM'), (req, res, next) => {
+router.post('/import', requireRole('PM'), mutationRateLimiter, (req, res, next) => {
   upload.single('file')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
