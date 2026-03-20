@@ -33,6 +33,7 @@ function generatePassword(): string {
 
 export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
   const [username, setUsername] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Role>('NORMAL')
   const [createdPassword, setCreatedPassword] = useState<string | null>(null)
@@ -58,6 +59,13 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       return
     }
 
+    // Validate display name
+    const trimmedDisplayName = displayName.trim()
+    if (!trimmedDisplayName || trimmedDisplayName.length > 50) {
+      toast.error('Display name is required (max 50 characters)')
+      return
+    }
+
     // Validate password
     if (password.length < 8) {
       toast.error('Password must be at least 8 characters')
@@ -67,6 +75,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     try {
       await createUser.mutateAsync({
         username,
+        displayName: displayName.trim(),
         password,
         role,
       })
@@ -80,6 +89,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
 
   const handleClose = () => {
     setUsername('')
+    setDisplayName('')
     setPassword('')
     setRole('NORMAL')
     setCreatedPassword(null)
@@ -164,6 +174,20 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             </div>
 
             <div>
+              <Label htmlFor="displayName">Display Name</Label>
+              <Input
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Jose Abreu"
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Full name shown in the UI (max 50 characters)
+              </p>
+            </div>
+
+            <div>
               <Label htmlFor="password">Temporary Password</Label>
               <div className="flex gap-2">
                 <Input
@@ -196,7 +220,6 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 <SelectContent>
                   <SelectItem value="NORMAL">Normal</SelectItem>
                   <SelectItem value="PM">Project Manager</SelectItem>
-                  <SelectItem value="MANAGER">Manager</SelectItem>
                   <SelectItem value="ADMIN">Admin</SelectItem>
                 </SelectContent>
               </Select>
