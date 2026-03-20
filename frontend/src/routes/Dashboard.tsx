@@ -1,11 +1,17 @@
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileCode, FileText, Inbox } from 'lucide-react'
+import { Calendar, FileCode, FileText, Inbox } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks'
 import { useActiveSession } from '@/features/adapter/hooks'
 import { useActiveReportSession } from '@/features/executive-report/hooks'
+import { useMyAssignments } from '@/features/schedule/hooks'
+import { buildProjectTimeline, getCurrentProject, getNextProject } from '@/features/dashboard/utils'
+import { ProjectCard } from '@/features/dashboard/components/ProjectCard'
+import { NoScheduleState } from '@/features/dashboard/components/NoScheduleState'
+import { ApiError } from '@/lib/api'
 import type { WizardStep } from '@/features/adapter/types'
 import type { ReportWizardStep } from '@/features/executive-report/types'
 
@@ -43,6 +49,26 @@ export function Dashboard() {
   const reportSession = reportQuery.error ? null : (reportQuery.data?.session ?? null)
   const isLoading = adapterQuery.isLoading || reportQuery.isLoading
   const hasAnySessions = adapterSession !== null || reportSession !== null
+
+  // Schedule data
+  const currentYear = new Date().getFullYear()
+  const assignmentsQuery = useMyAssignments(currentYear)
+
+  const is404 =
+    assignmentsQuery.error instanceof ApiError &&
+    assignmentsQuery.error.status === 404
+
+  const { currentProject, nextProject } = useMemo(() => {
+    const assignments = assignmentsQuery.data?.assignments ?? []
+    if (assignments.length === 0) return { currentProject: null, nextProject: null }
+    const timeline = buildProjectTimeline(assignments)
+    return {
+      currentProject: getCurrentProject(timeline),
+      nextProject: getNextProject(timeline),
+    }
+  }, [assignmentsQuery.data])
+
+  const hasAssignments = (assignmentsQuery.data?.assignments?.length ?? 0) > 0
 
   return (
     <div className="space-y-6">
@@ -87,6 +113,61 @@ export function Dashboard() {
         </Card>
       </div>
 
+      {/* Schedule Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-xl font-semibold tracking-tight">Your Schedule</h2>
+        </div>
+
+        {assignmentsQuery.isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+          </div>
+        ) : is404 ? (
+          <NoScheduleState />
+        ) : !hasAssignments ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border bg-card px-6 py-8 text-center">
+            <Calendar className="mb-3 h-8 w-8 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">No upcoming projects</p>
+          </div>
+        ) : currentProject || nextProject ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {currentProject && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Current Project
+                </p>
+                <ProjectCard project={currentProject} variant="current" />
+              </div>
+            )}
+            {nextProject && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Next Project
+                </p>
+                <ProjectCard project={nextProject} variant="next" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-lg border bg-card px-6 py-8 text-center">
+            <Calendar className="mb-3 h-8 w-8 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">No active projects this week</p>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Activity */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Recent Activity</h2>
 
