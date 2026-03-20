@@ -74,8 +74,11 @@ router.post('/login', loginRateLimiter, auditMiddleware('auth.login'), async (re
     // Check account lock status
     const lockStatus = checkAccountLock(user);
     if (lockStatus.locked) {
-      // Don't reveal lock status - return generic error
-      return res.status(401).json({ error: 'Invalid credentials' });
+      if (lockStatus.until) {
+        const retryAfterSeconds = Math.ceil((lockStatus.until.getTime() - Date.now()) / 1000);
+        res.set('Retry-After', String(Math.max(retryAfterSeconds, 1)));
+      }
+      return res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
     }
 
     // Verify password
