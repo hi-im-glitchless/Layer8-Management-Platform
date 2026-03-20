@@ -5,6 +5,9 @@ import type {
   Absence,
   Holiday,
   ProjectColor,
+  Client,
+  CreateClientRequest,
+  UpdateClientRequest,
   CreateAssignmentRequest,
   UpdateAssignmentRequest,
   CreateAbsenceRequest,
@@ -158,6 +161,38 @@ export const scheduleApi = {
     return apiClient<{ projectColors: ProjectColor[] }>(
       `/api/schedule/project-colors?search=${encodeURIComponent(query)}`
     )
+  },
+
+  // ── Clients ──────────────────────────────────────────────────────
+
+  async getClients() {
+    return apiClient<{ clients: Client[] }>('/api/schedule/clients')
+  },
+
+  async createClient(data: CreateClientRequest) {
+    return apiClient<Client>('/api/schedule/clients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  async updateClient(id: string, data: UpdateClientRequest) {
+    return apiClient<Client>(`/api/schedule/clients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  async deleteClient(id: string) {
+    return apiClient<{ success: boolean }>(`/api/schedule/clients/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  // ── Project Tags ────────────────────────────────────────────────
+
+  async getProjectTags() {
+    return apiClient<{ tags: string[] }>('/api/schedule/project-tags')
   },
 
   // ── Excel Import ──────────────────────────────────────────────────
