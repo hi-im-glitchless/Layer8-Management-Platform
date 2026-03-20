@@ -34,6 +34,9 @@ export interface Assignment {
   splitProjectName: string | null
   splitProjectColor: string | null
   splitProjectStatus: AssignmentStatus | null
+  splitClientId: string | null
+  splitTags: string[]
+  splitClient: Client | null
   createdBy: string | null
   clientId: string | null
   tags: string[]
@@ -116,6 +119,8 @@ export const CreateAssignmentSchema = z.object({
   splitProjectName: z.string().max(100).nullable().optional(),
   splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
   splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
+  splitClientId: z.string().nullable().optional(),
+  splitTags: z.array(z.string()).optional(),
   clientId: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
 })
@@ -129,6 +134,8 @@ export const UpdateAssignmentSchema = z.object({
   splitProjectName: z.string().max(100).nullable().optional(),
   splitProjectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
   splitProjectStatus: z.enum(['placeholder', 'needs-reqs', 'confirmed']).nullable().optional(),
+  splitClientId: z.string().nullable().optional(),
+  splitTags: z.array(z.string()).optional(),
   teamMemberId: z.string().min(1).optional(),
   weekStart: z.string().min(1).optional(),
   clientId: z.string().nullable().optional(),

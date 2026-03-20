@@ -23,7 +23,7 @@ import { ColorPalette } from './ColorPalette'
 import { useUpsertAssignment, useDeleteAssignment, useSearchProjectColors, useClients } from '../hooks'
 import { ASSIGNMENT_STATUSES, COLOR_PALETTE } from '../constants'
 import { CreateAssignmentSchema, PREDEFINED_TAGS } from '../types'
-import type { Assignment, AssignmentStatus, ProjectColor } from '../types'
+import type { Assignment, AssignmentStatus, Client, ProjectColor } from '../types'
 
 interface AssignmentModalProps {
   open: boolean
@@ -31,6 +31,96 @@ interface AssignmentModalProps {
   teamMemberId: string
   weekStart: string
   assignment: Assignment | undefined
+}
+
+function ClientSelect({
+  clientId,
+  clients,
+  onChange,
+}: {
+  clientId: string | null
+  clients: Client[]
+  onChange: (value: string | null, client?: Client) => void
+}) {
+  return (
+    <Select
+      value={clientId ?? '__none__'}
+      onValueChange={(v) => {
+        if (v === '__none__') {
+          onChange(null)
+        } else {
+          const selected = clients.find((c) => c.id === v)
+          onChange(v, selected ?? undefined)
+        }
+      }}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="No client">
+          {clientId ? (
+            <span className="flex items-center gap-2">
+              <span
+                className="w-3 h-3 rounded-sm shrink-0 inline-block"
+                style={{ backgroundColor: clients.find((c) => c.id === clientId)?.color }}
+              />
+              {clients.find((c) => c.id === clientId)?.name}
+            </span>
+          ) : (
+            'No client'
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__none__">No client</SelectItem>
+        {clients.map((c) => (
+          <SelectItem key={c.id} value={c.id}>
+            <span className="flex items-center gap-2">
+              <span
+                className="w-3 h-3 rounded-sm shrink-0 inline-block"
+                style={{ backgroundColor: c.color }}
+              />
+              {c.name}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function TagSelector({
+  selectedTags,
+  onToggle,
+}: {
+  selectedTags: string[]
+  onToggle: (tag: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {PREDEFINED_TAGS.map((tag) => (
+        <button
+          key={tag}
+          type="button"
+          onClick={() => onToggle(tag)}
+          className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+            selectedTags.includes(tag)
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-transparent text-muted-foreground border-border hover:border-primary/50'
+          }`}
+        >
+          {tag}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function parseTags(tags: unknown): string[] {
+  if (Array.isArray(tags)) return tags
+  if (typeof tags === 'string') {
+    try { const parsed = JSON.parse(tags); return Array.isArray(parsed) ? parsed : [] }
+    catch { return [] }
+  }
+  return []
 }
 
 export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assignment }: AssignmentModalProps) {
@@ -43,6 +133,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
   const [splitProjectName, setSplitProjectName] = useState('')
   const [splitProjectColor, setSplitProjectColor] = useState(COLOR_PALETTE[1].hex)
   const [splitProjectStatus, setSplitProjectStatus] = useState<AssignmentStatus>('placeholder')
+  const [splitClientId, setSplitClientId] = useState<string | null>(null)
+  const [splitSelectedTags, setSplitSelectedTags] = useState<string[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [clientId, setClientId] = useState<string | null>(null)
@@ -68,8 +160,10 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
         setSplitProjectName(assignment.splitProjectName ?? '')
         setSplitProjectColor(assignment.splitProjectColor ?? COLOR_PALETTE[1].hex)
         setSplitProjectStatus(assignment.splitProjectStatus ?? 'placeholder')
+        setSplitClientId(assignment.splitClientId ?? null)
+        setSplitSelectedTags(parseTags(assignment.splitTags))
         setClientId(assignment.clientId ?? null)
-        setSelectedTags(assignment.tags ?? [])
+        setSelectedTags(parseTags(assignment.tags))
       } else {
         setProjectName('')
         setProjectColor(COLOR_PALETTE[0].hex)
@@ -78,6 +172,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
         setSplitProjectName('')
         setSplitProjectColor(COLOR_PALETTE[1].hex)
         setSplitProjectStatus('placeholder')
+        setSplitClientId(null)
+        setSplitSelectedTags([])
         setClientId(null)
         setSelectedTags([])
       }
@@ -92,15 +188,17 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
     setShowSuggestions(false)
   }
 
-  const handleClientChange = (value: string) => {
-    if (value === '__none__') {
-      setClientId(null)
-      return
-    }
+  const handleClientChange = (value: string | null, client?: Client) => {
     setClientId(value)
-    const selected = clients.find((c) => c.id === value)
-    if (selected) {
-      setProjectColor(selected.color)
+    if (client) {
+      setProjectColor(client.color)
+    }
+  }
+
+  const handleSplitClientChange = (value: string | null, client?: Client) => {
+    setSplitClientId(value)
+    if (client) {
+      setSplitProjectColor(client.color)
     }
   }
 
@@ -110,16 +208,25 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
     )
   }
 
+  const toggleSplitTag = (tag: string) => {
+    setSplitSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    )
+  }
+
   const handleSave = () => {
+    const hasSplit = isSplit && splitProjectName.trim()
     const data = {
       teamMemberId,
       projectName: projectName.trim(),
       projectColor,
       status,
       weekStart,
-      splitProjectName: isSplit && splitProjectName.trim() ? splitProjectName.trim() : null,
-      splitProjectColor: isSplit && splitProjectName.trim() ? splitProjectColor : null,
-      splitProjectStatus: isSplit && splitProjectName.trim() ? splitProjectStatus : null,
+      splitProjectName: hasSplit ? splitProjectName.trim() : null,
+      splitProjectColor: hasSplit ? splitProjectColor : null,
+      splitProjectStatus: hasSplit ? splitProjectStatus : null,
+      splitClientId: hasSplit ? (splitClientId || null) : null,
+      splitTags: hasSplit ? splitSelectedTags : [],
       clientId: clientId || null,
       tags: selectedTags,
     }
@@ -146,7 +253,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent className={isSplit ? 'sm:max-w-[760px]' : 'sm:max-w-[440px]'}>
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Assignment' : 'New Assignment'}</DialogTitle>
           <DialogDescription>
@@ -154,140 +261,159 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Client Selection */}
-          <div className="space-y-2">
-            <Label>Client</Label>
-            <Select value={clientId ?? '__none__'} onValueChange={handleClientChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="No client">
-                  {clientId ? (
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="w-3 h-3 rounded-sm shrink-0 inline-block"
-                        style={{ backgroundColor: clients.find((c) => c.id === clientId)?.color }}
-                      />
-                      {clients.find((c) => c.id === clientId)?.name}
-                    </span>
-                  ) : (
-                    'No client'
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No client</SelectItem>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="w-3 h-3 rounded-sm shrink-0 inline-block"
-                        style={{ backgroundColor: c.color }}
-                      />
-                      {c.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="max-h-[calc(85vh-10rem)] overflow-y-auto py-2">
+          <div className={isSplit ? 'grid grid-cols-2 gap-6' : ''}>
+            {/* Primary Project Column */}
+            <div className="space-y-4">
+              {isSplit && <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Primary Project</Label>}
 
-          {/* Project Name with Autocomplete */}
-          <div className="space-y-2">
-            <Label htmlFor="projectName">Project Name</Label>
-            <div className="relative">
-              <Input
-                ref={inputRef}
-                id="projectName"
-                value={projectName}
-                onChange={(e) => {
-                  setProjectName(e.target.value)
-                  setShowSuggestions(e.target.value.length > 0)
-                }}
-                onFocus={() => {
-                  if (projectName.length > 0) setShowSuggestions(true)
-                }}
-                onBlur={() => {
-                  // Delay to allow click on suggestion
-                  setTimeout(() => setShowSuggestions(false), 200)
-                }}
-                placeholder="Enter project name..."
-              />
-              {showSuggestions && suggestions.length > 0 && (
-                <div
-                  ref={suggestionsRef}
-                  className="absolute top-full left-0 right-0 z-50 mt-1 max-h-[160px] overflow-auto rounded-md border bg-popover p-1 shadow-md"
-                >
-                  {suggestions.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => handleSuggestionSelect(s)}
+              {/* Client Selection */}
+              <div className="space-y-2">
+                <Label>Client</Label>
+                <ClientSelect clientId={clientId} clients={clients} onChange={handleClientChange} />
+              </div>
+
+              {/* Project Name with Autocomplete */}
+              <div className="space-y-2">
+                <Label htmlFor="projectName">Project Name</Label>
+                <div className="relative">
+                  <Input
+                    ref={inputRef}
+                    id="projectName"
+                    value={projectName}
+                    onChange={(e) => {
+                      setProjectName(e.target.value)
+                      setShowSuggestions(e.target.value.length > 0)
+                    }}
+                    onFocus={() => {
+                      if (projectName.length > 0) setShowSuggestions(true)
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setShowSuggestions(false), 200)
+                    }}
+                    placeholder="Enter project name..."
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div
+                      ref={suggestionsRef}
+                      className="absolute top-full left-0 right-0 z-50 mt-1 max-h-[160px] overflow-auto rounded-md border bg-popover p-1 shadow-md"
                     >
-                      <div
-                        className="w-3 h-3 rounded-sm shrink-0"
-                        style={{ backgroundColor: s.color }}
-                      />
-                      <span className="truncate">{s.name}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        {s.usageCount}x
-                      </span>
-                    </button>
+                      {suggestions.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleSuggestionSelect(s)}
+                        >
+                          <div
+                            className="w-3 h-3 rounded-sm shrink-0"
+                            style={{ backgroundColor: s.color }}
+                          />
+                          <span className="truncate">{s.name}</span>
+                          <span className="ml-auto text-xs text-muted-foreground">
+                            {s.usageCount}x
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Color Palette */}
+              <div className="space-y-2">
+                <Label>Color</Label>
+                <ColorPalette selectedColor={projectColor} onColorSelect={setProjectColor} />
+              </div>
+
+              {/* Status Selector */}
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <div className="flex gap-2">
+                  {ASSIGNMENT_STATUSES.map((s) => (
+                    <Button
+                      key={s.value}
+                      type="button"
+                      variant={status === s.value ? 'default' : 'outline'}
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => setStatus(s.value)}
+                    >
+                      {s.label}
+                    </Button>
                   ))}
                 </div>
-              )}
+              </div>
+
+              {/* Tags */}
+              <div className="space-y-2">
+                <Label>Tags</Label>
+                <TagSelector selectedTags={selectedTags} onToggle={toggleTag} />
+              </div>
             </div>
+
+            {/* Split Project Column (side by side when split is active) */}
+            {isSplit && (
+              <div className="space-y-4 pl-6 border-l-2 border-border">
+                <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Second Project</Label>
+
+                {/* Split Client */}
+                <div className="space-y-2">
+                  <Label>Client</Label>
+                  <ClientSelect clientId={splitClientId} clients={clients} onChange={handleSplitClientChange} />
+                </div>
+
+                {/* Split Project Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="splitProjectName">Project Name</Label>
+                  <Input
+                    id="splitProjectName"
+                    value={splitProjectName}
+                    onChange={(e) => setSplitProjectName(e.target.value)}
+                    placeholder="Enter second project name..."
+                  />
+                </div>
+
+                {/* Split Color */}
+                <div className="space-y-2">
+                  <Label>Color</Label>
+                  <ColorPalette
+                    selectedColor={splitProjectColor}
+                    onColorSelect={setSplitProjectColor}
+                  />
+                </div>
+
+                {/* Split Status */}
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <div className="flex gap-2">
+                    {ASSIGNMENT_STATUSES.map((s) => (
+                      <Button
+                        key={s.value}
+                        type="button"
+                        variant={splitProjectStatus === s.value ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => setSplitProjectStatus(s.value)}
+                      >
+                        {s.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Split Tags */}
+                <div className="space-y-2">
+                  <Label>Tags</Label>
+                  <TagSelector selectedTags={splitSelectedTags} onToggle={toggleSplitTag} />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Color Palette */}
-          <div className="space-y-2">
-            <Label>Color</Label>
-            <ColorPalette selectedColor={projectColor} onColorSelect={setProjectColor} />
-          </div>
-
-          {/* Status Selector */}
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <div className="flex gap-2">
-              {ASSIGNMENT_STATUSES.map((s) => (
-                <Button
-                  key={s.value}
-                  type="button"
-                  variant={status === s.value ? 'default' : 'outline'}
-                  size="sm"
-                  className="flex-1 text-xs"
-                  onClick={() => setStatus(s.value)}
-                >
-                  {s.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div className="space-y-2">
-            <Label>Tags</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {PREDEFINED_TAGS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => toggleTag(tag)}
-                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-                    selectedTags.includes(tag)
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-transparent text-muted-foreground border-border hover:border-primary/50'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Split Cell Toggle */}
-          <div className="flex items-center gap-2">
+          {/* Split Toggle - below both columns */}
+          <div className="flex items-center gap-2 mt-4">
             <Checkbox
               id="splitToggle"
               checked={isSplit}
@@ -298,47 +424,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
             </Label>
           </div>
 
-          {/* Split Project Fields */}
-          {isSplit && (
-            <div className="space-y-3 pl-6 border-l-2 border-border">
-              <div className="space-y-2">
-                <Label htmlFor="splitProjectName">Second Project Name</Label>
-                <Input
-                  id="splitProjectName"
-                  value={splitProjectName}
-                  onChange={(e) => setSplitProjectName(e.target.value)}
-                  placeholder="Enter second project name..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Second Project Color</Label>
-                <ColorPalette
-                  selectedColor={splitProjectColor}
-                  onColorSelect={setSplitProjectColor}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Status: {splitProjectName.trim() || 'Second Project'}</Label>
-                <div className="flex gap-2">
-                  {ASSIGNMENT_STATUSES.map((s) => (
-                    <Button
-                      key={s.value}
-                      type="button"
-                      variant={splitProjectStatus === s.value ? 'default' : 'outline'}
-                      size="sm"
-                      className="flex-1 text-xs"
-                      onClick={() => setSplitProjectStatus(s.value)}
-                    >
-                      {s.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-sm text-destructive mt-2">{error}</p>
           )}
         </div>
 

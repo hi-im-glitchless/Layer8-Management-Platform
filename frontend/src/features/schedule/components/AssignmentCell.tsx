@@ -56,14 +56,8 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
         <span className="text-xs font-semibold">{assignment.projectName}</span>
         <StatusBadge status={assignment.status} />
       </div>
-      {isSplit && (
-        <div className="flex flex-col gap-0.5 border-t border-border/30 pt-1.5">
-          <span className="text-xs font-semibold">{assignment.splitProjectName}</span>
-          <StatusBadge status={(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'} />
-        </div>
-      )}
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 border-t border-border/30 pt-1.5">
+        <div className="flex flex-wrap gap-1 pt-0.5">
           {tags.map((tag: string) => (
             <span key={tag} className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/20 text-blue-400 dark:bg-blue-400/20 dark:text-blue-300 border border-blue-500/30">
               {tag}
@@ -71,6 +65,27 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
           ))}
         </div>
       )}
+      {isSplit && (() => {
+        const splitTags = parseTags(assignment.splitTags)
+        return (
+          <div className="flex flex-col gap-0.5 border-t border-border/30 pt-1.5">
+            {assignment.splitClient && (
+              <span className="text-[10px] text-muted-foreground">{assignment.splitClient.name}</span>
+            )}
+            <span className="text-xs font-semibold">{assignment.splitProjectName}</span>
+            <StatusBadge status={(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'} />
+            {splitTags.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {splitTags.map((tag: string) => (
+                  <span key={tag} className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/20 text-blue-400 dark:bg-blue-400/20 dark:text-blue-300 border border-blue-500/30">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

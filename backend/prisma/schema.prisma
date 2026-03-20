@@ -190,23 +190,27 @@ model Assignment {
   status            String   @default("placeholder") // placeholder, needs-reqs, confirmed
   weekStart         DateTime // Monday of the week (ISO date)
   isLocked          Boolean  @default(false)
-  splitProjectName  String?  // Second project name for split cells
+  splitProjectName   String?  // Second project name for split cells
   splitProjectColor  String?  // Second project color for split cells
   splitProjectStatus String?  // Status for split project half
+  splitClientId      String?  // Optional client for split project
+  splitTags          String   @default("[]") // JSON array of tags for split project
   createdBy          String?  // User ID who last modified
   clientId           String?  // Optional client association
   tags               String   @default("[]") // JSON array of tag strings e.g. ["Web", "Red Team"]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
-  client     Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  teamMember  TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  client      Client?    @relation("AssignmentClient", fields: [clientId], references: [id], onDelete: SetNull)
+  splitClient Client?    @relation("AssignmentSplitClient", fields: [splitClientId], references: [id], onDelete: SetNull)
 
   @@unique([teamMemberId, weekStart])
   @@index([teamMemberId])
   @@index([weekStart])
   @@index([projectName])
   @@index([clientId])
+  @@index([splitClientId])
 }
 
 model Absence {
@@ -258,5 +262,6 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignments Assignment[]
+  assignments      Assignment[] @relation("AssignmentClient")
+  splitAssignments Assignment[] @relation("AssignmentSplitClient")
 }

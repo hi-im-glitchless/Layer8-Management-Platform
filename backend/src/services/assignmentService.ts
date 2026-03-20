@@ -73,6 +73,7 @@ export async function listAssignments(params: {
         },
       },
       client: true,
+      splitClient: true,
     },
   });
 }
@@ -92,6 +93,8 @@ export async function upsertAssignment(data: {
   splitProjectName?: string | null;
   splitProjectColor?: string | null;
   splitProjectStatus?: string | null;
+  splitClientId?: string | null;
+  splitTags?: string[];
   createdBy?: string | null;
   clientId?: string | null;
   tags?: string[];
@@ -104,12 +107,21 @@ export async function upsertAssignment(data: {
 
   // Validate tags if provided
   const validatedTags = data.tags ? validateTags(data.tags) : undefined;
+  const validatedSplitTags = data.splitTags ? validateTags(data.splitTags) : undefined;
 
   // Validate clientId exists if provided
   if (data.clientId) {
     const client = await prisma.client.findUnique({ where: { id: data.clientId } });
     if (!client) {
       throw new Error(`Client with id "${data.clientId}" not found`);
+    }
+  }
+
+  // Validate splitClientId exists if provided
+  if (data.splitClientId) {
+    const client = await prisma.client.findUnique({ where: { id: data.splitClientId } });
+    if (!client) {
+      throw new Error(`Client with id "${data.splitClientId}" not found`);
     }
   }
 
@@ -126,6 +138,8 @@ export async function upsertAssignment(data: {
     const clientAndTagData = {
       ...(data.clientId !== undefined ? { clientId: data.clientId } : {}),
       ...(validatedTags !== undefined ? { tags: JSON.stringify(validatedTags) } : {}),
+      ...(data.splitClientId !== undefined ? { splitClientId: data.splitClientId } : {}),
+      ...(validatedSplitTags !== undefined ? { splitTags: JSON.stringify(validatedSplitTags) } : {}),
     };
 
     if (existing) {
@@ -154,6 +168,8 @@ export async function upsertAssignment(data: {
         splitProjectName: data.splitProjectName ?? null,
         splitProjectColor: data.splitProjectColor ?? null,
         splitProjectStatus: data.splitProjectStatus ?? null,
+        splitClientId: data.splitClientId ?? null,
+        splitTags: validatedSplitTags ? JSON.stringify(validatedSplitTags) : '[]',
         createdBy: data.createdBy ?? null,
         clientId: data.clientId ?? null,
         tags: validatedTags ? JSON.stringify(validatedTags) : '[]',
@@ -175,12 +191,14 @@ export async function updateAssignment(
     isLocked?: boolean;
     splitProjectName?: string | null;
     splitProjectColor?: string | null;
+    splitProjectStatus?: string | null;
+    splitClientId?: string | null;
+    splitTags?: string[];
     createdBy?: string | null;
     clientId?: string | null;
     tags?: string[];
     teamMemberId?: string;
     weekStart?: Date;
-    splitProjectStatus?: string | null;
   }
 ) {
   const existing = await prisma.assignment.findUniqueOrThrow({ where: { id } });
@@ -193,6 +211,9 @@ export async function updateAssignment(
   if (data.tags) {
     validateTags(data.tags);
   }
+  if (data.splitTags) {
+    validateTags(data.splitTags);
+  }
 
   // Validate clientId exists if provided (and not null — null means unlink)
   if (data.clientId) {
@@ -202,11 +223,22 @@ export async function updateAssignment(
     }
   }
 
-  // Build update payload, converting tags array to JSON string
-  const { tags, ...rest } = data;
+  // Validate splitClientId exists if provided
+  if (data.splitClientId) {
+    const client = await prisma.client.findUnique({ where: { id: data.splitClientId } });
+    if (!client) {
+      throw new Error(`Client with id "${data.splitClientId}" not found`);
+    }
+  }
+
+  // Build update payload, converting tags arrays to JSON strings
+  const { tags, splitTags, ...rest } = data;
   const updateData: Record<string, unknown> = { ...rest };
   if (tags !== undefined) {
     updateData.tags = JSON.stringify(tags);
+  }
+  if (splitTags !== undefined) {
+    updateData.splitTags = JSON.stringify(splitTags);
   }
 
   return prisma.assignment.update({
@@ -255,6 +287,8 @@ export async function swapAssignments(idA: string, idB: string) {
         splitProjectName: a.splitProjectName,
         splitProjectColor: a.splitProjectColor,
         splitProjectStatus: a.splitProjectStatus,
+        splitClientId: a.splitClientId,
+        splitTags: a.splitTags,
         createdBy: a.createdBy,
         clientId: a.clientId,
         tags: a.tags,
@@ -272,6 +306,8 @@ export async function swapAssignments(idA: string, idB: string) {
         splitProjectName: b.splitProjectName,
         splitProjectColor: b.splitProjectColor,
         splitProjectStatus: b.splitProjectStatus,
+        splitClientId: b.splitClientId,
+        splitTags: b.splitTags,
         createdBy: b.createdBy,
         clientId: b.clientId,
         tags: b.tags,
