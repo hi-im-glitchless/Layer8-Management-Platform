@@ -165,7 +165,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="johndoe"
+                placeholder="jdoe"
                 required
               />
               <p className="text-xs text-muted-foreground mt-1">
@@ -179,7 +179,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Jose Abreu"
+                placeholder="John Doe"
                 required
               />
               <p className="text-xs text-muted-foreground mt-1">
