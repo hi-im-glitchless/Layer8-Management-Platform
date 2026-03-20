@@ -99,8 +99,15 @@ export function NoMansLanding({
                 onMouseEnter={() => onCellHover(member.id, weekStr)}
               >
                 {fullyOut ? (
-                  <div className="h-full flex items-center justify-center bg-rose-900/80 dark:bg-rose-950/80 rounded-sm">
+                  <div className="h-full flex flex-col items-center justify-center bg-rose-900/80 dark:bg-rose-950/80 rounded-sm gap-0.5">
                     <span className="text-xs font-semibold text-white">OUT</span>
+                    <AvailabilityDots
+                      weekStart={week}
+                      teamMemberId={member.id}
+                      absences={absences}
+                      holidays={holidays}
+                      year={year}
+                    />
                   </div>
                 ) : (
                   <>
