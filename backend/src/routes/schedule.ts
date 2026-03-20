@@ -81,6 +81,7 @@ router.put('/team-members/:id', requireRole('PM'), async (req, res) => {
     const schema = z.object({
       status: z.string().min(1).optional(),
       displayOrder: z.number().int().min(0).optional(),
+      displayName: z.string().max(50).nullable().optional(),
     });
     const data = schema.parse(req.body);
     const teamMember = await scheduleService.updateTeamMember(id, data);

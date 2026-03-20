@@ -46,7 +46,7 @@ export function useUpdateTeamMember() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { displayOrder?: number; status?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { displayOrder?: number; status?: string; displayName?: string | null } }) =>
       scheduleApi.updateTeamMember(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })

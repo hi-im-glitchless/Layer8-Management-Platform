@@ -401,10 +401,10 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                   <img src={member.user.avatarUrl} alt="" className="w-5 h-5 rounded-full shrink-0 object-cover" />
                 ) : (
                   <div className="w-5 h-5 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-300">
-                    {(member.user?.displayName || member.displayName || member.user?.username || '?').charAt(0).toUpperCase()}
+                    {(member.displayName || member.user?.displayName || member.user?.username || '?').charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="truncate">{member.user?.displayName || member.user?.username || member.displayName || 'Unknown'}</span>
+                <span className="truncate">{member.displayName || member.user?.displayName || member.user?.username || 'Unknown'}</span>
               </div>
             </td>
             {weekSlice.map((week, colIdx) => {

@@ -29,7 +29,7 @@ export const scheduleApi = {
     })
   },
 
-  async updateTeamMember(id: string, data: { displayOrder?: number; status?: string }) {
+  async updateTeamMember(id: string, data: { displayOrder?: number; status?: string; displayName?: string | null }) {
     return apiClient<TeamMember>(`/api/schedule/team-members/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),

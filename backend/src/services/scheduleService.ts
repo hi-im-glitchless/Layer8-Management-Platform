@@ -46,11 +46,11 @@ export async function createTeamMember(userId: string) {
 }
 
 /**
- * Update a team member's status and/or displayOrder.
+ * Update a team member's status, displayOrder, and/or displayName.
  */
 export async function updateTeamMember(
   id: string,
-  data: { status?: string; displayOrder?: number }
+  data: { status?: string; displayOrder?: number; displayName?: string | null }
 ) {
   return prisma.teamMember.update({
     where: { id },
