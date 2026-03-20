@@ -396,7 +396,16 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           return (
           <tr key={member.id} className={`transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20 ${rowBg}`}>
             <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-400 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap`}>
-              {member.user?.displayName || member.user?.username || member.displayName || 'Unknown'}
+              <div className="flex items-center gap-1.5">
+                {member.user?.avatarUrl ? (
+                  <img src={member.user.avatarUrl} alt="" className="w-5 h-5 rounded-full shrink-0 object-cover" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full shrink-0 bg-slate-300 dark:bg-slate-600 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                    {(member.user?.displayName || member.displayName || member.user?.username || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="truncate">{member.user?.displayName || member.user?.username || member.displayName || 'Unknown'}</span>
+              </div>
             </td>
             {weekSlice.map((week, colIdx) => {
               const assignment = getAssignment(member.id, week)
