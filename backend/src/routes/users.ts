@@ -52,7 +52,7 @@ router.post('/', auditMiddleware('admin.user.create'), async (req, res) => {
         .max(50, 'Username must be at most 50 characters')
         .regex(/^[a-zA-Z0-9_]+$/, 'Username must be alphanumeric with underscores only'),
       password: z.string().min(8, 'Password must be at least 8 characters'),
-      role: z.enum(['NORMAL', 'PM', 'MANAGER', 'ADMIN']).optional().default('NORMAL'),
+      role: z.enum(['NORMAL', 'PM', 'ADMIN']).optional().default('NORMAL'),
     });
 
     const validated = createUserSchema.parse(req.body);
@@ -115,7 +115,7 @@ router.put('/:id', auditMiddleware('admin.user.update'), async (req, res) => {
         .max(50)
         .regex(/^[a-zA-Z0-9_]+$/)
         .optional(),
-      role: z.enum(['NORMAL', 'PM', 'MANAGER', 'ADMIN']).optional(),
+      role: z.enum(['NORMAL', 'PM', 'ADMIN']).optional(),
       isActive: z.boolean().optional(),
     });
 

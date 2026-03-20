@@ -26,8 +26,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 const ROLE_HIERARCHY: Record<string, number> = {
   NORMAL: 1,
   PM: 2,
-  MANAGER: 3,
-  ADMIN: 4,
+  ADMIN: 3,
 };
 
 /**
