@@ -65,7 +65,7 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1 border-t border-border/30 pt-1.5">
           {tags.map((tag: string) => (
-            <span key={tag} className="px-1.5 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
+            <span key={tag} className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/20 text-blue-400 dark:bg-blue-400/20 dark:text-blue-300 border border-blue-500/30">
               {tag}
             </span>
           ))}
