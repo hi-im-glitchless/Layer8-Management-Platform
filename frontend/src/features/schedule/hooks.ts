@@ -36,7 +36,6 @@ export function useCreateTeamMember() {
     mutationFn: (userId: string) => scheduleApi.createTeamMember(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
-      toast.success('Team member added successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to add team member'),
   })
@@ -50,7 +49,6 @@ export function useUpdateTeamMember() {
       scheduleApi.updateTeamMember(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
-      toast.success('Team member updated successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to update team member'),
   })
@@ -63,7 +61,6 @@ export function useArchiveTeamMember() {
     mutationFn: (id: string) => scheduleApi.archiveTeamMember(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
-      toast.success('Team member archived successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to archive team member'),
   })
@@ -76,7 +73,6 @@ export function useReorderTeamMembers() {
     mutationFn: (orderedIds: string[]) => scheduleApi.reorderTeamMembers(orderedIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'team-members'] })
-      toast.success('Team order updated')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to reorder team members'),
   })
@@ -130,7 +126,6 @@ export function useUpsertAssignment() {
     mutationFn: (data: CreateAssignmentRequest) => scheduleApi.upsertAssignment(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-      toast.success('Assignment saved successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to save assignment'),
   })
@@ -144,7 +139,6 @@ export function useUpdateAssignment() {
       scheduleApi.updateAssignment(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-      toast.success('Assignment updated successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to update assignment'),
   })
@@ -157,7 +151,6 @@ export function useDeleteAssignment() {
     mutationFn: (id: string) => scheduleApi.deleteAssignment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-      toast.success('Assignment deleted successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to delete assignment'),
   })
@@ -171,7 +164,6 @@ export function useSwapAssignments() {
       scheduleApi.swapAssignments(idA, idB),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-      toast.success('Assignments swapped successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to swap assignments'),
   })
@@ -184,7 +176,6 @@ export function useToggleLock() {
     mutationFn: (id: string) => scheduleApi.toggleLock(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-      toast.success('Lock toggled successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to toggle lock'),
   })
@@ -206,7 +197,6 @@ export function useToggleAbsence() {
     mutationFn: (data: CreateAbsenceRequest) => scheduleApi.toggleAbsence(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'absences'] })
-      toast.success('Absence updated successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to update absence'),
   })
@@ -228,7 +218,6 @@ export function useCreateHoliday() {
     mutationFn: (data: CreateHolidayRequest) => scheduleApi.createHoliday(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'holidays'] })
-      toast.success('Holiday created successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to create holiday'),
   })
@@ -242,7 +231,6 @@ export function useUpdateHoliday() {
       scheduleApi.updateHoliday(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'holidays'] })
-      toast.success('Holiday updated successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to update holiday'),
   })
@@ -255,7 +243,6 @@ export function useDeleteHoliday() {
     mutationFn: (id: string) => scheduleApi.deleteHoliday(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'holidays'] })
-      toast.success('Holiday deleted successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to delete holiday'),
   })
@@ -272,7 +259,6 @@ export function useImportExcel() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
       queryClient.invalidateQueries({ queryKey: ['schedule', 'project-colors'] })
-      toast.success(`Imported ${data.imported} assignments (${data.skipped} skipped)`)
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to import Excel file'),
   })
@@ -294,7 +280,6 @@ export function useCreateClient() {
     mutationFn: (data: CreateClientRequest) => scheduleApi.createClient(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'clients'] })
-      toast.success('Client created successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to create client'),
   })
@@ -308,7 +293,6 @@ export function useUpdateClient() {
       scheduleApi.updateClient(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'clients'] })
-      toast.success('Client updated successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to update client'),
   })
@@ -322,7 +306,6 @@ export function useDeleteClient() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'clients'] })
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-      toast.success('Client deleted successfully')
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to delete client'),
   })
