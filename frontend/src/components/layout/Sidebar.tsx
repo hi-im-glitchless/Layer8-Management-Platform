@@ -163,7 +163,7 @@ export function Sidebar() {
           variant="ghost"
           size="icon"
           onClick={toggleCollapsed}
-          className="w-full"
+          className="w-full hover:bg-red-500/20 hover:text-red-500"
         >
           {collapsed ? (
             <ChevronRight className="h-5 w-5" />

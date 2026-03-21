@@ -559,7 +559,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       <tbody>
         {teamMembers.map((member, rowIdx) => {
           const isEvenRow = rowIdx % 2 === 0
-          const rowBg = isEvenRow ? 'bg-slate-100 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-900/50'
+          const rowBg = isEvenRow ? 'bg-slate-100 dark:bg-slate-800/50' : 'bg-slate-50 dark:bg-slate-900/50'
           return (
           <tr key={member.id} className={`transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20 ${rowBg}`}>
             <td className={`sticky left-0 z-20 ${rowBg} border-b border-r-2 border-slate-400 dark:border-slate-600 px-3 py-1.5 text-sm font-medium w-[140px] min-w-[120px] max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap`}>
