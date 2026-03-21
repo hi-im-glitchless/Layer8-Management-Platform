@@ -58,7 +58,11 @@ app.use(helmet({
       baseUri: ["'self'"],
     },
   },
-  hsts: false, // No domain assigned yet
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
   crossOriginEmbedderPolicy: false, // May interfere with external image loading
   xContentTypeOptions: true,
   xFrameOptions: { action: 'deny' },
