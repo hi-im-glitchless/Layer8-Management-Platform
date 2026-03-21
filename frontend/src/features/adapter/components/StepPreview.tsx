@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { PdfPreview } from '@/components/ui/pdf-preview'
 import { useRequestPreview, usePreviewStatus, useWizardSession } from '../hooks'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:3001')
 
 interface StepPreviewProps {
   sessionId: string

@@ -59,7 +59,7 @@ export const auditApi = {
     if (filters.endDate) params.append('endDate', filters.endDate)
 
     // Use native fetch for blob response
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:3001')
     const response = await fetch(`${API_BASE_URL}/api/audit/export?${params.toString()}`, {
       credentials: 'include',
     })

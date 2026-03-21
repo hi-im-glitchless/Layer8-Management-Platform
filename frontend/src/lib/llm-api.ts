@@ -2,7 +2,7 @@
  * LLM API client for triggering SSE-based generation via POST
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:3001');
 
 /**
  * Read CSRF token from cookie (same pattern as lib/api.ts)
