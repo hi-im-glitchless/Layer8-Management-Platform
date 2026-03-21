@@ -203,4 +203,16 @@ export const scheduleApi = {
     return apiClient<{ tags: string[] }>('/api/schedule/project-tags')
   },
 
+  // ── Purge Schedule ─────────────────────────────────────────────
+
+  async purgeSchedule() {
+    return apiClient<{
+      success: boolean
+      deleted: { assignments: number; absences: number; projectColors: number }
+    }>('/api/schedule/purge', {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmation: 'DELETE' }),
+    })
+  },
+
 }

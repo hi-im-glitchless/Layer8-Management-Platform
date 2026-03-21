@@ -614,4 +614,38 @@ router.get('/project-tags', requireAuth, readRateLimiter, (_req, res) => {
   res.json({ tags: [...VALID_TAGS] });
 });
 
+// ── Delete Entire Schedule ──────────────────────────────────────
+
+/**
+ * DELETE /purge
+ * Delete all assignments, absences, and project colors (ADMIN only)
+ */
+router.delete('/purge', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+  try {
+    const { confirmation } = req.body || {};
+
+    if (confirmation !== 'DELETE') {
+      return res.status(400).json({ error: 'Confirmation text "DELETE" is required' });
+    }
+
+    const [assignments, absences, projectColors] = await prisma.$transaction([
+      prisma.assignment.deleteMany({}),
+      prisma.absence.deleteMany({}),
+      prisma.projectColor.deleteMany({}),
+    ]);
+
+    res.json({
+      success: true,
+      deleted: {
+        assignments: assignments.count,
+        absences: absences.count,
+        projectColors: projectColors.count,
+      },
+    });
+  } catch (error) {
+    console.error('[schedule routes] Error purging schedule:', error);
+    res.status(500).json({ error: 'Failed to purge schedule data' });
+  }
+});
+
 export default router;

@@ -295,6 +295,20 @@ export function useDeleteClient() {
   })
 }
 
+// ── Purge Schedule ───────────────────────────────────────────────
+
+export function usePurgeSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => scheduleApi.purgeSchedule(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule'] })
+    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to purge schedule'),
+  })
+}
+
 // ── Project Tags ──────────────────────────────────────────────────
 
 export function useProjectTags() {
