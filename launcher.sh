@@ -14,7 +14,7 @@ set -euo pipefail
 APP_DIR="/opt/layer8"
 APP_USER="layer8"
 APP_GROUP="layer8"
-REPO_URL="https://github.com/OWNER/Layer8.git"  # TODO: update with actual repo URL
+REPO_URL="https://github.com/hi-im-glitchless/Layer8-Management-Platform.git"
 NODE_VERSION="20"
 SERVICE_NAME="layer8"
 SCRIPTS_DIR="$APP_DIR/scripts"
