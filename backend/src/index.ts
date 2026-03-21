@@ -30,6 +30,9 @@ import { checkGotenbergHealth } from './services/documents.js';
 
 const app = express();
 
+// Trust first proxy (nginx) so secure cookies work behind reverse proxy
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser()); // Required for CSRF cookie parsing
