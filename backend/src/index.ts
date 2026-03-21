@@ -37,6 +37,12 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(cookieParser()); // Required for CSRF cookie parsing
 
+// Prevent Cloudflare (or any proxy) from caching API responses
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  next();
+});
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: {
