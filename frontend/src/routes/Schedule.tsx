@@ -5,7 +5,6 @@ import { ScheduleGrid } from '@/features/schedule/components/ScheduleGrid'
 import { LegendBar } from '@/features/schedule/components/LegendBar'
 import { TeamManagementPanel } from '@/features/schedule/components/TeamManagementPanel'
 import { HolidayManager } from '@/features/schedule/components/HolidayManager'
-import { ExcelImportDialog } from '@/features/schedule/components/ExcelImportDialog'
 import { ClientManager } from '@/features/schedule/components/ClientManager'
 import { useAuth } from '@/features/auth/hooks'
 
@@ -23,7 +22,6 @@ export function Schedule() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
         <div className="flex items-center gap-2">
-          {hasRole('PM') && <ExcelImportDialog year={selectedYear} />}
           {hasRole('ADMIN') && <HolidayManager />}
           <ClientManager />
           {hasRole('PM') && <TeamManagementPanel />}

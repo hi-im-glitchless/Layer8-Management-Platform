@@ -248,22 +248,6 @@ export function useDeleteHoliday() {
   })
 }
 
-// ── Excel Import ──────────────────────────────────────────────────
-
-export function useImportExcel() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: ({ file, year }: { file: File; year: number }) =>
-      scheduleApi.importExcel(file, year),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-      queryClient.invalidateQueries({ queryKey: ['schedule', 'project-colors'] })
-    },
-    onError: (error: Error) => handleMutationError(error, 'Failed to import Excel file'),
-  })
-}
-
 // ── Clients ───────────────────────────────────────────────────────
 
 export function useClients() {

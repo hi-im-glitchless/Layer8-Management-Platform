@@ -1,4 +1,4 @@
-import { apiClient, apiUpload } from '@/lib/api'
+import { apiClient } from '@/lib/api'
 import type {
   TeamMember,
   Assignment,
@@ -203,21 +203,4 @@ export const scheduleApi = {
     return apiClient<{ tags: string[] }>('/api/schedule/project-tags')
   },
 
-  // ── Excel Import ──────────────────────────────────────────────────
-
-  async importExcel(file: File, year: number) {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('year', String(year))
-    return apiUpload<{
-      imported: number
-      skipped: number
-      errors: { row: number; message: string }[]
-      summary: {
-        membersFound: number
-        weeksFound: number
-        totalParsed: number
-      }
-    }>('/api/schedule/import', formData)
-  },
 }
