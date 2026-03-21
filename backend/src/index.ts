@@ -181,7 +181,7 @@ async function startServer() {
     app.use('/api/schedule', scheduleRouter);
 
     // Mount sanitization routes (gated: template adapter support route)
-    app.use('/api', requireFeature('FEATURE_TEMPLATE_ADAPTER'), sanitizationRouter);
+    app.use('/api/sanitize', requireFeature('FEATURE_TEMPLATE_ADAPTER'), sanitizationRouter);
 
     // Check sanitizer service readiness (optional - don't block server start)
     waitForSanitizer(10000, 2000).then(ready => {
