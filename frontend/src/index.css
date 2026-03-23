@@ -179,4 +179,14 @@
     }
   }
 
+  /* Override mobile browser autofill styles (dark login page) */
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus {
+    -webkit-text-fill-color: oklch(0.98 0 0);
+    -webkit-box-shadow: 0 0 0 1000px oklch(0.15 0 0) inset;
+    transition: background-color 5000s ease-in-out 0s;
+    caret-color: oklch(0.98 0 0);
+  }
+
 }

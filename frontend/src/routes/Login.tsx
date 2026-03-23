@@ -80,7 +80,7 @@ export function Login() {
   // Split-screen login layout with atmospheric gradient and glassmorphism
   // Login page is always dark regardless of theme — it's the atmospheric entry point
   return (
-    <div className="min-h-screen flex bg-black">
+    <div className="dark min-h-screen flex bg-black" style={{ colorScheme: 'dark' }}>
       {/* Left side - Pure black background so logo blends seamlessly (desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 bg-black items-center justify-center p-12 relative overflow-hidden">
         {/* Logo - blends seamlessly into pure black background */}
