@@ -6,8 +6,7 @@ import { SessionManagement } from '@/components/admin/SessionManagement'
 import { AuditLogViewer } from '@/components/admin/AuditLogViewer'
 import { useAuth } from '@/features/auth/hooks'
 import { toast } from 'sonner'
-import { LLMSettings } from '@/components/admin/LLMSettings'
-import { Shield, Users, Activity, FileText, Bot } from 'lucide-react'
+import { Shield, Users, Activity, FileText } from 'lucide-react'
 
 export function Admin() {
   const navigate = useNavigate()

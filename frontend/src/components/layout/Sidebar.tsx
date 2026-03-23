@@ -2,9 +2,6 @@ import { useState, useEffect, useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
-  FileCode,
-  FileText,
-  FileUp,
   Calendar,
   ScrollText,
   User,

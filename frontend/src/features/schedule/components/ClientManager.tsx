@@ -44,7 +44,7 @@ export function ClientManager() {
     color: COLOR_PALETTE[0].hex,
   })
   const [newName, setNewName] = useState('')
-  const [newColor, setNewColor] = useState(COLOR_PALETTE[0].hex)
+  const [newColor, setNewColor] = useState<string>(COLOR_PALETTE[0].hex)
 
   const clientsQuery = useClients()
   const createClient = useCreateClient()

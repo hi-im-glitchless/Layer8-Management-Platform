@@ -127,11 +127,11 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
   const isEdit = !!assignment
 
   const [projectName, setProjectName] = useState('')
-  const [projectColor, setProjectColor] = useState(COLOR_PALETTE[0].hex)
+  const [projectColor, setProjectColor] = useState<string>(COLOR_PALETTE[0].hex)
   const [status, setStatus] = useState<AssignmentStatus>('placeholder')
   const [isSplit, setIsSplit] = useState(false)
   const [splitProjectName, setSplitProjectName] = useState('')
-  const [splitProjectColor, setSplitProjectColor] = useState(COLOR_PALETTE[1].hex)
+  const [splitProjectColor, setSplitProjectColor] = useState<string>(COLOR_PALETTE[1].hex)
   const [splitProjectStatus, setSplitProjectStatus] = useState<AssignmentStatus>('placeholder')
   const [splitClientId, setSplitClientId] = useState<string | null>(null)
   const [splitSelectedTags, setSplitSelectedTags] = useState<string[]>([])
