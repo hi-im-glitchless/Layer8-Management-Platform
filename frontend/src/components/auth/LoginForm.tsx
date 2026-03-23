@@ -34,14 +34,15 @@ export function LoginForm({ onSubmit, isLoading }: LoginFormProps) {
   });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 text-white">
       <div className="space-y-2">
-        <Label htmlFor="username">Username</Label>
+        <Label htmlFor="username" className="text-slate-200">Username</Label>
         <Input
           id="username"
           type="text"
           autoComplete="username"
           placeholder="Enter your username"
+          className="text-white placeholder:text-slate-400 border-white/20 bg-white/5"
           {...register('username')}
           disabled={isLoading}
         />
@@ -51,12 +52,13 @@ export function LoginForm({ onSubmit, isLoading }: LoginFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password" className="text-slate-200">Password</Label>
         <Input
           id="password"
           type="password"
           autoComplete="current-password"
           placeholder="Enter your password"
+          className="text-white placeholder:text-slate-400 border-white/20 bg-white/5"
           {...register('password')}
           disabled={isLoading}
         />
