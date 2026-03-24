@@ -255,6 +255,9 @@ router.delete('/:id', auditMiddleware('admin.user.delete'), async (req, res) => 
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
+    // Invalidate all active sessions before deleting
+    await invalidateUserSessions(id);
+
     // Delete user (cascades to trusted devices, audit logs set userId to null)
     await prisma.user.delete({
       where: { id },
