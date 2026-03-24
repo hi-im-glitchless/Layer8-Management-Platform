@@ -76,15 +76,16 @@ export function PasswordChange({
   };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 text-white">
       <div className="space-y-2">
-        <Label htmlFor="newPassword">New Password</Label>
+        <Label htmlFor="newPassword" className="text-slate-200">New Password</Label>
         <div className="relative">
           <Input
             id="newPassword"
             type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
             placeholder="Enter new password"
+            className="text-white placeholder:text-slate-400 border-white/20 bg-white/5"
             {...register('newPassword')}
             disabled={isLoading}
           />
@@ -97,9 +98,9 @@ export function PasswordChange({
             disabled={isLoading}
           >
             {showPassword ? (
-              <EyeOff className="h-4 w-4 text-muted-foreground" />
+              <EyeOff className="h-4 w-4 text-slate-400" />
             ) : (
-              <Eye className="h-4 w-4 text-muted-foreground" />
+              <Eye className="h-4 w-4 text-slate-400" />
             )}
           </Button>
         </div>
@@ -122,7 +123,7 @@ export function PasswordChange({
                 />
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-slate-400">
               Strength: <span className="font-medium">{passwordStrength.label}</span>
             </p>
           </div>
@@ -130,13 +131,14 @@ export function PasswordChange({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Confirm Password</Label>
+        <Label htmlFor="confirmPassword" className="text-slate-200">Confirm Password</Label>
         <div className="relative">
           <Input
             id="confirmPassword"
             type={showConfirm ? 'text' : 'password'}
             autoComplete="new-password"
             placeholder="Confirm new password"
+            className="text-white placeholder:text-slate-400 border-white/20 bg-white/5"
             {...register('confirmPassword')}
             disabled={isLoading}
           />
@@ -149,9 +151,9 @@ export function PasswordChange({
             disabled={isLoading}
           >
             {showConfirm ? (
-              <EyeOff className="h-4 w-4 text-muted-foreground" />
+              <EyeOff className="h-4 w-4 text-slate-400" />
             ) : (
-              <Eye className="h-4 w-4 text-muted-foreground" />
+              <Eye className="h-4 w-4 text-slate-400" />
             )}
           </Button>
         </div>

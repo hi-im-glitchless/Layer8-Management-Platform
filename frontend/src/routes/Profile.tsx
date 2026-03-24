@@ -326,7 +326,7 @@ export function Profile() {
 
       {/* Password Change Dialog */}
       <Dialog open={passwordDialogOpen} onOpenChange={handlePasswordDialogClose}>
-        <DialogContent>
+        <DialogContent className="dark" style={{ colorScheme: 'dark' }}>
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
             <DialogDescription>
@@ -335,7 +335,7 @@ export function Profile() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="current-password">Current Password</Label>
+              <Label htmlFor="current-password" className="text-slate-200">Current Password</Label>
               <Input
                 id="current-password"
                 type="password"
@@ -343,6 +343,7 @@ export function Profile() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter current password"
+                className="text-white placeholder:text-slate-400 border-white/20 bg-white/5"
               />
             </div>
             <PasswordChange
@@ -355,7 +356,7 @@ export function Profile() {
 
       {/* TOTP Regeneration Dialog */}
       <Dialog open={totpDialogOpen} onOpenChange={handleTotpDialogClose}>
-        <DialogContent>
+        <DialogContent className="dark" style={{ colorScheme: 'dark' }}>
           <DialogHeader>
             <DialogTitle>Regenerate Two-Factor Authentication</DialogTitle>
             <DialogDescription>
@@ -369,7 +370,7 @@ export function Profile() {
                   <Shield className="h-5 w-5 text-warning mt-0.5" />
                   <div className="space-y-1">
                     <p className="font-medium text-sm">Warning</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-slate-400">
                       This will invalidate your current authenticator app setup. You will need to scan a new QR code.
                     </p>
                   </div>

@@ -40,15 +40,15 @@ export function TOTPVerification({ onSubmit, onBack, isLoading }: TOTPVerificati
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h2 className="text-2xl font-semibold tracking-tight">Two-Factor Authentication</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-2xl font-semibold tracking-tight text-white">Two-Factor Authentication</h2>
+        <p className="text-sm text-slate-400">
           Enter the 6-digit code from your authenticator app
         </p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="totp-code">Authentication Code</Label>
+          <Label htmlFor="totp-code" className="text-slate-200">Authentication Code</Label>
           <Input
             ref={inputRef}
             id="totp-code"
@@ -58,7 +58,7 @@ export function TOTPVerification({ onSubmit, onBack, isLoading }: TOTPVerificati
             value={code}
             onChange={handleCodeChange}
             placeholder="000000"
-            className="text-center text-2xl tracking-widest"
+            className="text-center text-2xl tracking-widest text-white placeholder:text-slate-400 border-white/20 bg-white/5"
             disabled={isLoading}
           />
         </div>
@@ -72,7 +72,7 @@ export function TOTPVerification({ onSubmit, onBack, isLoading }: TOTPVerificati
           />
           <Label
             htmlFor="remember-device"
-            className="text-sm font-normal cursor-pointer"
+            className="text-sm font-normal cursor-pointer text-slate-200"
           >
             Remember this device for 30 days
           </Label>
@@ -93,7 +93,7 @@ export function TOTPVerification({ onSubmit, onBack, isLoading }: TOTPVerificati
             type="button"
             variant="outline"
             onClick={onBack}
-            className="w-full"
+            className="w-full text-slate-200 border-white/20"
             disabled={isLoading}
           >
             Back to Login

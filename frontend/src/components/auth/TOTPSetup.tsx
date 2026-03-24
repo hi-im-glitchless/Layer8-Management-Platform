@@ -49,8 +49,8 @@ export function TOTPSetup({ qrCodeDataURL, onVerify, onSetup, isLoading }: TOTPS
   if (!qrCodeDataURL && isLoading) {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Generating QR code...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        <p className="text-sm text-slate-400">Generating QR code...</p>
       </div>
     );
   }
@@ -58,10 +58,10 @@ export function TOTPSetup({ qrCodeDataURL, onVerify, onSetup, isLoading }: TOTPS
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
-        <h2 className="text-2xl font-semibold tracking-tight">
+        <h2 className="text-2xl font-semibold tracking-tight text-white">
           Set Up Two-Factor Authentication
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-slate-400">
           Scan the QR code with your authenticator app
         </p>
       </div>
@@ -70,7 +70,7 @@ export function TOTPSetup({ qrCodeDataURL, onVerify, onSetup, isLoading }: TOTPS
         <div className="space-y-4">
           {/* QR Code */}
           <div className="flex justify-center">
-            <div className="rounded-lg border-2 border-border p-4 bg-white">
+            <div className="rounded-lg border-2 border-white/20 p-4 bg-white">
               <img
                 src={qrCodeDataURL}
                 alt="TOTP QR Code"
@@ -86,7 +86,7 @@ export function TOTPSetup({ qrCodeDataURL, onVerify, onSetup, isLoading }: TOTPS
               variant="ghost"
               size="sm"
               onClick={() => setShowSecret(!showSecret)}
-              className="w-full text-xs text-muted-foreground"
+              className="w-full text-xs text-slate-400"
             >
               {showSecret ? (
                 <>
@@ -101,11 +101,11 @@ export function TOTPSetup({ qrCodeDataURL, onVerify, onSetup, isLoading }: TOTPS
               )}
             </Button>
             {showSecret && (
-              <div className="rounded-md bg-muted p-3 text-center">
-                <p className="text-xs text-muted-foreground mb-1">
+              <div className="rounded-md bg-white/10 p-3 text-center">
+                <p className="text-xs text-slate-400 mb-1">
                   Enter this key manually in your app:
                 </p>
-                <code className="text-sm font-mono">
+                <code className="text-sm font-mono text-white">
                   {/* Note: Secret would need to be passed as prop for this to work */}
                   Contact admin for manual setup
                 </code>
@@ -114,9 +114,9 @@ export function TOTPSetup({ qrCodeDataURL, onVerify, onSetup, isLoading }: TOTPS
           </div>
 
           {/* Instructions */}
-          <div className="rounded-lg bg-muted/50 p-4 text-sm space-y-2">
-            <p className="font-medium">Popular authenticator apps:</p>
-            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+          <div className="rounded-lg bg-white/10 p-4 text-sm space-y-2">
+            <p className="font-medium text-white">Popular authenticator apps:</p>
+            <ul className="list-disc list-inside space-y-1 text-slate-400">
               <li>Google Authenticator</li>
               <li>Microsoft Authenticator</li>
               <li>Authy</li>
@@ -126,7 +126,7 @@ export function TOTPSetup({ qrCodeDataURL, onVerify, onSetup, isLoading }: TOTPS
 
           {/* Verification code input */}
           <div className="space-y-2">
-            <Label htmlFor="verify-code">Enter code to verify setup</Label>
+            <Label htmlFor="verify-code" className="text-slate-200">Enter code to verify setup</Label>
             <Input
               ref={inputRef}
               id="verify-code"
@@ -136,7 +136,7 @@ export function TOTPSetup({ qrCodeDataURL, onVerify, onSetup, isLoading }: TOTPS
               value={code}
               onChange={handleCodeChange}
               placeholder="000000"
-              className="text-center text-2xl tracking-widest"
+              className="text-center text-2xl tracking-widest text-white placeholder:text-slate-400 border-white/20 bg-white/5"
               disabled={isLoading}
             />
           </div>
