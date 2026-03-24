@@ -1,6 +1,16 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Table,
   TableBody,
@@ -28,6 +38,7 @@ import { formatDistanceToNow } from 'date-fns'
 export function UserManagement() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editUser, setEditUser] = useState<AdminUser | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
 
   const { data, isLoading } = useUsers()
   const deleteUser = useDeleteUser()
@@ -44,21 +55,15 @@ export function UserManagement() {
     }
   }
 
-  const handleDeleteUser = async (user: AdminUser) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete user "${user.username}"? This action cannot be undone.`
-      )
-    ) {
-      return
-    }
-
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return
     try {
-      await deleteUser.mutateAsync(user.id)
+      await deleteUser.mutateAsync(deleteTarget.id)
     } catch (error) {
       // Error handled by mutation hook
     }
-  }
+    setDeleteTarget(null)
+  }, [deleteTarget, deleteUser])
 
   return (
     <div className="space-y-4">
@@ -170,7 +175,7 @@ export function UserManagement() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => handleDeleteUser(user)}
+                          onClick={() => setDeleteTarget(user)}
                         >
                           Delete
                         </DropdownMenuItem>
@@ -194,6 +199,26 @@ export function UserManagement() {
         open={editUser !== null}
         onOpenChange={(open) => !open && setEditUser(null)}
       />
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete user &quot;{deleteTarget?.displayName || deleteTarget?.username}&quot;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

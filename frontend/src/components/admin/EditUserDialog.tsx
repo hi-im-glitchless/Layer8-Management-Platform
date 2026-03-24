@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -8,6 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -39,6 +49,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const [displayName, setDisplayName] = useState('')
   const [role, setRole] = useState<Role>('NORMAL')
   const [newPassword, setNewPassword] = useState('')
+
+  const [mfaResetOpen, setMfaResetOpen] = useState(false)
 
   const updateUser = useUpdateUser()
   const resetPassword = useResetPassword()
@@ -104,23 +116,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     }
   }
 
-  const handleResetMFA = async () => {
+  const handleConfirmResetMFA = useCallback(async () => {
     if (!user) return
-
-    if (
-      !confirm(
-        'Are you sure you want to reset MFA for this user? They will need to set it up again.'
-      )
-    ) {
-      return
-    }
-
     try {
       await resetTOTP.mutateAsync(user.id)
     } catch (error) {
       // Error handled by mutation hook
     }
-  }
+    setMfaResetOpen(false)
+  }, [user, resetTOTP])
 
   const handleGeneratePassword = () => {
     setNewPassword(generatePassword())
@@ -129,6 +133,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   if (!user) return null
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
@@ -244,7 +249,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                 type="button"
                 variant="destructive"
                 className="w-full"
-                onClick={handleResetMFA}
+                onClick={() => setMfaResetOpen(true)}
                 disabled={resetTOTP.isPending}
               >
                 <AlertTriangle className="h-4 w-4 mr-2" />
@@ -261,5 +266,26 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={mfaResetOpen} onOpenChange={setMfaResetOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Reset MFA</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to reset MFA for this user? They will need to set it up again on next login.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleConfirmResetMFA}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Reset MFA
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }
