@@ -387,8 +387,14 @@ router.post('/password/change', authRateLimiter, auditMiddleware('auth.password.
       }
     }
 
-    // Check password against haveibeenpwned (non-blocking)
+    // Check password against haveibeenpwned (BLOCKING — reject breached passwords)
     const breachResult = await checkPasswordBreach(newPassword);
+
+    if (breachResult.breached) {
+      return res.status(400).json({
+        error: `This password has appeared in ${breachResult.count.toLocaleString()} known data breaches and cannot be used. Please choose a different password.`,
+      });
+    }
 
     // Hash new password and update
     const newPasswordHash = await hashPassword(newPassword);
@@ -406,9 +412,6 @@ router.post('/password/change', authRateLimiter, auditMiddleware('auth.password.
     return res.json({
       success: true,
       message: 'Password changed successfully',
-      ...(breachResult.breached && {
-        warning: `This password has appeared in ${breachResult.count.toLocaleString()} known data breaches. Consider choosing a different password.`,
-      }),
     });
 
   } catch (error) {

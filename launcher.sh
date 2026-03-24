@@ -243,6 +243,7 @@ server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
     server_name DOMAIN_PLACEHOLDER;
+    server_tokens off;
 
     ssl_certificate     /etc/ssl/layer8/origin.pem;
     ssl_certificate_key /etc/ssl/layer8/origin-key.pem;
@@ -290,6 +291,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name DOMAIN_PLACEHOLDER;
+    server_tokens off;
     return 301 https://$host$request_uri;
 }
 NGINX_CONF
