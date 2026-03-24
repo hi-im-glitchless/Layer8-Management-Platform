@@ -298,14 +298,32 @@ router.post('/totp/verify-setup', authRateLimiter, auditMiddleware('auth.totp.co
       return res.status(401).json({ error: 'Invalid code' });
     }
 
-    // Save secret to user record
-    await prisma.user.update({
+    const newSecret = req.session.pendingTOTPSecret;
+
+    // Save new secret and invalidate trusted devices atomically
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: req.session.userId },
+        data: {
+          totpSecret: newSecret,
+          totpEnabled: true,
+        },
+      }),
+      prisma.trustedDevice.deleteMany({
+        where: { userId: req.session.userId! },
+      }),
+    ]);
+
+    // Verify the new secret was persisted
+    const updatedUser = await prisma.user.findUnique({
       where: { id: req.session.userId },
-      data: {
-        totpSecret: req.session.pendingTOTPSecret,
-        totpEnabled: true,
-      },
+      select: { totpSecret: true },
     });
+
+    if (updatedUser?.totpSecret !== newSecret) {
+      console.error('TOTP secret mismatch after update — expected new secret to be persisted');
+      return res.status(500).json({ error: 'Failed to save new authenticator. Please try again.' });
+    }
 
     // Clear pending secret and mark as verified
     req.session.pendingTOTPSecret = undefined;
