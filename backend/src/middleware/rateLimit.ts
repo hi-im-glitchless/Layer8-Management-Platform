@@ -75,12 +75,12 @@ export const mutationRateLimiter = rateLimit({
 });
 
 /**
- * Read rate limiter — 100 req/min per authenticated user (or per IP)
+ * Read rate limiter — 200 req/min per authenticated user (or per IP)
  * For GET on data endpoints
  */
 export const readRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100,
+  max: 200,
   keyGenerator: userOrIpKey,
   validate,
   message: 'Too many requests. Please try again later.',
@@ -92,11 +92,11 @@ export const readRateLimiter = rateLimit({
 
 /**
  * General rate limiter for all API endpoints
- * 100 requests per 15 minutes per IP
+ * 600 requests per 15 minutes per IP (40/min — comfortable for SPA usage)
  */
 export const generalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 1000 : 100,
+  max: process.env.NODE_ENV === 'development' ? 10000 : 600,
   message: 'Too many requests. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
