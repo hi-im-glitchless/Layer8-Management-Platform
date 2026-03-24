@@ -442,8 +442,13 @@ router.post('/logout', auditMiddleware('auth.logout'), async (req: Request, res:
       return res.status(500).json({ error: 'Failed to logout' });
     }
 
-    // Clear session cookie
-    res.clearCookie('connect.sid');
+    // Clear session cookie — must match the options used when setting it
+    res.clearCookie('connect.sid', {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
     return res.json({
       success: true,
       message: 'Logged out successfully',
