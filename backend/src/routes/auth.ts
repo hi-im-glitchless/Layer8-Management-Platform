@@ -16,6 +16,7 @@ import {
   isTrustedDevice,
   trackSession,
   untrackSession,
+  invalidateUserSessions,
 } from '@/services/session.js';
 import { requireAuth, requirePendingTOTP } from '@/middleware/auth.js';
 import { authRateLimiter } from '@/middleware/rateLimit.js';
@@ -408,6 +409,9 @@ router.post('/password/change', authRateLimiter, auditMiddleware('auth.password.
 
     // Clear mustResetPassword flag in session
     req.session.mustResetPassword = false;
+
+    // Invalidate all other sessions (keep current session active)
+    await invalidateUserSessions(user.id, req.sessionID);
 
     return res.json({
       success: true,

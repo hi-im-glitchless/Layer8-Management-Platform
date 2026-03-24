@@ -172,12 +172,15 @@ export async function terminateSession(sessionId: string): Promise<boolean> {
  * @param userId - User ID whose sessions should be destroyed
  * @returns Number of sessions destroyed
  */
-export async function invalidateUserSessions(userId: string): Promise<number> {
+export async function invalidateUserSessions(userId: string, excludeSessionId?: string): Promise<number> {
   try {
     const keys = await redisClient.keys('layer8:sess:*');
     let destroyed = 0;
 
     for (const key of keys) {
+      // Skip the excluded session (e.g. current user's own session after password change)
+      if (excludeSessionId && key === `layer8:sess:${excludeSessionId}`) continue;
+
       const sessionData = await redisClient.get(key);
       if (!sessionData) continue;
 

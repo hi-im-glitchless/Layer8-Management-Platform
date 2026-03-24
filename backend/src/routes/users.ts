@@ -202,6 +202,9 @@ router.post('/:id/reset-password', auditMiddleware('admin.user.password-reset'),
       },
     });
 
+    // Invalidate all sessions for the target user so they must re-login
+    await invalidateUserSessions(id);
+
     res.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
