@@ -43,6 +43,9 @@ router.post('/team-members', requireRole('PM'), mutationRateLimiter, async (req,
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
     }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return res.status(409).json({ error: 'This user is already a team member' });
+    }
     console.error('[schedule routes] Error creating team member:', error);
     res.status(500).json({ error: 'Failed to create team member' });
   }

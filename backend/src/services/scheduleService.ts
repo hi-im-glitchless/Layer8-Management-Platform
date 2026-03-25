@@ -24,13 +24,36 @@ export async function listTeamMembers() {
 
 /**
  * Create a new team member linked to a user.
+ * If the user was previously archived, reactivate them instead of
+ * creating a duplicate (userId has a unique constraint).
  * Sets displayOrder to the next available value.
  */
 export async function createTeamMember(userId: string) {
+  // Check for an existing archived record for this user
+  const existing = await prisma.teamMember.findUnique({
+    where: { userId },
+  });
+
   const maxOrder = await prisma.teamMember.aggregate({
     _max: { displayOrder: true },
   });
   const nextOrder = (maxOrder._max.displayOrder ?? -1) + 1;
+
+  if (existing) {
+    // Reactivate the archived member
+    return prisma.teamMember.update({
+      where: { id: existing.id },
+      data: {
+        status: 'active',
+        displayOrder: nextOrder,
+      },
+      include: {
+        user: {
+          select: { username: true, displayName: true, avatarUrl: true },
+        },
+      },
+    });
+  }
 
   return prisma.teamMember.create({
     data: {
