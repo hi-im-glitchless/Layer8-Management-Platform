@@ -56,7 +56,7 @@ export const COLOR_PALETTE = [
   { name: 'Peach', hex: '#FDBA74' },
   { name: 'Lilac', hex: '#C4B5FD' },
   { name: 'Seafoam', hex: '#86EFAC' },
-  { name: 'Petal', hex: '#FDA4AF' },
+  { name: 'Butter', hex: '#FDE68A' },
   { name: 'Sand', hex: '#E7D5B0' },
 ] as const
 
