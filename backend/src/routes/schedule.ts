@@ -446,9 +446,9 @@ router.get('/holidays', requireAuth, readRateLimiter, async (req, res) => {
 
 /**
  * POST /holidays
- * Create a holiday (ADMIN+)
+ * Create a holiday (PM+)
  */
-router.post('/holidays', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+router.post('/holidays', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       name: z.string().min(1).max(100),
@@ -470,9 +470,9 @@ router.post('/holidays', requireRole('ADMIN'), mutationRateLimiter, async (req, 
 
 /**
  * PUT /holidays/:id
- * Update a holiday (ADMIN+)
+ * Update a holiday (PM+)
  */
-router.put('/holidays/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+router.put('/holidays/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     const schema = z.object({
@@ -495,9 +495,9 @@ router.put('/holidays/:id', requireRole('ADMIN'), mutationRateLimiter, async (re
 
 /**
  * DELETE /holidays/:id
- * Delete a holiday (ADMIN+)
+ * Delete a holiday (PM+)
  */
-router.delete('/holidays/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+router.delete('/holidays/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     await holidayService.deleteHoliday(id);

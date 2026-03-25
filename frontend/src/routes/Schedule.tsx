@@ -24,7 +24,7 @@ export function Schedule() {
         <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
         <div className="flex items-center gap-2">
           {hasRole('ADMIN') && <PurgeScheduleDialog />}
-          {hasRole('ADMIN') && <HolidayManager />}
+          {hasRole('PM') && <HolidayManager />}
           <ClientManager />
           {hasRole('PM') && <TeamManagementPanel />}
           <YearPicker selectedYear={selectedYear} onYearChange={setSelectedYear} />

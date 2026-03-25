@@ -36,7 +36,7 @@ import type { Client } from '../types'
 
 export function ClientManager() {
   const { hasRole } = useAuth()
-  const isAdmin = hasRole('ADMIN')
+  const canManage = hasRole('PM')
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<{ name: string; color: string }>({
@@ -86,12 +86,12 @@ export function ClientManager() {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Building2 className="mr-2 h-4 w-4" />
-          {isAdmin ? 'Manage Clients' : 'View Clients'}
+          {canManage ? 'Manage Clients' : 'View Clients'}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isAdmin ? 'Manage Clients' : 'Clients'}</DialogTitle>
+          <DialogTitle>{canManage ? 'Manage Clients' : 'Clients'}</DialogTitle>
         </DialogHeader>
 
         <Table>
@@ -99,7 +99,7 @@ export function ClientManager() {
             <TableRow>
               <TableHead className="w-[40px]">Color</TableHead>
               <TableHead>Name</TableHead>
-              {isAdmin && <TableHead className="w-[80px]">Actions</TableHead>}
+              {canManage && <TableHead className="w-[80px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -156,7 +156,7 @@ export function ClientManager() {
                     />
                   </TableCell>
                   <TableCell className="font-medium">{client.name}</TableCell>
-                  {isAdmin && (
+                  {canManage && (
                     <TableCell>
                       <div className="flex gap-0.5">
                         <Button
@@ -200,15 +200,15 @@ export function ClientManager() {
             )}
             {clients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 3 : 2} className="text-center text-muted-foreground py-6">
-                  {isAdmin ? 'No clients yet. Add one below.' : 'No clients configured.'}
+                <TableCell colSpan={canManage ? 3 : 2} className="text-center text-muted-foreground py-6">
+                  {canManage ? 'No clients yet. Add one below.' : 'No clients configured.'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
 
-        {isAdmin && (
+        {canManage && (
           <div className="border rounded-md p-3 space-y-3">
             <h4 className="text-sm font-medium">Add Client</h4>
             <div className="space-y-2">
