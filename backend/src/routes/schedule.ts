@@ -543,9 +543,9 @@ router.get('/clients', requireAuth, readRateLimiter, async (_req, res) => {
 
 /**
  * POST /clients
- * Create a client (ADMIN only)
+ * Create a client (PM+)
  */
-router.post('/clients', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+router.post('/clients', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       name: z.string().min(1).max(100),
@@ -568,9 +568,9 @@ router.post('/clients', requireRole('ADMIN'), mutationRateLimiter, async (req, r
 
 /**
  * PUT /clients/:id
- * Update a client (ADMIN only)
+ * Update a client (PM+)
  */
-router.put('/clients/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+router.put('/clients/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     const schema = z.object({
@@ -594,9 +594,9 @@ router.put('/clients/:id', requireRole('ADMIN'), mutationRateLimiter, async (req
 
 /**
  * DELETE /clients/:id
- * Delete a client (ADMIN only)
+ * Delete a client (PM+)
  */
-router.delete('/clients/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+router.delete('/clients/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
     await clientService.deleteClient(id);
