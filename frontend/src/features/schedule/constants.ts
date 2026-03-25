@@ -17,32 +17,46 @@ export const STATUS_CYCLE: readonly ('placeholder' | 'needs-reqs' | 'confirmed')
 // ── Color Palette ──────────────────────────────────────────────────
 
 export const COLOR_PALETTE = [
-  // ── Vivid / Saturated ──
+  // ── Original (kept) ──
+  { name: 'Navy', hex: '#3B5998' },
+  { name: 'Coral', hex: '#E07A5F' },
+  { name: 'Forest', hex: '#4A7C59' },
+  { name: 'Plum', hex: '#9B5094' },
+  { name: 'Teal', hex: '#2E8B8B' },
+  { name: 'Brick', hex: '#A0522D' },
+  { name: 'Lavender', hex: '#8B7EC8' },
+  { name: 'Olive', hex: '#808040' },
+  { name: 'Rose', hex: '#C76D8E' },
+  { name: 'Cyan', hex: '#4DA6C9' },
+  { name: 'Mint', hex: '#5DAD8B' },
+  { name: 'Crimson', hex: '#B54555' },
+  { name: 'Steel', hex: '#6B8294' },
+  { name: 'Grape', hex: '#6B4E8D' },
+  { name: 'Sage', hex: '#8BAA7C' },
+  { name: 'Blush', hex: '#D4889A' },
+  { name: 'Denim', hex: '#5B7BA5' },
+  { name: 'Emerald', hex: '#3C8B6E' },
+  { name: 'Mauve', hex: '#9C7B9C' },
+  // ── Fixed duplicates (Mustard/Gold → Amber, Chocolate/Brick → Cocoa, Coral/Tangerine → Sunset, Copper kept distinct) ──
+  { name: 'Amber', hex: '#D97706' },
+  { name: 'Sunset', hex: '#E8590C' },
+  { name: 'Cocoa', hex: '#5C3317' },
+  { name: 'Copper', hex: '#B57340' },
+  // ── New vivid colors ──
   { name: 'Royal Blue', hex: '#2563EB' },
   { name: 'Red', hex: '#DC2626' },
-  { name: 'Emerald', hex: '#059669' },
   { name: 'Purple', hex: '#9333EA' },
-  { name: 'Orange', hex: '#EA580C' },
-  { name: 'Teal', hex: '#0D9488' },
-  { name: 'Pink', hex: '#EC4899' },
-  { name: 'Amber', hex: '#D97706' },
-  { name: 'Indigo', hex: '#4F46E5' },
+  { name: 'Hot Pink', hex: '#EC4899' },
   { name: 'Lime', hex: '#65A30D' },
-  { name: 'Crimson', hex: '#BE123C' },
-  { name: 'Cyan', hex: '#0891B2' },
-  // ── Medium / Balanced ──
-  { name: 'Navy', hex: '#1E3A5F' },
-  { name: 'Forest', hex: '#166534' },
-  { name: 'Brick', hex: '#9A3412' },
-  { name: 'Grape', hex: '#6B21A8' },
-  { name: 'Chocolate', hex: '#78350F' },
-  { name: 'Slate', hex: '#475569' },
-  // ── Light / Pastel ──
+  { name: 'Indigo', hex: '#4F46E5' },
+  { name: 'Turquoise', hex: '#06B6D4' },
+  { name: 'Gold', hex: '#EAB308' },
+  // ── New light / pastel ──
   { name: 'Sky', hex: '#7DD3FC' },
   { name: 'Peach', hex: '#FDBA74' },
-  { name: 'Lavender', hex: '#C4B5FD' },
-  { name: 'Mint', hex: '#86EFAC' },
-  { name: 'Rose', hex: '#FDA4AF' },
+  { name: 'Lilac', hex: '#C4B5FD' },
+  { name: 'Seafoam', hex: '#86EFAC' },
+  { name: 'Petal', hex: '#FDA4AF' },
   { name: 'Sand', hex: '#E7D5B0' },
 ] as const
 
