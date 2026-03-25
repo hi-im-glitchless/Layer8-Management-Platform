@@ -49,7 +49,7 @@ export async function generateTOTPSecret(username: string): Promise<{
 }> {
   const secret = generateSecret();
   const otpauth = generateURI({
-    issuer: 'AI Template Regenerator',
+    issuer: 'Layer8 - Management Platform',
     label: username,
     secret,
   });

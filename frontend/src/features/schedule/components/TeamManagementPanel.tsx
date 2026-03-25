@@ -125,7 +125,7 @@ export function TeamManagementPanel() {
           </div>
 
           {/* Team Member List */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 overflow-y-auto max-h-[calc(100vh-12rem)]">
             {teamMembers.map((member, index) => (
               <div
                 key={member.id}
