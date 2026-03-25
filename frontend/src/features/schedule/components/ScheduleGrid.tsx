@@ -55,6 +55,8 @@ interface ClipboardAssignment {
   projectName: string
   projectColor: string
   status: AssignmentStatus
+  clientId?: string | null
+  tags?: string[]
 }
 
 export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
@@ -215,6 +217,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         projectName: assignment.projectName,
         projectColor: assignment.projectColor,
         status: assignment.status,
+        clientId: assignment.clientId ?? null,
+        tags: assignment.tags ?? [],
       }
       navigator.clipboard.writeText(JSON.stringify(data)).then(() => {
         toast.success('Assignment copied')
@@ -466,6 +470,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           projectName: parsed.projectName,
           projectColor: parsed.projectColor,
           status: parsed.status,
+          clientId: parsed.clientId ?? null,
+          tags: parsed.tags ?? [],
         })
         toast.success('Assignment pasted')
       } catch {

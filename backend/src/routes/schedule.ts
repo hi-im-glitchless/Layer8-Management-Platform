@@ -359,10 +359,10 @@ router.get('/absences', requireAuth, readRateLimiter, async (req, res) => {
     });
     const params = schema.parse(req.query);
 
-    const isAdmin = req.session.role === 'ADMIN';
+    const canManageAll = req.session.role === 'ADMIN' || req.session.role === 'PM';
     let effectiveTeamMemberId = params.teamMemberId;
 
-    if (!isAdmin) {
+    if (!canManageAll) {
       // Look up the requesting user's own TeamMember record
       const ownMember = await prisma.teamMember.findUnique({
         where: { userId: req.session.userId },
