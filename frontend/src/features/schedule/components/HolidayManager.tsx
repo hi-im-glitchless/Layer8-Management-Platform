@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useHolidays, useCreateHoliday, useUpdateHoliday, useDeleteHoliday } from '../hooks'
+import { PORTUGUESE_HOLIDAYS } from '../constants'
 import type { Holiday } from '../types'
 
 const MONTHS = [
@@ -65,6 +66,20 @@ export function HolidayManager() {
   const deleteHoliday = useDeleteHoliday()
 
   const holidays: Holiday[] = holidaysQuery.data?.holidays ?? []
+  const [seeding, setSeeding] = useState(false)
+
+  const handleSeedPortuguese = async () => {
+    setSeeding(true)
+    for (const h of PORTUGUESE_HOLIDAYS) {
+      await new Promise<void>((resolve) => {
+        createHoliday.mutate(
+          { name: h.name, month: h.month, day: h.day, isRecurring: true },
+          { onSuccess: () => resolve(), onError: () => resolve() }
+        )
+      })
+    }
+    setSeeding(false)
+  }
 
   const handleCreate = () => {
     const day = parseInt(newDay, 10)
@@ -239,8 +254,16 @@ export function HolidayManager() {
             )}
             {holidays.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                  No holidays configured.
+                <TableCell colSpan={4} className="text-center py-6">
+                  <p className="text-muted-foreground mb-3">No holidays configured.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSeedPortuguese}
+                    disabled={seeding}
+                  >
+                    {seeding ? 'Adding...' : 'Load Portuguese Holidays'}
+                  </Button>
                 </TableCell>
               </TableRow>
             )}
