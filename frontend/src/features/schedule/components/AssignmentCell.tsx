@@ -239,7 +239,7 @@ function SplitCell({
             className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden relative ${
               isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'
             }`}
-            onClick={isClickable ? (e) => onCellClick(e) : undefined}
+            onClick={(e) => onCellClick(e)}
           >
             <SplitHalf
               assignment={assignment}
@@ -422,7 +422,7 @@ export const AssignmentCell = memo(function AssignmentCell({
               isDropTarget && !isLocked ? 'ring-2 ring-primary' : ''
             } ${isDropTarget && isLocked ? 'ring-2 ring-destructive cursor-not-allowed' : ''}`}
             style={{ backgroundColor: assignment.projectColor }}
-            onClick={isClickable ? (e) => onCellClick(e) : undefined}
+            onClick={(e) => onCellClick(e)}
           >
             <div className="flex items-start justify-between gap-0.5">
               <span className="text-xs font-medium leading-tight line-clamp-2" style={{ color: textColor }}>
