@@ -17,7 +17,7 @@ function parseTagFields<T extends { tags?: string | unknown; splitTags?: string 
 
 /** Predefined valid tag values for assignment categorization. */
 export const VALID_TAGS = [
-  'Web', 'Mobile', 'API', 'Externa', 'Interna', 'Red Team',
+  'Web', 'Mobile', 'API', 'Cloud', 'Externa', 'Interna', 'Red Team',
   'Phishing', 'OSINT', 'Esoterico', 'Cert', 'Outro',
 ] as const;
 

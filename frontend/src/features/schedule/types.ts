@@ -92,7 +92,7 @@ export interface UpdateClientRequest {
 }
 
 export const PREDEFINED_TAGS = [
-  'Web', 'Mobile', 'API', 'Externa', 'Interna', 'Red Team',
+  'Web', 'Mobile', 'API', 'Cloud', 'Externa', 'Interna', 'Red Team',
   'Phishing', 'OSINT', 'Esoterico', 'Cert', 'Outro',
 ] as const
 

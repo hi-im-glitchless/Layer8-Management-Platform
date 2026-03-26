@@ -35,6 +35,15 @@ function StatusBadge({ status }: { status: AssignmentStatus }) {
   )
 }
 
+/** Get compact tag initials like "W+I" for ["Web", "Interna"] */
+function getTagInitials(tags: string[]): string {
+  if (tags.length === 0) return ''
+  return tags.map(t => {
+    if (t === 'Red Team') return 'RT'
+    return t.charAt(0).toUpperCase()
+  }).join('+')
+}
+
 /** Parse tags safely — handles both string (JSON from SQLite) and array */
 function parseTags(tags: unknown): string[] {
   if (Array.isArray(tags)) return tags
@@ -453,7 +462,7 @@ export const AssignmentCell = memo(function AssignmentCell({
                 <Lock className="w-3 h-3 shrink-0" style={{ color: textColor }} />
               )}
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-1">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -467,6 +476,13 @@ export const AssignmentCell = memo(function AssignmentCell({
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              {(() => {
+                const tags = parseTags(assignment.tags)
+                const initials = getTagInitials(tags)
+                return initials ? (
+                  <span className="text-[9px] font-bold opacity-70" style={{ color: textColor }}>{initials}</span>
+                ) : null
+              })()}
             </div>
             {isSelected && (
               <div className="absolute inset-0 bg-blue-500/25 ring-2 ring-blue-500 ring-inset rounded-sm pointer-events-none z-10" />
