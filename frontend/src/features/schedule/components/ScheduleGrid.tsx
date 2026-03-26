@@ -87,6 +87,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const [activeDragData, setActiveDragData] = useState<DragData | null>(null)
   const hoveredCellRef = useRef<{ teamMemberId: string; weekStart: string } | null>(null)
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
+  const selectedCellsRef = useRef(selectedCells)
+  selectedCellsRef.current = selectedCells
   const isDragSelectingRef = useRef(false)
 
   const sensors = useSensors(
@@ -477,8 +479,9 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       }
 
       // Bulk paste path: when cells are selected
-      if (selectedCells.size > 0) {
-        const cells = Array.from(selectedCells)
+      const currentSelection = selectedCellsRef.current
+      if (currentSelection.size > 0) {
+        const cells = Array.from(currentSelection)
         const promises: Promise<unknown>[] = []
         let pastedCount = 0
         let skippedLocked = 0
@@ -538,7 +541,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [canEdit, assignmentMap, upsertMutation, selectedCells])
+  }, [canEdit, assignmentMap, upsertMutation, queryClient])
 
   const handleCellHover = useCallback((teamMemberId: string, weekStart: string) => {
     hoveredCellRef.current = { teamMemberId, weekStart }
