@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
   closestCenter,
@@ -67,6 +68,7 @@ function splitCellKey(key: string): [string, string] {
 }
 
 export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
+  const queryClient = useQueryClient()
   const { hasRole } = useAuth()
   const canEdit = hasRole('PM')
 
@@ -503,6 +505,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         }
 
         await Promise.all(promises)
+        await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
 
         if (pastedCount > 0) toast.success(`Pasted to ${pastedCount} cell${pastedCount > 1 ? 's' : ''}`)
         if (skippedLocked > 0) toast.warning(`Skipped ${skippedLocked} locked cell${skippedLocked > 1 ? 's' : ''}`)
@@ -582,12 +585,13 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     }
 
     await Promise.all(promises)
+    await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
 
     if (deletedCount > 0) toast.success(`Deleted ${deletedCount} assignment${deletedCount > 1 ? 's' : ''}`)
     if (skippedLocked > 0) toast.warning(`Skipped ${skippedLocked} locked cell${skippedLocked > 1 ? 's' : ''}`)
 
     setSelectedCells(new Set())
-  }, [selectedCells, assignmentMap, deleteMutation])
+  }, [selectedCells, assignmentMap, deleteMutation, queryClient])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
