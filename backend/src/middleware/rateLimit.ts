@@ -59,12 +59,13 @@ export const authRateLimiter = rateLimit({
 export const loginRateLimiter = authRateLimiter;
 
 /**
- * Mutation rate limiter — 30 req/min per authenticated user (or per IP)
+ * Mutation rate limiter — 120 req/min per authenticated user (or per IP)
  * For POST/PUT/DELETE on data endpoints
+ * Raised from 30 to support bulk paste/delete operations on the schedule grid
  */
 export const mutationRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30,
+  max: 120,
   keyGenerator: userOrIpKey,
   validate,
   message: 'Too many requests. Please try again later.',

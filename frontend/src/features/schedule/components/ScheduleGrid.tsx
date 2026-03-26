@@ -467,7 +467,6 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   const handleBulkPaste = useCallback(async (parsed: ClipboardAssignment) => {
     const cells = Array.from(selectedCells)
-    const promises: Promise<unknown>[] = []
     let pastedCount = 0
     let skippedLocked = 0
 
@@ -478,21 +477,18 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         continue
       }
       const [teamMemberId, weekStart] = splitCellKey(key)
-      promises.push(
-        upsertMutation.mutateAsync({
-          teamMemberId,
-          weekStart,
-          projectName: parsed.projectName,
-          projectColor: parsed.projectColor,
-          status: parsed.status,
-          clientId: parsed.clientId ?? null,
-          tags: parsed.tags ?? [],
-        })
-      )
+      await upsertMutation.mutateAsync({
+        teamMemberId,
+        weekStart,
+        projectName: parsed.projectName,
+        projectColor: parsed.projectColor,
+        status: parsed.status,
+        clientId: parsed.clientId ?? null,
+        tags: parsed.tags ?? [],
+      })
       pastedCount++
     }
 
-    await Promise.all(promises)
     await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
 
     if (pastedCount > 0) toast.success(`Pasted to ${pastedCount} cell${pastedCount > 1 ? 's' : ''}`)
@@ -554,7 +550,6 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   const bulkDelete = useCallback(async () => {
     const cells = Array.from(selectedCells)
-    const promises: Promise<unknown>[] = []
     let deletedCount = 0
     let skippedLocked = 0
 
@@ -565,11 +560,10 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         skippedLocked++
         continue
       }
-      promises.push(deleteMutation.mutateAsync(assignment.id))
+      await deleteMutation.mutateAsync(assignment.id)
       deletedCount++
     }
 
-    await Promise.all(promises)
     await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
 
     if (deletedCount > 0) toast.success(`Deleted ${deletedCount} assignment${deletedCount > 1 ? 's' : ''}`)
