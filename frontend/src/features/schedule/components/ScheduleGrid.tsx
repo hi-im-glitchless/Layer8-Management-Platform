@@ -90,6 +90,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const isDragSelectingRef = useRef(false)
   const wasDragSelectingRef = useRef(false)
   const dragStartKeyRef = useRef<string | null>(null)
+  const dragCtrlHeldRef = useRef(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -510,21 +511,27 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   const handleCellMouseDown = useCallback((teamMemberId: string, weekStr: string, e: React.MouseEvent) => {
     if (e.button !== 0) return
-    if (e.ctrlKey || e.metaKey) return
-    // Only start drag-select tracking — don't select the cell yet.
-    // The cell gets added on drag (mouseenter). If the user just clicks
-    // without dragging, handleCellClick opens the modal as normal.
+    e.preventDefault() // Prevent native browser text/element selection
     isDragSelectingRef.current = true
     dragStartKeyRef.current = `${teamMemberId}-${weekStr}`
+    // Track whether Ctrl is held — determines if drag adds to existing selection or replaces
+    dragCtrlHeldRef.current = e.ctrlKey || e.metaKey
   }, [])
 
   const handleCellDragEnter = useCallback((teamMemberId: string, weekStr: string) => {
     if (!isDragSelectingRef.current) return
     const key = `${teamMemberId}-${weekStr}`
-    // First drag movement — include the start cell + this cell
     if (dragStartKeyRef.current) {
-      setSelectedCells(new Set([dragStartKeyRef.current, key]))
+      // First drag movement — include the start cell + this cell
+      const startKey = dragStartKeyRef.current
       dragStartKeyRef.current = null
+      if (dragCtrlHeldRef.current) {
+        // Ctrl+drag: add to existing selection
+        setSelectedCells(prev => new Set([...prev, startKey, key]))
+      } else {
+        // Plain drag: fresh selection
+        setSelectedCells(new Set([startKey, key]))
+      }
     } else {
       setSelectedCells(prev => new Set([...prev, key]))
     }
