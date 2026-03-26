@@ -58,7 +58,12 @@ function ClientSelect({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onWheel={(e) => e.stopPropagation()}
+      >
         <div className="p-2 border-b">
           <Input
             ref={inputRef}
@@ -66,9 +71,10 @@ function ClientSelect({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-8"
+            autoFocus
           />
         </div>
-        <div className="max-h-48 overflow-y-auto p-1">
+        <div className="max-h-48 overflow-y-auto overscroll-contain p-1" onWheel={(e) => e.stopPropagation()}>
           <button
             className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${!clientId ? 'bg-accent' : ''}`}
             onClick={() => { onChange(null); setOpen(false); setSearch('') }}
