@@ -90,6 +90,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const selectedCellsRef = useRef(selectedCells)
   selectedCellsRef.current = selectedCells
   const isDragSelectingRef = useRef(false)
+  const wasDragSelectingRef = useRef(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -225,6 +226,11 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   }, [assignmentMap])
 
   const handleCellClick = useCallback((teamMemberId: string, weekStart: Date, assignment: Assignment | undefined, e?: React.MouseEvent) => {
+    // After a drag-select, the browser fires a click event — ignore it
+    if (wasDragSelectingRef.current) {
+      wasDragSelectingRef.current = false
+      return
+    }
     if (e?.ctrlKey || e?.metaKey) {
       const key = `${teamMemberId}-${toLocalDateString(weekStart)}`
       setSelectedCells(prev => {
@@ -564,7 +570,10 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   useEffect(() => {
     const handleMouseUp = () => {
-      isDragSelectingRef.current = false
+      if (isDragSelectingRef.current) {
+        wasDragSelectingRef.current = true
+        isDragSelectingRef.current = false
+      }
     }
     document.addEventListener('mouseup', handleMouseUp)
     return () => document.removeEventListener('mouseup', handleMouseUp)
