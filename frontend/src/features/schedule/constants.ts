@@ -163,9 +163,14 @@ export function getQuarterDateRange(
 
   const startMonth = (quarter - 1) * 3
   const endMonth = startMonth + 2
+  // End 4 days before the next quarter starts so boundary weeks
+  // (where Monday is in this quarter but Friday is in the next)
+  // only appear in the next quarter's view.
+  const lastDay = new Date(year, endMonth + 1, 0) // Last day of end month
+  lastDay.setDate(lastDay.getDate() - 4)
   return {
     start: new Date(year, startMonth, 1),
-    end: new Date(year, endMonth + 1, 0), // Last day of end month
+    end: lastDay,
   }
 }
 

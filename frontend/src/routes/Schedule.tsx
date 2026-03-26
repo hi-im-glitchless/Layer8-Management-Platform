@@ -10,7 +10,20 @@ import { PurgeScheduleDialog } from '@/features/schedule/components/PurgeSchedul
 import { useAuth } from '@/features/auth/hooks'
 
 function getCurrentQuarter(): number {
-  return Math.ceil((new Date().getMonth() + 1) / 3)
+  const now = new Date()
+  const month = now.getMonth() // 0-11
+  const quarter = Math.ceil((month + 1) / 3)
+  // If we're in the last 4 days of a quarter's last month and today is
+  // in a week that spans into the next quarter, advance to next quarter.
+  // Quarter end months: 2 (Mar), 5 (Jun), 8 (Sep), 11 (Dec)
+  const endMonth = (quarter * 3) - 1
+  if (month === endMonth) {
+    const lastDay = new Date(now.getFullYear(), endMonth + 1, 0).getDate()
+    if (now.getDate() > lastDay - 4) {
+      return quarter < 4 ? quarter + 1 : quarter
+    }
+  }
+  return quarter
 }
 
 export function Schedule() {
