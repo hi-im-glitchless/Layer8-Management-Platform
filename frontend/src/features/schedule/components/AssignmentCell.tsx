@@ -481,7 +481,7 @@ export const AssignmentCell = memo(function AssignmentCell({
                 if (tags.length === 0) return null
                 const label = tags.length === 1 ? tags[0] : getTagInitials(tags)
                 return (
-                  <span className="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-black/60 text-white border border-white/30">
                     {label}
                   </span>
                 )
