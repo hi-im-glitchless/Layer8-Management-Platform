@@ -478,10 +478,13 @@ export const AssignmentCell = memo(function AssignmentCell({
               </TooltipProvider>
               {(() => {
                 const tags = parseTags(assignment.tags)
-                const initials = getTagInitials(tags)
-                return initials ? (
-                  <span className="text-[9px] font-bold opacity-70" style={{ color: textColor }}>{initials}</span>
-                ) : null
+                if (tags.length === 0) return null
+                const label = tags.length === 1 ? tags[0] : getTagInitials(tags)
+                return (
+                  <span className="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                    {label}
+                  </span>
+                )
               })()}
             </div>
             {isSelected && (
