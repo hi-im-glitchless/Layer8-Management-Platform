@@ -69,7 +69,7 @@ function ClientSelect({
           )}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="max-h-60">
         <SelectItem value="__none__">No client</SelectItem>
         {clients.map((c) => (
           <SelectItem key={c.id} value={c.id}>
