@@ -119,10 +119,11 @@ async function startServer() {
       secret: config.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
+      rolling: true, // Refresh cookie on every request — active users stay logged in
       cookie: {
         httpOnly: true,
         secure: config.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours (matches absolute session expiry)
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours — resets on each request due to rolling
         sameSite: 'lax',
       },
     });
