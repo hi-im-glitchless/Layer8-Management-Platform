@@ -50,7 +50,7 @@ const navigationGroups: NavGroup[] = [
   {
     label: 'Account',
     items: [
-      { to: '/audit-log', icon: ScrollText, label: 'Audit Log' },
+      { to: '/audit-log', icon: ScrollText, label: 'Audit Log', minRole: 'ADMIN' },
       { to: '/profile', icon: User, label: 'Profile' },
     ],
   },
