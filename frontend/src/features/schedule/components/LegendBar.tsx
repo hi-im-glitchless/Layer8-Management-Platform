@@ -17,7 +17,7 @@ export function LegendBar() {
           <span>{item.label}</span>
         </div>
       ))}
-      <span className="ml-auto text-muted-foreground/60">Ctrl+Click: copy/paste</span>
+      <span className="ml-auto text-muted-foreground/60">Ctrl+Click: select | Ctrl+C: copy | Ctrl+V: paste | Del: delete</span>
     </div>
   )
 }

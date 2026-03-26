@@ -607,12 +607,13 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         const key = Array.from(selectedCells)[0]
         const assignment = assignmentMap.get(key)
         if (assignment) {
+          e.preventDefault()
           const data: ClipboardAssignment = {
             projectName: assignment.projectName,
             projectColor: assignment.projectColor,
             status: assignment.status,
-            clientId: assignment.clientId,
-            tags: assignment.tags,
+            clientId: assignment.clientId ?? null,
+            tags: assignment.tags ?? [],
           }
           navigator.clipboard.writeText(JSON.stringify(data))
           toast.success('Assignment copied')
