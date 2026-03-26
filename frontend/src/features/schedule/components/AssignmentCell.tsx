@@ -209,6 +209,7 @@ function SplitCell({
   canEdit,
   isClickable,
   isLocked,
+  isSelected,
   onCellClick,
   onStatusCycle,
   handleStatusClick,
