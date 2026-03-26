@@ -7,14 +7,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -42,48 +36,61 @@ function ClientSelect({
   clients: Client[]
   onChange: (value: string | null, client?: Client) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const selected = clients.find((c) => c.id === clientId)
+  const filtered = search
+    ? clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    : clients
+
   return (
-    <Select
-      value={clientId ?? '__none__'}
-      onValueChange={(v) => {
-        if (v === '__none__') {
-          onChange(null)
-        } else {
-          const selected = clients.find((c) => c.id === v)
-          onChange(v, selected ?? undefined)
-        }
-      }}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder="No client">
-          {clientId ? (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setTimeout(() => inputRef.current?.focus(), 0) }}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="w-full justify-start font-normal">
+          {selected ? (
             <span className="flex items-center gap-2">
-              <span
-                className="w-3 h-3 rounded-sm shrink-0 inline-block"
-                style={{ backgroundColor: clients.find((c) => c.id === clientId)?.color }}
-              />
-              {clients.find((c) => c.id === clientId)?.name}
+              <span className="w-3 h-3 rounded-sm shrink-0 inline-block" style={{ backgroundColor: selected.color }} />
+              {selected.name}
             </span>
           ) : (
-            'No client'
+            <span className="text-muted-foreground">No client</span>
           )}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent className="max-h-60">
-        <SelectItem value="__none__">No client</SelectItem>
-        {clients.map((c) => (
-          <SelectItem key={c.id} value={c.id}>
-            <span className="flex items-center gap-2">
-              <span
-                className="w-3 h-3 rounded-sm shrink-0 inline-block"
-                style={{ backgroundColor: c.color }}
-              />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <div className="p-2 border-b">
+          <Input
+            ref={inputRef}
+            placeholder="Search clients..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8"
+          />
+        </div>
+        <div className="max-h-48 overflow-y-auto p-1">
+          <button
+            className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${!clientId ? 'bg-accent' : ''}`}
+            onClick={() => { onChange(null); setOpen(false); setSearch('') }}
+          >
+            No client
+          </button>
+          {filtered.map((c) => (
+            <button
+              key={c.id}
+              className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent flex items-center gap-2 ${clientId === c.id ? 'bg-accent' : ''}`}
+              onClick={() => { onChange(c.id, c); setOpen(false); setSearch('') }}
+            >
+              <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: c.color }} />
               {c.name}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <div className="px-2 py-1.5 text-sm text-muted-foreground">No clients found</div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
