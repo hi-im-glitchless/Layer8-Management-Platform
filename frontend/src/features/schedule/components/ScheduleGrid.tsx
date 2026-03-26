@@ -87,8 +87,6 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const [activeDragData, setActiveDragData] = useState<DragData | null>(null)
   const hoveredCellRef = useRef<{ teamMemberId: string; weekStart: string } | null>(null)
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
-  const selectedCellsRef = useRef(selectedCells)
-  selectedCellsRef.current = selectedCells
   const isDragSelectingRef = useRef(false)
   const wasDragSelectingRef = useRef(false)
 
@@ -463,91 +461,65 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     }
   }, [swapMutation, updateMutation, upsertMutation])
 
-  // ── Paste handler ───────────────────────────────────────────────
+  // ── Paste helper (called from keydown Ctrl+V) ──────────────────
 
-  useEffect(() => {
-    if (!canEdit) return
+  const handleBulkPaste = useCallback(async (parsed: ClipboardAssignment) => {
+    const cells = Array.from(selectedCells)
+    const promises: Promise<unknown>[] = []
+    let pastedCount = 0
+    let skippedLocked = 0
 
-    const handlePaste = async (e: ClipboardEvent) => {
-      const text = e.clipboardData?.getData('text/plain')
-      if (!text) return
-
-      let parsed: ClipboardAssignment
-      try {
-        parsed = JSON.parse(text) as ClipboardAssignment
-        if (!parsed.projectName || !parsed.projectColor || !parsed.status) {
-          toast.error('Invalid clipboard content')
-          return
-        }
-      } catch {
-        toast.error('Invalid clipboard content')
-        return
-      }
-
-      // Bulk paste path: when cells are selected
-      const currentSelection = selectedCellsRef.current
-      if (currentSelection.size > 0) {
-        const cells = Array.from(currentSelection)
-        const promises: Promise<unknown>[] = []
-        let pastedCount = 0
-        let skippedLocked = 0
-
-        for (const key of cells) {
-          const existing = assignmentMap.get(key)
-          if (existing?.isLocked) {
-            skippedLocked++
-            continue
-          }
-          const [teamMemberId, weekStart] = splitCellKey(key)
-          promises.push(
-            upsertMutation.mutateAsync({
-              teamMemberId,
-              weekStart,
-              projectName: parsed.projectName,
-              projectColor: parsed.projectColor,
-              status: parsed.status,
-              clientId: parsed.clientId ?? null,
-              tags: parsed.tags ?? [],
-            })
-          )
-          pastedCount++
-        }
-
-        await Promise.all(promises)
-        await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-
-        if (pastedCount > 0) toast.success(`Pasted to ${pastedCount} cell${pastedCount > 1 ? 's' : ''}`)
-        if (skippedLocked > 0) toast.warning(`Skipped ${skippedLocked} locked cell${skippedLocked > 1 ? 's' : ''}`)
-
-        setSelectedCells(new Set())
-        return
-      }
-
-      // Single-cell paste path: hover fallback
-      const cell = hoveredCellRef.current
-      if (!cell) return
-
-      const existing = assignmentMap.get(`${cell.teamMemberId}-${cell.weekStart}`)
+    for (const key of cells) {
+      const existing = assignmentMap.get(key)
       if (existing?.isLocked) {
-        toast.error('Cannot paste onto a locked cell')
-        return
+        skippedLocked++
+        continue
       }
-
-      upsertMutation.mutate({
-        teamMemberId: cell.teamMemberId,
-        weekStart: cell.weekStart,
-        projectName: parsed.projectName,
-        projectColor: parsed.projectColor,
-        status: parsed.status,
-        clientId: parsed.clientId ?? null,
-        tags: parsed.tags ?? [],
-      })
-      toast.success('Assignment pasted')
+      const [teamMemberId, weekStart] = splitCellKey(key)
+      promises.push(
+        upsertMutation.mutateAsync({
+          teamMemberId,
+          weekStart,
+          projectName: parsed.projectName,
+          projectColor: parsed.projectColor,
+          status: parsed.status,
+          clientId: parsed.clientId ?? null,
+          tags: parsed.tags ?? [],
+        })
+      )
+      pastedCount++
     }
 
-    document.addEventListener('paste', handlePaste)
-    return () => document.removeEventListener('paste', handlePaste)
-  }, [canEdit, assignmentMap, upsertMutation, queryClient])
+    await Promise.all(promises)
+    await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
+
+    if (pastedCount > 0) toast.success(`Pasted to ${pastedCount} cell${pastedCount > 1 ? 's' : ''}`)
+    if (skippedLocked > 0) toast.warning(`Skipped ${skippedLocked} locked cell${skippedLocked > 1 ? 's' : ''}`)
+
+    setSelectedCells(new Set())
+  }, [selectedCells, assignmentMap, upsertMutation, queryClient])
+
+  const handleSinglePaste = useCallback(async (parsed: ClipboardAssignment) => {
+    const cell = hoveredCellRef.current
+    if (!cell) return
+
+    const existing = assignmentMap.get(`${cell.teamMemberId}-${cell.weekStart}`)
+    if (existing?.isLocked) {
+      toast.error('Cannot paste onto a locked cell')
+      return
+    }
+
+    await upsertMutation.mutateAsync({
+      teamMemberId: cell.teamMemberId,
+      weekStart: cell.weekStart,
+      projectName: parsed.projectName,
+      projectColor: parsed.projectColor,
+      status: parsed.status,
+      clientId: parsed.clientId ?? null,
+      tags: parsed.tags ?? [],
+    })
+    toast.success('Assignment pasted')
+  }, [assignmentMap, upsertMutation])
 
   const handleCellHover = useCallback((teamMemberId: string, weekStart: string) => {
     hoveredCellRef.current = { teamMemberId, weekStart }
@@ -635,10 +607,37 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           toast.success('Assignment copied')
         }
       }
+
+      // Ctrl+V paste — handle here instead of paste event to avoid stale closure issues
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && canEdit) {
+        e.preventDefault()
+        navigator.clipboard.readText().then(async (text) => {
+          if (!text) return
+          let parsed: ClipboardAssignment
+          try {
+            parsed = JSON.parse(text) as ClipboardAssignment
+            if (!parsed.projectName || !parsed.projectColor || !parsed.status) {
+              toast.error('Invalid clipboard content')
+              return
+            }
+          } catch {
+            toast.error('Invalid clipboard content')
+            return
+          }
+
+          if (selectedCells.size > 0) {
+            await handleBulkPaste(parsed)
+          } else {
+            await handleSinglePaste(parsed)
+          }
+        }).catch(() => {
+          toast.error('Cannot read clipboard — check browser permissions')
+        })
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedCells, canEdit, bulkDelete, assignmentMap])
+  }, [selectedCells, canEdit, bulkDelete, assignmentMap, handleBulkPaste, handleSinglePaste])
 
   if (isLoading) {
     return (
