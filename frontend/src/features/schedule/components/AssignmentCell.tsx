@@ -186,32 +186,34 @@ function SplitHalf({
       ref={setRefs}
       {...attributes}
       {...listeners}
-      className={`flex-1 flex items-center px-1.5 min-w-0 ${
+      className={`flex-1 flex flex-col justify-center px-1.5 min-w-0 ${
         isDragging ? 'opacity-40' : ''
       } ${isOver ? 'ring-2 ring-primary ring-inset' : ''}`}
       style={{ backgroundColor: bgColor }}
     >
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[status]} ${isDraggable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
-              onClick={isDraggable ? onStatusClick : undefined}
-            />
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            {isDraggable ? 'Click to cycle status' : getStatusLabel(status)}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <span className="text-xs font-medium truncate" style={{ color: textColor }}>
-        {label}
-      </span>
+      <div className="flex items-center">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className={`w-5 h-3 rounded-sm shrink-0 mr-1 ${STATUS_DOT_COLORS[status]} ${isDraggable ? 'hover:scale-110 cursor-pointer transition-transform' : ''}`}
+                onClick={isDraggable ? onStatusClick : undefined}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {isDraggable ? 'Click to cycle status' : getStatusLabel(status)}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <span className="text-xs font-medium truncate" style={{ color: textColor }}>
+          {label}
+        </span>
+      </div>
       {(() => {
         const parsed = parseTags(tags)
         if (parsed.length === 0) return null
         return (
-          <span className="ml-1 px-1 py-0.5 text-[8px] font-bold rounded-full bg-black/60 text-white border border-white/30 shrink-0">
+          <span className="self-start px-1.5 py-0.5 mt-0.5 text-[8px] font-bold rounded-full bg-slate-800 text-white border border-slate-600">
             {getTagInitials(parsed)}
           </span>
         )
@@ -494,7 +496,7 @@ export const AssignmentCell = memo(function AssignmentCell({
                 if (tags.length === 0) return null
                 const label = tags.length === 1 ? tags[0] : getTagInitials(tags)
                 return (
-                  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-black/60 text-white border border-white/30">
+                  <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-slate-800 text-white border border-slate-600">
                     {label}
                   </span>
                 )
