@@ -1,6 +1,20 @@
 import { prisma } from '@/db/prisma.js';
 import { upsertProjectColor } from '@/services/scheduleService.js';
 
+/**
+ * Parse JSON-stringified tag fields back to arrays for API responses.
+ * SQLite stores tags as JSON strings; this ensures consumers get real arrays.
+ */
+function parseTagFields<T extends { tags?: string | unknown; splitTags?: string | unknown }>(
+  assignment: T
+): T & { tags: string[]; splitTags: string[] } {
+  return {
+    ...assignment,
+    tags: typeof assignment.tags === 'string' ? JSON.parse(assignment.tags) : assignment.tags ?? [],
+    splitTags: typeof assignment.splitTags === 'string' ? JSON.parse(assignment.splitTags) : assignment.splitTags ?? [],
+  };
+}
+
 /** Predefined valid tag values for assignment categorization. */
 export const VALID_TAGS = [
   'Web', 'Mobile', 'API', 'Externa', 'Interna', 'Red Team',
@@ -58,7 +72,7 @@ export async function listAssignments(params: {
 }) {
   const { start, end } = getDateRange(params.year, params.quarter);
 
-  return prisma.assignment.findMany({
+  const assignments = await prisma.assignment.findMany({
     where: {
       weekStart: { gte: start, lt: end },
       ...(params.teamMemberId ? { teamMemberId: params.teamMemberId } : {}),
@@ -76,6 +90,7 @@ export async function listAssignments(params: {
       splitClient: true,
     },
   });
+  return assignments.map(parseTagFields);
 }
 
 /**
@@ -125,7 +140,7 @@ export async function upsertAssignment(data: {
     }
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.assignment.findUnique({
       where: {
         teamMemberId_weekStart: {
@@ -176,6 +191,7 @@ export async function upsertAssignment(data: {
       },
     });
   });
+  return parseTagFields(result);
 }
 
 /**
@@ -241,10 +257,11 @@ export async function updateAssignment(
     updateData.splitTags = JSON.stringify(splitTags);
   }
 
-  return prisma.assignment.update({
+  const result = await prisma.assignment.update({
     where: { id },
     data: updateData,
   });
+  return parseTagFields(result);
 }
 
 /**
