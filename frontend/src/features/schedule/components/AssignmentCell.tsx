@@ -136,6 +136,7 @@ function SplitHalf({
   status,
   canEdit,
   isLocked,
+  tags,
   onStatusClick,
 }: {
   assignment: Assignment
@@ -148,6 +149,7 @@ function SplitHalf({
   status: AssignmentStatus
   canEdit: boolean
   isLocked: boolean
+  tags?: unknown
   onStatusClick?: (e: React.MouseEvent) => void
 }) {
   const halfId = `${cellId}:${side}`
@@ -205,6 +207,15 @@ function SplitHalf({
       <span className="text-xs font-medium truncate" style={{ color: textColor }}>
         {label}
       </span>
+      {(() => {
+        const parsed = parseTags(tags)
+        if (parsed.length === 0) return null
+        return (
+          <span className="ml-1 px-1 py-0.5 text-[8px] font-bold rounded-full bg-black/60 text-white border border-white/30 shrink-0">
+            {getTagInitials(parsed)}
+          </span>
+        )
+      })()}
     </div>
   )
 }
@@ -261,6 +272,7 @@ function SplitCell({
               status={assignment.status}
               canEdit={canEdit}
               isLocked={isLocked}
+              tags={assignment.tags}
               onStatusClick={(e) => handleStatusClick(e, assignment.status, assignment.id)}
             />
             <SplitHalf
@@ -274,6 +286,7 @@ function SplitCell({
               status={splitStatus}
               canEdit={canEdit}
               isLocked={isLocked}
+              tags={assignment.splitTags}
               onStatusClick={(e) => {
                 e.stopPropagation()
                 if (!onStatusCycle) return
