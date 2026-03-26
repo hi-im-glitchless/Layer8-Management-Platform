@@ -47,16 +47,16 @@ function parseTags(tags: unknown): string[] {
 
 function ProjectTooltipBlock({ client, name, status, tags }: { client?: string; name: string; status: AssignmentStatus; tags: string[] }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-1">
       {client && (
-        <span className="text-[10px] text-muted-foreground">{client}</span>
+        <span className="text-sm font-bold text-foreground">{client}</span>
       )}
-      <span className="text-xs font-semibold">{name}</span>
+      <span className="text-sm font-medium text-foreground/80">{name}</span>
       <StatusBadge status={status} />
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-0.5">
+        <div className="flex flex-wrap gap-1 pt-1">
           {tags.map((tag: string) => (
-            <span key={tag} className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/20 text-blue-400 dark:bg-blue-400/20 dark:text-blue-300 border border-blue-500/30">
+            <span key={tag} className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-500/20 text-blue-400 dark:bg-blue-400/20 dark:text-blue-300 border border-blue-500/30">
               {tag}
             </span>
           ))}
@@ -74,7 +74,7 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
     const splitTags = parseTags(assignment.splitTags)
     return (
       <div className="flex gap-3 py-1">
-        <div className="max-w-[180px]">
+        <div className="min-w-[160px] max-w-[220px]">
           <ProjectTooltipBlock
             client={assignment.client?.name}
             name={assignment.projectName}
@@ -83,7 +83,7 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
           />
         </div>
         <div className="w-px bg-border/40 shrink-0" />
-        <div className="max-w-[180px]">
+        <div className="min-w-[160px] max-w-[220px]">
           <ProjectTooltipBlock
             client={assignment.splitClient?.name}
             name={assignment.splitProjectName!}
@@ -96,7 +96,7 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
   }
 
   return (
-    <div className="flex flex-col gap-2 py-1 max-w-[220px]">
+    <div className="flex flex-col gap-2 py-1 min-w-[200px] max-w-[280px]">
       <ProjectTooltipBlock
         client={assignment.client?.name}
         name={assignment.projectName}
@@ -283,7 +283,7 @@ function SplitCell({
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-md p-2">
+        <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg p-3 rounded-lg">
           <RichTooltipContent assignment={assignment} />
         </TooltipContent>
       </Tooltip>
@@ -473,7 +473,7 @@ export const AssignmentCell = memo(function AssignmentCell({
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-md p-2">
+        <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-lg p-3 rounded-lg">
           <RichTooltipContent assignment={assignment} />
         </TooltipContent>
       </Tooltip>
