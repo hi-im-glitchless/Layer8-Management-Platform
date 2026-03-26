@@ -21,6 +21,7 @@ import {
   useSwapAssignments,
   useUpdateAssignment,
   useUpsertAssignment,
+  useDeleteAssignment,
   useAddBacklogMember,
   useDeleteBacklogMember,
 } from '../hooks'
@@ -59,6 +60,12 @@ interface ClipboardAssignment {
   tags?: string[]
 }
 
+function splitCellKey(key: string): [string, string] {
+  const weekStart = key.slice(-10)
+  const teamMemberId = key.slice(0, -11)
+  return [teamMemberId, weekStart]
+}
+
 export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const { hasRole } = useAuth()
   const canEdit = hasRole('PM')
@@ -77,6 +84,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [activeDragData, setActiveDragData] = useState<DragData | null>(null)
   const hoveredCellRef = useRef<{ teamMemberId: string; weekStart: string } | null>(null)
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
+  const isDragSelectingRef = useRef(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -85,6 +94,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const swapMutation = useSwapAssignments()
   const updateMutation = useUpdateAssignment()
   const upsertMutation = useUpsertAssignment()
+  const deleteMutation = useDeleteAssignment()
   const addBacklogMutation = useAddBacklogMember()
   const deleteBacklogMutation = useDeleteBacklogMember()
 
@@ -212,18 +222,20 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   const handleCellClick = useCallback((teamMemberId: string, weekStart: Date, assignment: Assignment | undefined, e?: React.MouseEvent) => {
     if (e?.ctrlKey || e?.metaKey) {
-      if (!assignment) return
-      const data: ClipboardAssignment = {
-        projectName: assignment.projectName,
-        projectColor: assignment.projectColor,
-        status: assignment.status,
-        clientId: assignment.clientId ?? null,
-        tags: assignment.tags ?? [],
-      }
-      navigator.clipboard.writeText(JSON.stringify(data)).then(() => {
-        toast.success('Assignment copied')
+      const key = `${teamMemberId}-${toLocalDateString(weekStart)}`
+      setSelectedCells(prev => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+        } else {
+          next.add(key)
+        }
+        return next
       })
       return
+    }
+    if (selectedCells.size > 0) {
+      setSelectedCells(new Set())
     }
     if (!canEdit) return
     setModalState({
@@ -232,7 +244,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       weekStart: toLocalDateString(weekStart),
       assignment,
     })
-  }, [canEdit])
+  }, [canEdit, selectedCells])
 
   const toggleLockMutation = useToggleLock()
 
@@ -247,6 +259,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   // ── Drag-and-drop handlers ──────────────────────────────────────
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    if (isDragSelectingRef.current) return
     const data = event.active.data.current as DragData | undefined
     setActiveDragId(event.active.id as string)
     setActiveDragData(data ?? null)
@@ -446,6 +459,59 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     if (!canEdit) return
 
     const handlePaste = async (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData('text/plain')
+      if (!text) return
+
+      let parsed: ClipboardAssignment
+      try {
+        parsed = JSON.parse(text) as ClipboardAssignment
+        if (!parsed.projectName || !parsed.projectColor || !parsed.status) {
+          toast.error('Invalid clipboard content')
+          return
+        }
+      } catch {
+        toast.error('Invalid clipboard content')
+        return
+      }
+
+      // Bulk paste path: when cells are selected
+      if (selectedCells.size > 0) {
+        const cells = Array.from(selectedCells)
+        const promises: Promise<unknown>[] = []
+        let pastedCount = 0
+        let skippedLocked = 0
+
+        for (const key of cells) {
+          const existing = assignmentMap.get(key)
+          if (existing?.isLocked) {
+            skippedLocked++
+            continue
+          }
+          const [teamMemberId, weekStart] = splitCellKey(key)
+          promises.push(
+            upsertMutation.mutateAsync({
+              teamMemberId,
+              weekStart,
+              projectName: parsed.projectName,
+              projectColor: parsed.projectColor,
+              status: parsed.status,
+              clientId: parsed.clientId ?? null,
+              tags: parsed.tags ?? [],
+            })
+          )
+          pastedCount++
+        }
+
+        await Promise.all(promises)
+
+        if (pastedCount > 0) toast.success(`Pasted to ${pastedCount} cell${pastedCount > 1 ? 's' : ''}`)
+        if (skippedLocked > 0) toast.warning(`Skipped ${skippedLocked} locked cell${skippedLocked > 1 ? 's' : ''}`)
+
+        setSelectedCells(new Set())
+        return
+      }
+
+      // Single-cell paste path: hover fallback
       const cell = hoveredCellRef.current
       if (!cell) return
 
@@ -455,37 +521,107 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         return
       }
 
-      const text = e.clipboardData?.getData('text/plain')
-      if (!text) return
-
-      try {
-        const parsed = JSON.parse(text) as ClipboardAssignment
-        if (!parsed.projectName || !parsed.projectColor || !parsed.status) {
-          toast.error('Invalid clipboard content')
-          return
-        }
-        upsertMutation.mutate({
-          teamMemberId: cell.teamMemberId,
-          weekStart: cell.weekStart,
-          projectName: parsed.projectName,
-          projectColor: parsed.projectColor,
-          status: parsed.status,
-          clientId: parsed.clientId ?? null,
-          tags: parsed.tags ?? [],
-        })
-        toast.success('Assignment pasted')
-      } catch {
-        toast.error('Invalid clipboard content')
-      }
+      upsertMutation.mutate({
+        teamMemberId: cell.teamMemberId,
+        weekStart: cell.weekStart,
+        projectName: parsed.projectName,
+        projectColor: parsed.projectColor,
+        status: parsed.status,
+        clientId: parsed.clientId ?? null,
+        tags: parsed.tags ?? [],
+      })
+      toast.success('Assignment pasted')
     }
 
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [canEdit, assignmentMap, upsertMutation])
+  }, [canEdit, assignmentMap, upsertMutation, selectedCells])
 
   const handleCellHover = useCallback((teamMemberId: string, weekStart: string) => {
     hoveredCellRef.current = { teamMemberId, weekStart }
   }, [])
+
+  // ── Drag-selection handlers ─────────────────────────────────────
+
+  const handleCellMouseDown = useCallback((teamMemberId: string, weekStr: string, e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    if (e.ctrlKey || e.metaKey) return
+    isDragSelectingRef.current = true
+    setSelectedCells(new Set([`${teamMemberId}-${weekStr}`]))
+    e.preventDefault()
+  }, [])
+
+  const handleCellDragEnter = useCallback((teamMemberId: string, weekStr: string) => {
+    if (!isDragSelectingRef.current) return
+    setSelectedCells(prev => new Set([...prev, `${teamMemberId}-${weekStr}`]))
+  }, [])
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      isDragSelectingRef.current = false
+    }
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => document.removeEventListener('mouseup', handleMouseUp)
+  }, [])
+
+  const bulkDelete = useCallback(async () => {
+    const cells = Array.from(selectedCells)
+    const promises: Promise<unknown>[] = []
+    let deletedCount = 0
+    let skippedLocked = 0
+
+    for (const key of cells) {
+      const assignment = assignmentMap.get(key)
+      if (!assignment) continue
+      if (assignment.isLocked) {
+        skippedLocked++
+        continue
+      }
+      promises.push(deleteMutation.mutateAsync(assignment.id))
+      deletedCount++
+    }
+
+    await Promise.all(promises)
+
+    if (deletedCount > 0) toast.success(`Deleted ${deletedCount} assignment${deletedCount > 1 ? 's' : ''}`)
+    if (skippedLocked > 0) toast.warning(`Skipped ${skippedLocked} locked cell${skippedLocked > 1 ? 's' : ''}`)
+
+    setSelectedCells(new Set())
+  }, [selectedCells, assignmentMap, deleteMutation])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedCells.size > 0) {
+        setSelectedCells(new Set())
+        return
+      }
+
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCells.size > 0) {
+        e.preventDefault()
+        if (!canEdit) return
+        bulkDelete()
+        return
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedCells.size === 1) {
+        const key = Array.from(selectedCells)[0]
+        const assignment = assignmentMap.get(key)
+        if (assignment) {
+          const data: ClipboardAssignment = {
+            projectName: assignment.projectName,
+            projectColor: assignment.projectColor,
+            status: assignment.status,
+            clientId: assignment.clientId,
+            tags: assignment.tags,
+          }
+          navigator.clipboard.writeText(JSON.stringify(data))
+          toast.success('Assignment copied')
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedCells, canEdit, bulkDelete, assignmentMap])
 
   if (isLoading) {
     return (
@@ -590,7 +726,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                 <td
                   key={week.toISOString()}
                   className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : isCurrentWeek ? ' bg-blue-100/70 dark:bg-blue-950/40' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
-                  onMouseEnter={() => handleCellHover(member.id, weekStr)}
+                  onMouseEnter={() => { handleCellHover(member.id, weekStr); handleCellDragEnter(member.id, weekStr) }}
+                  onMouseDown={(e) => handleCellMouseDown(member.id, weekStr, e)}
                 >
                   {fullyOut ? (
                     <div className="h-full flex flex-col items-center justify-center bg-rose-900/80 dark:bg-rose-950/80 rounded-sm gap-0.5">
@@ -611,6 +748,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                         weekStart={weekStr}
                         canEdit={canEdit}
                         isDragOverlay={false}
+                        isSelected={selectedCells.has(`${member.id}-${weekStr}`)}
                         onCellClick={(e) => handleCellClick(member.id, week, assignment, e)}
                         onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
                         onStatusCycle={canEdit && assignment ? handleStatusCycle : undefined}
@@ -637,10 +775,13 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           absences={absences}
           holidays={holidays}
           holidaysByWeek={holidaysByWeek}
+          selectedCells={selectedCells}
           getAssignment={getAssignment}
           isFullyAbsent={isFullyAbsent}
           onCellClick={handleCellClick}
           onCellHover={handleCellHover}
+          onCellMouseDown={handleCellMouseDown}
+          onCellDragEnter={handleCellDragEnter}
           onLockToggle={handleLockToggle}
           onStatusCycle={handleStatusCycle}
           onAddRow={() => addBacklogMutation.mutate()}

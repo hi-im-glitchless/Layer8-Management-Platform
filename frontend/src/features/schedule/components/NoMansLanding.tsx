@@ -12,10 +12,13 @@ interface NoMansLandingProps {
   absences: Absence[]
   holidays: Holiday[]
   holidaysByWeek: Map<string, string[]>
+  selectedCells: Set<string>
   getAssignment: (teamMemberId: string, weekStart: Date) => Assignment | undefined
   isFullyAbsent: (teamMemberId: string, weekStart: Date) => boolean
   onCellClick: (teamMemberId: string, weekStart: Date, assignment: Assignment | undefined, e?: React.MouseEvent) => void
   onCellHover: (teamMemberId: string, weekStart: string) => void
+  onCellMouseDown: (teamMemberId: string, weekStr: string, e: React.MouseEvent) => void
+  onCellDragEnter: (teamMemberId: string, weekStr: string) => void
   onLockToggle: (assignmentId: string) => void
   onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
   onAddRow: () => void
@@ -36,10 +39,13 @@ export function NoMansLanding({
   canEdit,
   absences,
   holidays,
+  selectedCells,
   getAssignment,
   isFullyAbsent,
   onCellClick,
   onCellHover,
+  onCellMouseDown,
+  onCellDragEnter,
   onLockToggle,
   onStatusCycle,
   onAddRow,
@@ -96,7 +102,8 @@ export function NoMansLanding({
               <td
                 key={week.toISOString()}
                 className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : ''}`}
-                onMouseEnter={() => onCellHover(member.id, weekStr)}
+                onMouseEnter={() => { onCellHover(member.id, weekStr); onCellDragEnter(member.id, weekStr) }}
+                onMouseDown={(e) => onCellMouseDown(member.id, weekStr, e)}
               >
                 {fullyOut ? (
                   <div className="h-full flex flex-col items-center justify-center bg-rose-900/80 dark:bg-rose-950/80 rounded-sm gap-0.5">
@@ -117,6 +124,7 @@ export function NoMansLanding({
                       weekStart={weekStr}
                       canEdit={canEdit}
                       isDragOverlay={false}
+                      isSelected={selectedCells.has(`${member.id}-${weekStr}`)}
                       onCellClick={(e) => onCellClick(member.id, week, assignment, e)}
                       onLockToggle={assignment ? () => onLockToggle(assignment.id) : undefined}
                       onStatusCycle={canEdit && assignment ? onStatusCycle : undefined}

@@ -11,6 +11,7 @@ interface AssignmentCellProps {
   weekStart: string
   canEdit?: boolean
   isDragOverlay?: boolean
+  isSelected?: boolean
   onCellClick: (e?: React.MouseEvent) => void
   onLockToggle?: (e: React.MouseEvent) => void
   onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
@@ -219,6 +220,7 @@ function SplitCell({
   canEdit: boolean
   isClickable: boolean
   isLocked: boolean
+  isSelected: boolean
   onCellClick: (e?: React.MouseEvent) => void
   onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
   handleStatusClick: (e: React.MouseEvent, status: AssignmentStatus, assignmentId: string) => void
@@ -275,6 +277,9 @@ function SplitCell({
                 <Lock className="w-3 h-3 text-muted-foreground" />
               </div>
             )}
+            {isSelected && (
+              <div className="absolute inset-0 bg-blue-500/25 ring-2 ring-blue-500 ring-inset rounded-sm pointer-events-none z-10" />
+            )}
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-md p-2">
@@ -291,6 +296,7 @@ export const AssignmentCell = memo(function AssignmentCell({
   weekStart,
   canEdit = true,
   isDragOverlay = false,
+  isSelected = false,
   onCellClick,
   onLockToggle,
   onStatusCycle,
@@ -338,14 +344,18 @@ export const AssignmentCell = memo(function AssignmentCell({
       return (
         <div
           ref={isDragOverlay ? undefined : setDropRef}
-          className="h-full min-h-[40px]"
-        />
+          className="h-full min-h-[40px] relative"
+        >
+          {isSelected && (
+            <div className="absolute inset-0 bg-blue-500/25 ring-2 ring-blue-500 ring-inset rounded-sm pointer-events-none z-10" />
+          )}
+        </div>
       )
     }
     return (
       <div
         ref={isDragOverlay ? undefined : setDropRef}
-        className={`group h-full min-h-[40px] flex items-center justify-center cursor-pointer rounded-sm border transition-colors ${
+        className={`group h-full min-h-[40px] flex items-center justify-center cursor-pointer rounded-sm border transition-colors relative ${
           isDropTarget
             ? 'border-primary bg-primary/10'
             : 'border-transparent hover:border-border hover:bg-muted/50'
@@ -353,6 +363,9 @@ export const AssignmentCell = memo(function AssignmentCell({
         onClick={(e) => onCellClick(e)}
       >
         <Plus className="w-4 h-4 text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors" />
+        {isSelected && (
+          <div className="absolute inset-0 bg-blue-500/25 ring-2 ring-blue-500 ring-inset rounded-sm pointer-events-none z-10" />
+        )}
       </div>
     )
   }
@@ -386,6 +399,7 @@ export const AssignmentCell = memo(function AssignmentCell({
         canEdit={canEdit}
         isClickable={isClickable}
         isLocked={isLocked}
+        isSelected={isSelected}
         onCellClick={onCellClick}
         onStatusCycle={onStatusCycle}
         handleStatusClick={handleStatusClick}
@@ -453,6 +467,9 @@ export const AssignmentCell = memo(function AssignmentCell({
                 </Tooltip>
               </TooltipProvider>
             </div>
+            {isSelected && (
+              <div className="absolute inset-0 bg-blue-500/25 ring-2 ring-blue-500 ring-inset rounded-sm pointer-events-none z-10" />
+            )}
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="bg-popover text-popover-foreground border shadow-md p-2">
