@@ -744,9 +744,8 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                   onMouseEnter={() => { handleCellHover(member.id, weekStr); handleCellDragEnter(member.id, weekStr) }}
                   onMouseDown={(e) => handleCellMouseDown(member.id, weekStr, e)}
                   onClick={(e) => {
-                    // Handle Ctrl+Click on td (outer cell area) for selection
-                    if (e.ctrlKey || e.metaKey) {
-                      e.stopPropagation()
+                    // Handle Ctrl+Click on td padding only (not bubbled from inner div)
+                    if ((e.ctrlKey || e.metaKey) && e.target === e.currentTarget) {
                       handleCellClick(member.id, week, assignment, e)
                     }
                   }}
