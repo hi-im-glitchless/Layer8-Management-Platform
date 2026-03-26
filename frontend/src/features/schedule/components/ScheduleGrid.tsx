@@ -89,6 +89,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
   const isDragSelectingRef = useRef(false)
   const wasDragSelectingRef = useRef(false)
+  const dragStartKeyRef = useRef<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -499,28 +500,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     setSelectedCells(new Set())
   }, [selectedCells, assignmentMap, upsertMutation, queryClient])
 
-  const handleSinglePaste = useCallback(async (parsed: ClipboardAssignment) => {
-    const cell = hoveredCellRef.current
-    if (!cell) return
-
-    const existing = assignmentMap.get(`${cell.teamMemberId}-${cell.weekStart}`)
-    if (existing?.isLocked) {
-      toast.error('Cannot paste onto a locked cell')
-      return
-    }
-
-    await upsertMutation.mutateAsync({
-      teamMemberId: cell.teamMemberId,
-      weekStart: cell.weekStart,
-      projectName: parsed.projectName,
-      projectColor: parsed.projectColor,
-      status: parsed.status,
-      clientId: parsed.clientId ?? null,
-      tags: parsed.tags ?? [],
-    })
-    await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-    toast.success('Assignment pasted')
-  }, [assignmentMap, upsertMutation, queryClient])
+  // No single-cell hover paste — paste only works with Ctrl+Click selected cells
 
   const handleCellHover = useCallback((teamMemberId: string, weekStart: string) => {
     hoveredCellRef.current = { teamMemberId, weekStart }
@@ -531,21 +511,34 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const handleCellMouseDown = useCallback((teamMemberId: string, weekStr: string, e: React.MouseEvent) => {
     if (e.button !== 0) return
     if (e.ctrlKey || e.metaKey) return
+    // Only start drag-select tracking — don't select the cell yet.
+    // The cell gets added on drag (mouseenter). If the user just clicks
+    // without dragging, handleCellClick opens the modal as normal.
     isDragSelectingRef.current = true
-    setSelectedCells(new Set([`${teamMemberId}-${weekStr}`]))
-    e.preventDefault()
+    dragStartKeyRef.current = `${teamMemberId}-${weekStr}`
   }, [])
 
   const handleCellDragEnter = useCallback((teamMemberId: string, weekStr: string) => {
     if (!isDragSelectingRef.current) return
-    setSelectedCells(prev => new Set([...prev, `${teamMemberId}-${weekStr}`]))
+    const key = `${teamMemberId}-${weekStr}`
+    // First drag movement — include the start cell + this cell
+    if (dragStartKeyRef.current) {
+      setSelectedCells(new Set([dragStartKeyRef.current, key]))
+      dragStartKeyRef.current = null
+    } else {
+      setSelectedCells(prev => new Set([...prev, key]))
+    }
   }, [])
 
   useEffect(() => {
     const handleMouseUp = () => {
       if (isDragSelectingRef.current) {
-        wasDragSelectingRef.current = true
+        // Only mark as "was drag selecting" if user actually dragged (dragStartKeyRef was consumed)
+        if (!dragStartKeyRef.current) {
+          wasDragSelectingRef.current = true
+        }
         isDragSelectingRef.current = false
+        dragStartKeyRef.current = null
       }
     }
     document.addEventListener('mouseup', handleMouseUp)
@@ -609,36 +602,41 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         }
       }
 
-      // Ctrl+V paste — handle here instead of paste event to avoid stale closure issues
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && canEdit) {
-        e.preventDefault()
-        navigator.clipboard.readText().then(async (text) => {
-          if (!text) return
-          let parsed: ClipboardAssignment
-          try {
-            parsed = JSON.parse(text) as ClipboardAssignment
-            if (!parsed.projectName || !parsed.projectColor || !parsed.status) {
-              toast.error('Invalid clipboard content')
-              return
-            }
-          } catch {
-            toast.error('Invalid clipboard content')
-            return
-          }
-
-          if (selectedCells.size > 0) {
-            await handleBulkPaste(parsed)
-          } else {
-            await handleSinglePaste(parsed)
-          }
-        }).catch(() => {
-          toast.error('Cannot read clipboard — check browser permissions')
-        })
-      }
+      // Ctrl+V is handled by the paste event listener below (not here)
+      // to avoid navigator.clipboard.readText() permission popup
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedCells, canEdit, bulkDelete, assignmentMap, handleBulkPaste, handleSinglePaste])
+  }, [selectedCells, canEdit, bulkDelete, assignmentMap, handleBulkPaste])
+
+  // ── Paste event listener (uses clipboardData to avoid permission popup) ──
+  useEffect(() => {
+    if (!canEdit) return
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      if (selectedCells.size === 0) return  // Only paste when cells are selected
+      const text = e.clipboardData?.getData('text/plain')
+      if (!text) return
+      e.preventDefault()
+
+      let parsed: ClipboardAssignment
+      try {
+        parsed = JSON.parse(text) as ClipboardAssignment
+        if (!parsed.projectName || !parsed.projectColor || !parsed.status) {
+          toast.error('Invalid clipboard content')
+          return
+        }
+      } catch {
+        toast.error('Invalid clipboard content')
+        return
+      }
+
+      await handleBulkPaste(parsed)
+    }
+
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [canEdit, selectedCells, handleBulkPaste])
 
   if (isLoading) {
     return (
