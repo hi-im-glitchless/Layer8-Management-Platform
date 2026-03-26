@@ -91,7 +91,7 @@ export function Login() {
             className="w-72 h-auto mx-auto object-contain"
           />
           <p className="text-slate-400 text-lg max-w-md mt-8">
-            Offensive Security AI Template Engine
+            Management Platform
           </p>
         </div>
       </div>

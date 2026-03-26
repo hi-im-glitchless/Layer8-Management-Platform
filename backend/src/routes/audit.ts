@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { queryAuditLogs, exportAuditLogs, verifyAuditChain, purgeAllAuditLogs } from '../services/audit.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -10,7 +10,7 @@ const router = Router();
  * Admin: can see all logs, can filter by userId
  * Regular user: only sees own logs
  */
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireRole('ADMIN'), async (req, res) => {
   try {
     const session = req.session as any;
     const isAdmin = session.role === 'ADMIN';
