@@ -518,8 +518,9 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       clientId: parsed.clientId ?? null,
       tags: parsed.tags ?? [],
     })
+    await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
     toast.success('Assignment pasted')
-  }, [assignmentMap, upsertMutation])
+  }, [assignmentMap, upsertMutation, queryClient])
 
   const handleCellHover = useCallback((teamMemberId: string, weekStart: string) => {
     hoveredCellRef.current = { teamMemberId, weekStart }
@@ -744,6 +745,13 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                   className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : isCurrentWeek ? ' bg-blue-100/70 dark:bg-blue-950/40' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
                   onMouseEnter={() => { handleCellHover(member.id, weekStr); handleCellDragEnter(member.id, weekStr) }}
                   onMouseDown={(e) => handleCellMouseDown(member.id, weekStr, e)}
+                  onClick={(e) => {
+                    // Handle Ctrl+Click on td (outer cell area) for selection
+                    if (e.ctrlKey || e.metaKey) {
+                      e.stopPropagation()
+                      handleCellClick(member.id, week, assignment, e)
+                    }
+                  }}
                 >
                   {fullyOut ? (
                     <div className="h-full flex flex-col items-center justify-center bg-rose-900/80 dark:bg-rose-950/80 rounded-sm gap-0.5">
