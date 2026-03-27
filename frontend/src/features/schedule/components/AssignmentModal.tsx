@@ -215,7 +215,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
   }
 
   const handleSave = () => {
-    const hasSplit = isSplit && splitProjectName.trim()
+    const hasSplit = isSplit && (splitProjectName.trim() || splitClientId || splitSelectedTags.length > 0)
     const data = {
       teamMemberId,
       projectName: projectName.trim(),
@@ -336,7 +336,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                     id="splitProjectName"
                     value={splitProjectName}
                     onChange={(e) => setSplitProjectName(e.target.value)}
-                    placeholder="Enter second project name..."
+                    placeholder="Optional — leave blank for client-only"
                   />
                 </div>
 
