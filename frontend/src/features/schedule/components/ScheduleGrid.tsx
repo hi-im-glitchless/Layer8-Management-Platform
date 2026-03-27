@@ -678,7 +678,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     const currentWeekIdx = weekSlice.findIndex((w) => toLocalDateString(w) === todayKey)
 
     return (
-    <table className="border-collapse table-fixed" style={{ minWidth: 'max-content' }}>
+    <table className="border-collapse w-full table-fixed">
       <thead>
         <tr className="sticky top-0 z-30 bg-slate-300 dark:bg-slate-900">
           <th className="sticky left-0 z-40 bg-slate-300 dark:bg-slate-900 border-b-2 border-r-2 border-slate-400 dark:border-slate-600 px-3 py-2.5 text-left text-sm font-semibold w-[140px] min-w-[120px] max-w-[140px]">
