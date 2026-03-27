@@ -43,7 +43,7 @@ export function OnboardingWizard({
       toast.success('Password set successfully');
       setCurrentStep('totp');
     } catch (error) {
-      toast.error('Failed to set password');
+      toast.error(error instanceof Error ? error.message : 'Failed to set password');
       throw error;
     }
   };
