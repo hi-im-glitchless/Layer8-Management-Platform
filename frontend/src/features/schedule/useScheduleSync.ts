@@ -23,7 +23,7 @@ export function useScheduleSync(): void {
       console.log('[ScheduleSync] Connected')
     })
 
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', (reason: string) => {
       console.log('[ScheduleSync] Disconnected:', reason)
     })
 
