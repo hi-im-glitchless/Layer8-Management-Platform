@@ -10,6 +10,7 @@ import * as absenceService from '../services/absenceService.js';
 import * as holidayService from '../services/holidayService.js';
 import * as clientService from '../services/clientService.js';
 import { VALID_TAGS } from '../services/assignmentService.js';
+import { emitScheduleInvalidate } from '../services/socketService.js';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.post('/team-members', requireRole('PM'), mutationRateLimiter, async (req,
     const data = schema.parse(req.body);
     const teamMember = await scheduleService.createTeamMember(data.userId);
     res.status(201).json({ teamMember });
+    emitScheduleInvalidate('team-members');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -64,6 +66,7 @@ router.put('/team-members/reorder', requireRole('PM'), mutationRateLimiter, asyn
     const data = schema.parse(req.body);
     await scheduleService.reorderTeamMembers(data.orderedIds);
     res.json({ success: true });
+    emitScheduleInvalidate('team-members');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -88,6 +91,7 @@ router.put('/team-members/:id', requireRole('PM'), mutationRateLimiter, async (r
     const data = schema.parse(req.body);
     const teamMember = await scheduleService.updateTeamMember(id, data);
     res.json({ teamMember });
+    emitScheduleInvalidate('team-members');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -105,6 +109,7 @@ router.post('/team-members/add-backlog', requireRole('PM'), mutationRateLimiter,
   try {
     const member = await assignmentService.addBacklogMember();
     res.status(201).json({ member });
+    emitScheduleInvalidate('team-members');
   } catch (error) {
     console.error('[schedule routes] Error adding backlog member:', error);
     res.status(500).json({ error: 'Failed to add backlog row' });
@@ -120,6 +125,7 @@ router.delete('/team-members/:id', requireRole('ADMIN'), mutationRateLimiter, as
     const id = req.params.id as string;
     await scheduleService.archiveTeamMember(id);
     res.json({ success: true });
+    emitScheduleInvalidate('team-members');
   } catch (error) {
     console.error('[schedule routes] Error archiving team member:', error);
     res.status(500).json({ error: 'Failed to archive team member' });
@@ -142,6 +148,7 @@ router.delete('/team-members/backlog/:id', requireRole('PM'), mutationRateLimite
     await prisma.assignment.deleteMany({ where: { teamMemberId: id } });
     await prisma.teamMember.delete({ where: { id } });
     res.json({ success: true });
+    emitScheduleInvalidate('team-members');
   } catch (error) {
     console.error('[schedule routes] Error deleting backlog member:', error);
     res.status(500).json({ error: 'Failed to delete backlog row' });
@@ -235,6 +242,7 @@ router.post('/assignments', requireRole('PM'), mutationRateLimiter, async (req, 
       createdBy: req.session.userId ?? null,
     });
     res.status(201).json({ assignment });
+    emitScheduleInvalidate('assignments');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -261,6 +269,7 @@ router.post('/assignments/swap', requireRole('PM'), mutationRateLimiter, async (
     const data = schema.parse(req.body);
     await assignmentService.swapAssignments(data.idA, data.idB);
     res.json({ success: true });
+    emitScheduleInvalidate('assignments');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -299,6 +308,7 @@ router.put('/assignments/:id', requireRole('PM'), mutationRateLimiter, async (re
     }
     const assignment = await assignmentService.updateAssignment(id, updateData);
     res.json({ assignment });
+    emitScheduleInvalidate('assignments');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -320,6 +330,7 @@ router.delete('/assignments/:id', requireRole('PM'), mutationRateLimiter, async 
     const id = req.params.id as string;
     await assignmentService.deleteAssignment(id);
     res.json({ success: true });
+    emitScheduleInvalidate('assignments');
   } catch (error) {
     if (error instanceof Error && error.message.includes('locked')) {
       return res.status(409).json({ error: error.message });
@@ -338,6 +349,7 @@ router.post('/assignments/:id/lock', requireRole('PM'), mutationRateLimiter, asy
     const id = req.params.id as string;
     const assignment = await assignmentService.toggleLock(id);
     res.json({ assignment });
+    emitScheduleInvalidate('assignments');
   } catch (error) {
     console.error('[schedule routes] Error toggling assignment lock:', error);
     res.status(500).json({ error: 'Failed to toggle assignment lock' });
@@ -419,6 +431,7 @@ router.post('/absences/toggle', requireRole('PM'), mutationRateLimiter, async (r
       absence: result,
       action: result ? 'created' : 'deleted',
     });
+    emitScheduleInvalidate('absences');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -459,6 +472,7 @@ router.post('/holidays', requireRole('PM'), mutationRateLimiter, async (req, res
     const data = schema.parse(req.body);
     const holiday = await holidayService.createHoliday(data);
     res.status(201).json({ holiday });
+    emitScheduleInvalidate('holidays');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -484,6 +498,7 @@ router.put('/holidays/:id', requireRole('PM'), mutationRateLimiter, async (req, 
     const data = schema.parse(req.body);
     const holiday = await holidayService.updateHoliday(id, data);
     res.json({ holiday });
+    emitScheduleInvalidate('holidays');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -502,6 +517,7 @@ router.delete('/holidays/:id', requireRole('PM'), mutationRateLimiter, async (re
     const id = req.params.id as string;
     await holidayService.deleteHoliday(id);
     res.json({ success: true });
+    emitScheduleInvalidate('holidays');
   } catch (error) {
     console.error('[schedule routes] Error deleting holiday:', error);
     res.status(500).json({ error: 'Failed to delete holiday' });
@@ -645,6 +661,8 @@ router.delete('/purge', requireRole('ADMIN'), mutationRateLimiter, async (req, r
         projectColors: projectColors.count,
       },
     });
+    emitScheduleInvalidate('assignments');
+    emitScheduleInvalidate('team-members');
   } catch (error) {
     console.error('[schedule routes] Error purging schedule:', error);
     res.status(500).json({ error: 'Failed to purge schedule data' });

@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import { createServer } from 'http';
+import { Server as SocketIO } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import session from 'express-session';
@@ -27,6 +29,7 @@ import executiveReportRouter from './routes/executiveReport.js';
 import scheduleRouter from './routes/schedule.js';
 import { waitForSanitizer } from './services/sanitization.js';
 import { checkGotenbergHealth } from './services/documents.js';
+import { initSocket } from './services/socketService.js';
 
 const app = express();
 
@@ -218,7 +221,30 @@ async function startServer() {
       }
     });
 
-    app.listen(config.PORT, () => {
+    // Create HTTP server and attach Socket.IO
+    const httpServer = createServer(app);
+    const io = new SocketIO(httpServer, {
+      cors: { origin: config.FRONTEND_URL, credentials: true },
+    });
+
+    // Share session middleware with Socket.IO
+    io.engine.use((req: any, res: any, next: any) => {
+      sessionMiddleware(req, res, next);
+    });
+
+    // Auth middleware: reject unauthenticated WebSocket connections
+    io.use((socket, next) => {
+      const sess = (socket.request as any).session;
+      if (sess?.userId && sess?.totpVerified && !sess?.awaitingTOTP) {
+        return next();
+      }
+      next(new Error('Unauthorized'));
+    });
+
+    // Initialize the socket service singleton
+    initSocket(io);
+
+    httpServer.listen(config.PORT, () => {
       console.log(`Server running on port ${config.PORT}`);
       console.log(`Environment: ${config.NODE_ENV}`);
       console.log(`Audit chain verification available via: GET /api/audit/verify`);
