@@ -560,48 +560,25 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     const cells = Array.from(selectedCells)
     let deletedCount = 0
     let skippedLocked = 0
-    let clearedAbsences = 0
 
     for (const key of cells) {
       const assignment = assignmentMap.get(key)
-      if (assignment) {
-        if (assignment.isLocked) {
-          skippedLocked++
-          continue
-        }
-        await deleteMutation.mutateAsync(assignment.id)
-        deletedCount++
-      } else {
-        // No assignment — check for absences to clear
-        const [teamMemberId, weekStr] = splitCellKey(key)
-        const weekDate = new Date(weekStr + 'T00:00:00')
-        let cleared = false
-        for (let i = 0; i < 5; i++) {
-          const d = new Date(weekDate)
-          d.setDate(d.getDate() + i)
-          const dateKey = toLocalDateString(d)
-          if (absenceSet.has(`${teamMemberId}-${dateKey}`)) {
-            await toggleAbsenceMutation.mutateAsync({
-              teamMemberId,
-              date: dateKey,
-              type: 'vacation',
-            })
-            cleared = true
-          }
-        }
-        if (cleared) clearedAbsences++
+      if (!assignment) continue
+      if (assignment.isLocked) {
+        skippedLocked++
+        continue
       }
+      await deleteMutation.mutateAsync(assignment.id)
+      deletedCount++
     }
 
     await queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
-    if (clearedAbsences > 0) await queryClient.invalidateQueries({ queryKey: ['schedule', 'absences'] })
 
     if (deletedCount > 0) toast.success(`Deleted ${deletedCount} assignment${deletedCount > 1 ? 's' : ''}`)
-    if (clearedAbsences > 0) toast.success(`Cleared absences from ${clearedAbsences} cell${clearedAbsences > 1 ? 's' : ''}`)
     if (skippedLocked > 0) toast.warning(`Skipped ${skippedLocked} locked cell${skippedLocked > 1 ? 's' : ''}`)
 
     setSelectedCells(new Set())
-  }, [selectedCells, assignmentMap, deleteMutation, toggleAbsenceMutation, absenceSet, queryClient])
+  }, [selectedCells, assignmentMap, deleteMutation, queryClient])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
