@@ -8,6 +8,7 @@ import { HolidayManager } from '@/features/schedule/components/HolidayManager'
 import { ClientManager } from '@/features/schedule/components/ClientManager'
 import { PurgeScheduleDialog } from '@/features/schedule/components/PurgeScheduleDialog'
 import { useAuth } from '@/features/auth/hooks'
+import { useScheduleSync } from '@/features/schedule/useScheduleSync'
 
 function getCurrentQuarter(): number {
   const now = new Date()
@@ -30,6 +31,7 @@ export function Schedule() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedQuarter, setSelectedQuarter] = useState<number | null>(getCurrentQuarter())
   const { hasRole } = useAuth()
+  useScheduleSync()
 
   return (
     <div className="space-y-4">
@@ -45,7 +47,7 @@ export function Schedule() {
       </div>
       <QuarterTabs activeQuarter={selectedQuarter} onQuarterChange={setSelectedQuarter} />
       <LegendBar />
-      <div className="-mx-6 px-1">
+      <div className="-mx-6 px-1 overflow-x-hidden">
         <ScheduleGrid year={selectedYear} quarter={selectedQuarter} />
       </div>
     </div>
