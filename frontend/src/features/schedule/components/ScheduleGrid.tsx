@@ -741,7 +741,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
               return (
                 <td
                   key={week.toISOString()}
-                  className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] align-top${fullyOut ? ' bg-muted' : isCurrentWeek ? ' bg-blue-100/70 dark:bg-blue-950/40' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
+                  className={`border-b border-r border-slate-300 dark:border-slate-700 p-0.5 min-w-[150px] h-[64px] max-h-[64px] overflow-hidden align-top${fullyOut ? ' bg-muted' : isCurrentWeek ? ' bg-blue-100/70 dark:bg-blue-950/40' : ''}${isMonthTransition ? ' border-l-2 border-l-slate-400 dark:border-l-slate-500' : ''}`}
                   onMouseEnter={() => { handleCellHover(member.id, weekStr); handleCellDragEnter(member.id, weekStr) }}
                   onMouseDown={(e) => handleCellMouseDown(member.id, weekStr, e)}
                   onClick={(e) => {
