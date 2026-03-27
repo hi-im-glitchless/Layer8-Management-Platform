@@ -763,26 +763,30 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                       />
                     </div>
                   ) : (
-                    <>
-                      <AssignmentCell
-                        assignment={assignment}
-                        teamMemberId={member.id}
-                        weekStart={weekStr}
-                        canEdit={canEdit}
-                        isDragOverlay={false}
-                        isSelected={selectedCells.has(`${member.id}-${weekStr}`)}
-                        onCellClick={(e) => handleCellClick(member.id, week, assignment, e)}
-                        onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
-                        onStatusCycle={canEdit && assignment ? handleStatusCycle : undefined}
-                      />
-                      <AvailabilityDots
-                        weekStart={week}
-                        teamMemberId={member.id}
-                        absences={absences}
-                        holidays={holidays}
-                        year={year}
-                      />
-                    </>
+                    <div className="h-full flex flex-col overflow-hidden">
+                      <div className="flex-1 min-h-0">
+                        <AssignmentCell
+                          assignment={assignment}
+                          teamMemberId={member.id}
+                          weekStart={weekStr}
+                          canEdit={canEdit}
+                          isDragOverlay={false}
+                          isSelected={selectedCells.has(`${member.id}-${weekStr}`)}
+                          onCellClick={(e) => handleCellClick(member.id, week, assignment, e)}
+                          onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
+                          onStatusCycle={canEdit && assignment ? handleStatusCycle : undefined}
+                        />
+                      </div>
+                      <div className="shrink-0">
+                        <AvailabilityDots
+                          weekStart={week}
+                          teamMemberId={member.id}
+                          absences={absences}
+                          holidays={holidays}
+                          year={year}
+                        />
+                      </div>
+                    </div>
                   )}
                 </td>
               )
