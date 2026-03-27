@@ -76,7 +76,7 @@ function ProjectTooltipBlock({ client, name, status, tags }: { client?: string; 
 }
 
 function RichTooltipContent({ assignment }: { assignment: Assignment }) {
-  const isSplit = assignment.splitProjectName && assignment.splitProjectColor
+  const isSplit = !!assignment.splitProjectColor
   const tags = parseTags(assignment.tags)
 
   if (isSplit) {
@@ -95,7 +95,7 @@ function RichTooltipContent({ assignment }: { assignment: Assignment }) {
         <div className="min-w-[160px] max-w-[220px]">
           <ProjectTooltipBlock
             client={assignment.splitClient?.name}
-            name={assignment.splitProjectName!}
+            name={assignment.splitProjectName ?? ''}
             status={(assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'}
             tags={splitTags}
           />
@@ -284,7 +284,9 @@ function SplitCell({
               weekStart={weekStart}
               side="right"
               bgColor={assignment.splitProjectColor!}
-              label={assignment.splitProjectName!}
+              label={assignment.splitClient
+                ? assignment.splitProjectName ? `${assignment.splitClient.name} - ${assignment.splitProjectName}` : assignment.splitClient.name
+                : assignment.splitProjectName ?? ''}
               status={splitStatus}
               canEdit={canEdit}
               isLocked={isLocked}
@@ -396,7 +398,7 @@ export const AssignmentCell = memo(function AssignmentCell({
   }
 
   const isLocked = assignment.isLocked
-  const isSplit = assignment.splitProjectName && assignment.splitProjectColor
+  const isSplit = !!assignment.splitProjectColor
   const textColor = getContrastColor(assignment.projectColor)
   const isClickable = canEdit && !isLocked
   const isDropTarget = isOver && !isDragOverlay
