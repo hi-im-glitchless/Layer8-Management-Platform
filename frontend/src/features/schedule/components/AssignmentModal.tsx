@@ -14,10 +14,10 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Trash2 } from 'lucide-react'
 import { ColorPalette } from './ColorPalette'
-import { useUpsertAssignment, useDeleteAssignment, useSearchProjectColors, useClients } from '../hooks'
+import { useUpsertAssignment, useDeleteAssignment, useClients } from '../hooks'
 import { ASSIGNMENT_STATUSES, COLOR_PALETTE } from '../constants'
 import { CreateAssignmentSchema, PREDEFINED_TAGS } from '../types'
-import type { Assignment, AssignmentStatus, Client, ProjectColor } from '../types'
+import type { Assignment, AssignmentStatus, Client } from '../types'
 
 interface AssignmentModalProps {
   open: boolean
@@ -148,18 +148,12 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
   const [splitProjectStatus, setSplitProjectStatus] = useState<AssignmentStatus>('placeholder')
   const [splitClientId, setSplitClientId] = useState<string | null>(null)
   const [splitSelectedTags, setSplitSelectedTags] = useState<string[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [clientId, setClientId] = useState<string | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
 
-  const inputRef = useRef<HTMLInputElement>(null)
-  const suggestionsRef = useRef<HTMLDivElement>(null)
-
   const upsertMutation = useUpsertAssignment()
   const deleteMutation = useDeleteAssignment()
-  const projectColorsQuery = useSearchProjectColors(projectName)
-  const suggestions: ProjectColor[] = projectColorsQuery.data?.projectColors ?? []
   const clientsQuery = useClients()
   const clients = clientsQuery.data?.clients ?? []
 
@@ -191,15 +185,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
         setSelectedTags([])
       }
       setError(null)
-      setShowSuggestions(false)
     }
   }, [open, assignment])
-
-  const handleSuggestionSelect = (suggestion: ProjectColor) => {
-    setProjectName(suggestion.name)
-    setProjectColor(suggestion.color)
-    setShowSuggestions(false)
-  }
 
   const handleClientChange = (value: string | null, client?: Client) => {
     setClientId(value)
@@ -286,52 +273,15 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                 <ClientSelect clientId={clientId} clients={clients} onChange={handleClientChange} />
               </div>
 
-              {/* Project Name with Autocomplete */}
+              {/* Project Name */}
               <div className="space-y-2">
                 <Label htmlFor="projectName">Project Name</Label>
-                <div className="relative">
-                  <Input
-                    ref={inputRef}
-                    id="projectName"
-                    value={projectName}
-                    onChange={(e) => {
-                      setProjectName(e.target.value)
-                      setShowSuggestions(e.target.value.length > 0)
-                    }}
-                    onFocus={() => {
-                      if (projectName.length > 0) setShowSuggestions(true)
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setShowSuggestions(false), 200)
-                    }}
-                    placeholder="Optional — leave blank for client-only"
-                  />
-                  {showSuggestions && suggestions.length > 0 && (
-                    <div
-                      ref={suggestionsRef}
-                      className="absolute top-full left-0 right-0 z-50 mt-1 max-h-[160px] overflow-auto rounded-md border bg-popover p-1 shadow-md"
-                    >
-                      {suggestions.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => handleSuggestionSelect(s)}
-                        >
-                          <div
-                            className="w-3 h-3 rounded-sm shrink-0"
-                            style={{ backgroundColor: s.color }}
-                          />
-                          <span className="truncate">{s.name}</span>
-                          <span className="ml-auto text-xs text-muted-foreground">
-                            {s.usageCount}x
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <Input
+                  id="projectName"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="Optional — leave blank for client-only"
+                />
               </div>
 
               {/* Color Palette — only when no client selected (client provides color) */}
