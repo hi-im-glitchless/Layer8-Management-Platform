@@ -95,13 +95,13 @@ function App() {
             {/* Protected routes - require authentication */}
             <Route element={<ProtectedRoute />}>
               <Route index element={<Dashboard />} />
-              <Route path="/audit-log" element={<AuditLog />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/schedule" element={<Schedule />} />
 
               {/* Admin-only routes */}
               <Route element={<RoleProtectedRoute minRole="ADMIN" />}>
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/audit-log" element={<AuditLog />} />
               </Route>
             </Route>
 
