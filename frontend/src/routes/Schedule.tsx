@@ -47,7 +47,7 @@ export function Schedule() {
       </div>
       <QuarterTabs activeQuarter={selectedQuarter} onQuarterChange={setSelectedQuarter} />
       <LegendBar />
-      <div className="-mx-6 px-1 overflow-x-hidden">
+      <div className="-mx-6 px-1 overflow-x-auto">
         <ScheduleGrid year={selectedYear} quarter={selectedQuarter} />
       </div>
     </div>
