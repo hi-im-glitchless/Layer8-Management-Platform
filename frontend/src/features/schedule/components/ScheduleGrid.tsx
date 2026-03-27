@@ -811,7 +811,14 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                   }}
                 >
                   {fullyOut ? (
-                    <div className="h-full flex flex-col items-center justify-center bg-rose-900/80 dark:bg-rose-950/80 rounded-sm gap-0.5">
+                    <div
+                      className="h-full flex flex-col items-center justify-center bg-rose-900/80 dark:bg-rose-950/80 rounded-sm gap-0.5 relative cursor-pointer"
+                      onClick={(e) => {
+                        if (e.ctrlKey || e.metaKey) {
+                          handleCellClick(member.id, week, assignment, e)
+                        }
+                      }}
+                    >
                       <span className="text-xs font-semibold text-white">OUT</span>
                       <AvailabilityDots
                         weekStart={week}
@@ -820,6 +827,9 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                         holidays={holidays}
                         year={year}
                       />
+                      {selectedCells.has(`${member.id}-${weekStr}`) && (
+                        <div className="absolute inset-0 bg-blue-500/25 ring-2 ring-blue-500 ring-inset rounded-sm pointer-events-none z-10" />
+                      )}
                     </div>
                   ) : (
                     <div className="h-full flex flex-col overflow-hidden">
