@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 
-const IDLE_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 hours of inactivity
+const IDLE_TIMEOUT_MS = 8 * 60 * 60 * 1000; // 8 hours of inactivity
 
 /**
  * Session validation middleware — checks idle timeout.
  * Uses rolling sessions: the cookie and idle timer refresh on every request,
- * so active users stay logged in indefinitely. Only logs out after 24h of
+ * so active users stay logged in indefinitely. Only logs out after 8h of
  * zero activity.
  * Must run BEFORE the activity tracker that updates lastActivity.
  * Skips unauthenticated requests (no userId in session).

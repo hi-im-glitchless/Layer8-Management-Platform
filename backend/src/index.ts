@@ -123,7 +123,7 @@ async function startServer() {
       cookie: {
         httpOnly: true,
         secure: config.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours — resets on each request due to rolling
+        maxAge: 8 * 60 * 60 * 1000, // 8 hours — resets on each request due to rolling
         sameSite: 'lax',
       },
     });
