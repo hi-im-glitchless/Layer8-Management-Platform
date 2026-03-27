@@ -4,14 +4,11 @@ import { toast, Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AppShell } from '@/components/layout/AppShell'
 import { Dashboard } from '@/routes/Dashboard'
-import { TemplateAdapter } from '@/routes/TemplateAdapter'
-import { ExecutiveReport } from '@/routes/ExecutiveReport'
 import { AuditLog } from '@/routes/AuditLog'
 import { Admin } from '@/routes/Admin'
 import { Profile } from '@/routes/Profile'
 import { Schedule } from '@/routes/Schedule'
 import { Login } from '@/routes/Login'
-import { Documents } from '@/routes/Documents'
 import { NotFound } from '@/routes/NotFound'
 import { useAuth } from '@/features/auth/hooks'
 import { hasRole, type Role } from '@/lib/rbac'
@@ -100,14 +97,7 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="/audit-log" element={<AuditLog />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/documents" element={<Documents />} />
               <Route path="/schedule" element={<Schedule />} />
-
-              {/* PM+ routes */}
-              <Route element={<RoleProtectedRoute minRole="PM" />}>
-                <Route path="/template-adapter" element={<TemplateAdapter />} />
-                <Route path="/executive-report" element={<ExecutiveReport />} />
-              </Route>
 
               {/* Admin-only routes */}
               <Route element={<RoleProtectedRoute minRole="ADMIN" />}>
