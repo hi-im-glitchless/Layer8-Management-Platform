@@ -92,8 +92,8 @@ export interface UpdateClientRequest {
 }
 
 export const PREDEFINED_TAGS = [
-  'Web', 'Mobile', 'API', 'Cloud', 'Externa', 'Interna', 'Red Team',
-  'Phishing', 'OSINT', 'Esoterico', 'Cert', 'Outro',
+  'Web', 'Mobile', 'API', 'Cloud', 'Docker', 'Externa', 'Interna', 'Red Team',
+  'Phishing', 'OSINT', 'Esoterico', 'Fisico', 'Ransomware/Malware', 'Chatbot', 'Cert', 'Outro',
 ] as const
 
 export type ProjectTag = (typeof PREDEFINED_TAGS)[number]

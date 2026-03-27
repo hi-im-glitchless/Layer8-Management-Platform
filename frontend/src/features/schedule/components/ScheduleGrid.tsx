@@ -23,6 +23,7 @@ import {
   useUpdateAssignment,
   useUpsertAssignment,
   useDeleteAssignment,
+  useToggleAbsence,
   useAddBacklogMember,
   useDeleteBacklogMember,
 } from '../hooks'
@@ -54,11 +55,17 @@ interface DragData {
 }
 
 interface ClipboardAssignment {
+  type?: 'assignment'
   projectName: string
   projectColor: string
   status: AssignmentStatus
   clientId?: string | null
   tags?: string[]
+}
+
+interface ClipboardAbsence {
+  type: 'absence'
+  dates: string[] // ISO date strings of absent days within the week
 }
 
 function splitCellKey(key: string): [string, string] {
@@ -100,6 +107,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const updateMutation = useUpdateAssignment()
   const upsertMutation = useUpsertAssignment()
   const deleteMutation = useDeleteAssignment()
+  const toggleAbsenceMutation = useToggleAbsence()
   const addBacklogMutation = useAddBacklogMember()
   const deleteBacklogMutation = useDeleteBacklogMember()
 
@@ -588,10 +596,12 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedCells.size === 1) {
         const key = Array.from(selectedCells)[0]
+        const [memberId, weekStr] = splitCellKey(key)
         const assignment = assignmentMap.get(key)
         if (assignment) {
           e.preventDefault()
           const data: ClipboardAssignment = {
+            type: 'assignment',
             projectName: assignment.projectName,
             projectColor: assignment.projectColor,
             status: assignment.status,
@@ -600,6 +610,24 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
           }
           navigator.clipboard.writeText(JSON.stringify(data))
           toast.success('Assignment copied')
+        } else {
+          // Check if cell is fully OUT — copy absences
+          const weekDate = new Date(weekStr + 'T00:00:00')
+          if (isFullyAbsent(memberId, weekDate)) {
+            e.preventDefault()
+            const dates: string[] = []
+            for (let i = 0; i < 5; i++) {
+              const d = new Date(weekDate)
+              d.setDate(d.getDate() + i)
+              const dateKey = toLocalDateString(d)
+              if (absenceSet.has(`${memberId}-${dateKey}`)) {
+                dates.push(dateKey)
+              }
+            }
+            const data: ClipboardAbsence = { type: 'absence', dates }
+            navigator.clipboard.writeText(JSON.stringify(data))
+            toast.success('Absences copied')
+          }
         }
       }
 
@@ -608,36 +636,67 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedCells, canEdit, bulkDelete, assignmentMap, handleBulkPaste])
+  }, [selectedCells, canEdit, bulkDelete, assignmentMap, handleBulkPaste, isFullyAbsent, absenceSet])
 
   // ── Paste event listener (uses clipboardData to avoid permission popup) ──
   useEffect(() => {
     if (!canEdit) return
 
     const handlePaste = async (e: ClipboardEvent) => {
-      if (selectedCells.size === 0) return  // Only paste when cells are selected
+      if (selectedCells.size === 0) return
       const text = e.clipboardData?.getData('text/plain')
       if (!text) return
       e.preventDefault()
 
-      let parsed: ClipboardAssignment
+      let parsed: Record<string, unknown>
       try {
-        parsed = JSON.parse(text) as ClipboardAssignment
-        if (!parsed.projectColor || !parsed.status) {
-          toast.error('Invalid clipboard content')
-          return
-        }
+        parsed = JSON.parse(text)
       } catch {
         toast.error('Invalid clipboard content')
         return
       }
 
-      await handleBulkPaste(parsed)
+      // Handle absence paste
+      if (parsed.type === 'absence' && Array.isArray(parsed.dates)) {
+        const sourceDates = parsed.dates as string[]
+        const cells = Array.from(selectedCells)
+        let pastedCount = 0
+        for (const key of cells) {
+          const [teamMemberId, weekStr] = splitCellKey(key)
+          const weekDate = new Date(weekStr + 'T00:00:00')
+          for (let i = 0; i < 5; i++) {
+            const d = new Date(weekDate)
+            d.setDate(d.getDate() + i)
+            const dateKey = toLocalDateString(d)
+            // Only create absence if the corresponding day-of-week was absent in source
+            // and target day doesn't already have an absence
+            if (i < sourceDates.length && !absenceSet.has(`${teamMemberId}-${dateKey}`)) {
+              await toggleAbsenceMutation.mutateAsync({
+                teamMemberId,
+                date: dateKey,
+                type: 'vacation',
+              })
+            }
+          }
+          pastedCount++
+        }
+        await queryClient.invalidateQueries({ queryKey: ['schedule', 'absences'] })
+        if (pastedCount > 0) toast.success(`Absences pasted to ${pastedCount} cell${pastedCount > 1 ? 's' : ''}`)
+        setSelectedCells(new Set())
+        return
+      }
+
+      // Handle assignment paste
+      if (!parsed.projectColor || !parsed.status) {
+        toast.error('Invalid clipboard content')
+        return
+      }
+      await handleBulkPaste(parsed as unknown as ClipboardAssignment)
     }
 
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [canEdit, selectedCells, handleBulkPaste])
+  }, [canEdit, selectedCells, handleBulkPaste, toggleAbsenceMutation, absenceSet, queryClient])
 
   if (isLoading) {
     return (
