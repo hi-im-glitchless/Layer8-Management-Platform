@@ -10,7 +10,7 @@ export function AppShell() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         
-        <main className="flex-1 overflow-y-auto bg-background p-6">
+        <main className="flex-1 overflow-y-auto overflow-x-auto md:overflow-x-hidden bg-background p-6">
           <Outlet />
         </main>
       </div>
