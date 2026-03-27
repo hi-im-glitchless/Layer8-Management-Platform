@@ -623,7 +623,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       let parsed: ClipboardAssignment
       try {
         parsed = JSON.parse(text) as ClipboardAssignment
-        if (!parsed.projectName || !parsed.projectColor || !parsed.status) {
+        if (!parsed.projectColor || !parsed.status) {
           toast.error('Invalid clipboard content')
           return
         }
