@@ -112,7 +112,7 @@ export const UpdateClientSchema = z.object({
 
 export const CreateAssignmentSchema = z.object({
   teamMemberId: z.string().min(1),
-  projectName: z.string().min(1).max(200),
+  projectName: z.string().max(200).default(''),
   projectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   status: z.enum(['placeholder', 'needs-reqs', 'confirmed']),
   weekStart: z.string().min(1),
@@ -128,7 +128,7 @@ export const CreateAssignmentSchema = z.object({
 export type CreateAssignmentRequest = z.infer<typeof CreateAssignmentSchema>
 
 export const UpdateAssignmentSchema = z.object({
-  projectName: z.string().min(1).max(200).optional(),
+  projectName: z.string().max(200).optional(),
   projectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   status: z.enum(['placeholder', 'needs-reqs', 'confirmed']).optional(),
   splitProjectName: z.string().max(200).nullable().optional(),

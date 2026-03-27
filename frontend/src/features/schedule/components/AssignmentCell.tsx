@@ -60,7 +60,7 @@ function ProjectTooltipBlock({ client, name, status, tags }: { client?: string; 
       {client && (
         <span className="text-sm font-bold text-foreground">{client}</span>
       )}
-      <span className="text-sm font-medium text-foreground/80">{name}</span>
+      {name && <span className="text-sm font-medium text-foreground/80">{name}</span>}
       <StatusBadge status={status} />
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1 pt-1">
@@ -249,7 +249,7 @@ function SplitCell({
   handleStatusClick: (e: React.MouseEvent, status: AssignmentStatus, assignmentId: string) => void
 }) {
   const leftLabel = assignment.client
-    ? `${assignment.client.name} - ${assignment.projectName}`
+    ? assignment.projectName ? `${assignment.client.name} - ${assignment.projectName}` : assignment.client.name
     : assignment.projectName
   const splitStatus = (assignment.splitProjectStatus as AssignmentStatus) ?? 'placeholder'
 
@@ -408,7 +408,9 @@ export const AssignmentCell = memo(function AssignmentCell({
         style={{ backgroundColor: assignment.projectColor }}
       >
         <span className="text-xs font-medium truncate" style={{ color: textColor }}>
-          {assignment.client ? `${assignment.client.name} - ${assignment.projectName}` : assignment.projectName}
+          {assignment.client
+            ? assignment.projectName ? `${assignment.client.name} - ${assignment.projectName}` : assignment.client.name
+            : assignment.projectName}
         </span>
       </div>
     )
@@ -450,7 +452,9 @@ export const AssignmentCell = memo(function AssignmentCell({
           >
             <div className="flex items-start justify-between gap-0.5">
               <span className="text-xs font-medium leading-tight line-clamp-2" style={{ color: textColor }}>
-                {assignment.client ? `${assignment.client.name} - ${assignment.projectName}` : assignment.projectName}
+                {assignment.client
+                  ? assignment.projectName ? `${assignment.client.name} - ${assignment.projectName}` : assignment.client.name
+                  : assignment.projectName}
               </span>
               {canEdit && (isLocked ? (
                 <button

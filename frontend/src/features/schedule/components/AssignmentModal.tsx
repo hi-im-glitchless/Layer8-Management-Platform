@@ -304,7 +304,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                     onBlur={() => {
                       setTimeout(() => setShowSuggestions(false), 200)
                     }}
-                    placeholder="Enter project name..."
+                    placeholder="Optional — leave blank for client-only"
                   />
                   {showSuggestions && suggestions.length > 0 && (
                     <div

@@ -216,7 +216,7 @@ router.post('/assignments', requireRole('PM'), mutationRateLimiter, async (req, 
   try {
     const schema = z.object({
       teamMemberId: z.string().min(1),
-      projectName: z.string().min(1).max(200),
+      projectName: z.string().max(200).default(''),
       projectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
       status: z.enum(['placeholder', 'needs-reqs', 'confirmed']),
       weekStart: z.string().min(1),
@@ -278,7 +278,7 @@ router.put('/assignments/:id', requireRole('PM'), mutationRateLimiter, async (re
   try {
     const id = req.params.id as string;
     const schema = z.object({
-      projectName: z.string().min(1).max(200).optional(),
+      projectName: z.string().max(200).optional(),
       projectColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
       status: z.enum(['placeholder', 'needs-reqs', 'confirmed']).optional(),
       isLocked: z.boolean().optional(),

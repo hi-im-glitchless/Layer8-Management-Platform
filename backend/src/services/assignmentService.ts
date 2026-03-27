@@ -114,7 +114,9 @@ export async function upsertAssignment(data: {
   clientId?: string | null;
   tags?: string[];
 }) {
-  await upsertProjectColor(data.projectName, data.projectColor);
+  if (data.projectName) {
+    await upsertProjectColor(data.projectName, data.projectColor);
+  }
 
   if (data.splitProjectName && data.splitProjectColor) {
     await upsertProjectColor(data.splitProjectName, data.splitProjectColor);
