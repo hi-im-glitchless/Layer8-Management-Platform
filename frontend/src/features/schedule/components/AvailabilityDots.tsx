@@ -28,12 +28,9 @@ function formatDateKey(date: Date): string {
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
-function formatDotTitle(date: Date, isHoliday: boolean, isAbsent: boolean): string {
+function formatDotTitle(date: Date): string {
   const dayName = DAY_NAMES[date.getDay()]
-  const dateStr = `${dayName} ${date.getDate()}/${date.getMonth() + 1}`
-  if (isHoliday) return `${dateStr} (Holiday)`
-  if (isAbsent) return `${dateStr} (Absent)`
-  return `${dateStr} (Available)`
+  return `${dayName} ${date.getDate()}/${date.getMonth() + 1}`
 }
 
 export const AvailabilityDots = memo(function AvailabilityDots({
@@ -92,7 +89,7 @@ export const AvailabilityDots = memo(function AvailabilityDots({
           dotClass = `w-3 h-3 rounded-sm ${LEGEND_COLORS.absence}`
         }
 
-        const title = formatDotTitle(day, isHoliday, isAbsent)
+        const title = formatDotTitle(day)
 
         if (canToggle && !isHoliday) {
           return (
