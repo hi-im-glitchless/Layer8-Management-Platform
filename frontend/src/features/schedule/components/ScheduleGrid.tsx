@@ -836,6 +836,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                   {fullyOut ? (
                     <div
                       className="h-full flex flex-col items-center justify-center bg-rose-900/80 dark:bg-rose-950/80 rounded-sm gap-0.5 relative cursor-pointer"
+                      title={`OUT: ${week.getDate()}/${week.getMonth() + 1} – ${new Date(week.getTime() + 4 * 86400000).getDate()}/${new Date(week.getTime() + 4 * 86400000).getMonth() + 1}`}
                       onClick={(e) => {
                         if (e.ctrlKey || e.metaKey) {
                           handleCellClick(member.id, week, assignment, e)

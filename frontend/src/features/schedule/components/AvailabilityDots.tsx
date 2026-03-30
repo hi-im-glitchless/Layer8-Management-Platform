@@ -26,6 +26,16 @@ function formatDateKey(date: Date): string {
   return toLocalDateString(date)
 }
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+
+function formatDotTitle(date: Date, isHoliday: boolean, isAbsent: boolean): string {
+  const dayName = DAY_NAMES[date.getDay()]
+  const dateStr = `${dayName} ${date.getDate()}/${date.getMonth() + 1}`
+  if (isHoliday) return `${dateStr} (Holiday)`
+  if (isAbsent) return `${dateStr} (Absent)`
+  return `${dateStr} (Available)`
+}
+
 export const AvailabilityDots = memo(function AvailabilityDots({
   weekStart,
   teamMemberId,
@@ -82,11 +92,14 @@ export const AvailabilityDots = memo(function AvailabilityDots({
           dotClass = `w-3 h-3 rounded-sm ${LEGEND_COLORS.absence}`
         }
 
+        const title = formatDotTitle(day, isHoliday, isAbsent)
+
         if (canToggle && !isHoliday) {
           return (
             <button
               key={key}
               type="button"
+              title={title}
               className={`${dotClass} cursor-pointer hover:ring-1 hover:ring-offset-1 hover:ring-ring transition-all`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -96,7 +109,7 @@ export const AvailabilityDots = memo(function AvailabilityDots({
           )
         }
 
-        return <div key={key} className={dotClass} />
+        return <div key={key} title={title} className={dotClass} />
       })}
     </div>
   )
