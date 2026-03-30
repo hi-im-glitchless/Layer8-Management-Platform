@@ -515,11 +515,12 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
 
   const handleCellMouseDown = useCallback((teamMemberId: string, weekStr: string, e: React.MouseEvent) => {
     if (e.button !== 0) return
+    // Only start drag-selection when Ctrl/Cmd is held — plain drag is reserved for DnD
+    if (!e.ctrlKey && !e.metaKey) return
     e.preventDefault() // Prevent native browser text/element selection
     isDragSelectingRef.current = true
     dragStartKeyRef.current = `${teamMemberId}-${weekStr}`
-    // Track whether Ctrl is held — determines if drag adds to existing selection or replaces
-    dragCtrlHeldRef.current = e.ctrlKey || e.metaKey
+    dragCtrlHeldRef.current = true
   }, [])
 
   const handleCellDragEnter = useCallback((teamMemberId: string, weekStr: string) => {
