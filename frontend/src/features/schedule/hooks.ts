@@ -114,7 +114,7 @@ export function useAssignments(year: number, quarter?: number) {
 
 export function useMyAssignments(year: number, quarter?: number) {
   return useQuery({
-    queryKey: ['schedule', 'my-assignments', year, quarter],
+    queryKey: ['schedule', 'assignments', 'me', year, quarter],
     queryFn: () => scheduleApi.getMyAssignments({ year, quarter }),
   })
 }
