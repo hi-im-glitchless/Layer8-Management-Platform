@@ -6,6 +6,7 @@ import { LegendBar } from '@/features/schedule/components/LegendBar'
 import { TeamManagementPanel } from '@/features/schedule/components/TeamManagementPanel'
 import { HolidayManager } from '@/features/schedule/components/HolidayManager'
 import { ClientManager } from '@/features/schedule/components/ClientManager'
+import { ExportHtmlButton } from '@/features/schedule/components/ExportHtmlButton'
 import { useAuth } from '@/features/auth/hooks'
 import { useScheduleSync } from '@/features/schedule/useScheduleSync'
 
@@ -40,6 +41,7 @@ export function Schedule() {
           {hasRole('PM') && <HolidayManager />}
           <ClientManager />
           {hasRole('PM') && <TeamManagementPanel />}
+          {hasRole('PM') && <ExportHtmlButton year={selectedYear} quarter={selectedQuarter} />}
           <YearPicker selectedYear={selectedYear} onYearChange={setSelectedYear} />
         </div>
       </div>
