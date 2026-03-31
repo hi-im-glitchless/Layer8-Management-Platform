@@ -88,27 +88,27 @@ function getMemberInitial(member: TeamMember): string {
 const CSS_TEMPLATE = `
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; font-size: 11px; background: #fff; color: #1e293b; }
-    table { border-collapse: collapse; table-layout: fixed; }
+    table { border-collapse: collapse; table-layout: fixed; width: 100%; }
     th.col-team { width: 140px; min-width: 120px; }
-    th.col-week { min-width: 150px; }
+    th.col-week { min-width: 130px; }
     thead tr { background: #cbd5e1; }
     th { padding: 6px 4px; text-align: center; border-bottom: 2px solid #94a3b8; border-right: 1px solid #94a3b8; white-space: nowrap; font-size: 10px; }
     th.current-week { background: #3b82f6; color: #fff; font-weight: bold; }
-    td { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 2px; height: 80px; vertical-align: top; }
+    td { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 2px; height: 70px; vertical-align: top; position: relative; overflow: hidden; }
     tr.even td { background: #f1f5f9; }
     tr.odd td { background: #f8fafc; }
     td.col-team { font-weight: 500; padding: 4px 8px; border-right: 2px solid #94a3b8; }
     td.month-start, th.month-start { border-left: 2px solid #94a3b8; }
-    .out-cell { background: rgba(76, 5, 25, 0.8); color: #fff; border-radius: 2px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-    .assignment { border-radius: 2px; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 3px 4px; overflow: hidden; }
+    .out-cell { background: rgba(76, 5, 25, 0.8); color: #fff; border-radius: 2px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; overflow: hidden; }
+    .assignment { border-radius: 2px; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 4px; overflow: hidden; }
     .assignment-name { font-size: 10px; font-weight: 500; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .status-row { display: flex; align-items: center; gap: 3px; }
     .status-dot { width: 16px; height: 10px; border-radius: 2px; flex-shrink: 0; }
     .tag-badge { font-size: 8px; font-weight: bold; padding: 1px 4px; border-radius: 9999px; background: #172554; color: #93c5fd; border: 1px solid rgba(59,130,246,0.4); }
     .split-cell { display: flex; flex-direction: row; height: 100%; border-radius: 2px; overflow: hidden; }
     .split-half { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 2px 4px; overflow: hidden; }
-    .dots { display: flex; gap: 2px; justify-content: center; margin-top: 2px; }
-    .dot { width: 10px; height: 10px; border-radius: 2px; }
+    .dots { display: flex; gap: 2px; justify-content: center; margin-top: 1px; flex-shrink: 0; }
+    .dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
     .dot-available { background: transparent; border: 1px solid #cbd5e1; }
     .dot-absent { background: #dc2626; }
     .dot-holiday { background: #dc2626; }
