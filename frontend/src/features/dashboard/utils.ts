@@ -73,6 +73,10 @@ export function buildProjectTimeline(assignments: Assignment[]): DashboardProjec
 
   if (current) timeline.push(current)
 
+  // Temporary debug — remove after fixing duration bug
+  console.log('[Dashboard] buildProjectTimeline input:', assignments.length, 'assignments')
+  console.log('[Dashboard] buildProjectTimeline output:', timeline.map(p => `${p.projectName}: ${p.durationWeeks}w (${p.startDate} → ${p.endDate})`))
+
   return timeline
 }
 
