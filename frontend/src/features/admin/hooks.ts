@@ -6,10 +6,11 @@ import type { CreateUserRequest, UpdateUserRequest } from './types'
 /**
  * User management hooks
  */
-export function useUsers() {
+export function useUsers(enabled = true) {
   return useQuery({
     queryKey: ['admin', 'users'],
     queryFn: () => adminApi.getUsers(),
+    enabled,
   })
 }
 

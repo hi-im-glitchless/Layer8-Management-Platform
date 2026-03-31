@@ -29,15 +29,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { useTeamMembers, useCreateTeamMember, useArchiveTeamMember, useReorderTeamMembers, useUpdateTeamMember } from '../hooks'
 import { useUsers } from '@/features/admin/hooks'
+import { useAuth } from '@/features/auth/hooks'
 import type { TeamMember } from '../types'
 
 export function TeamManagementPanel() {
   const [selectedUserId, setSelectedUserId] = useState<string>('')
   const [editingAliasId, setEditingAliasId] = useState<string | null>(null)
   const [aliasValue, setAliasValue] = useState('')
+  const { hasRole } = useAuth()
 
   const teamMembersQuery = useTeamMembers()
-  const usersQuery = useUsers()
+  const usersQuery = useUsers(hasRole('ADMIN'))
   const createMember = useCreateTeamMember()
   const archiveMember = useArchiveTeamMember()
   const reorderMembers = useReorderTeamMembers()

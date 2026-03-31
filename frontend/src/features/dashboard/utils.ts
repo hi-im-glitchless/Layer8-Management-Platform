@@ -33,9 +33,11 @@ function normalizeDate(dateStr: string): string {
 export function buildProjectTimeline(assignments: Assignment[]): DashboardProject[] {
   if (assignments.length === 0) return []
 
-  const sorted = [...assignments].sort(
-    (a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime()
-  )
+  const sorted = [...assignments]
+    .filter((a) => a.projectName.trim() !== '')
+    .sort(
+      (a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime()
+    )
 
   const timeline: DashboardProject[] = []
   let current: DashboardProject | null = null
@@ -72,10 +74,6 @@ export function buildProjectTimeline(assignments: Assignment[]): DashboardProjec
   }
 
   if (current) timeline.push(current)
-
-  // Temporary debug — remove after fixing duration bug
-  console.log('[Dashboard] buildProjectTimeline input:', assignments.length, 'assignments')
-  console.log('[Dashboard] buildProjectTimeline output:', timeline.map(p => `${p.projectName}: ${p.durationWeeks}w (${p.startDate} → ${p.endDate})`))
 
   return timeline
 }
