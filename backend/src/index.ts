@@ -27,6 +27,7 @@ import ghostwriterRouter from './routes/ghostwriter.js';
 import templateAdapterRouter from './routes/templateAdapter.js';
 import executiveReportRouter from './routes/executiveReport.js';
 import scheduleRouter from './routes/schedule.js';
+import boardRouter from './routes/board.js';
 import { waitForSanitizer } from './services/sanitization.js';
 import { checkGotenbergHealth } from './services/documents.js';
 import { initSocket } from './services/socketService.js';
@@ -110,8 +111,10 @@ async function startServer() {
     // Ensure upload directories exist
     const uploadDir = path.join(process.cwd(), 'uploads', 'avatars');
     const documentsDir = path.join(process.cwd(), 'uploads', 'documents');
+    const boardUploadsDir = path.join(process.cwd(), 'uploads', 'board');
     fs.mkdirSync(uploadDir, { recursive: true });
     fs.mkdirSync(documentsDir, { recursive: true });
+    fs.mkdirSync(boardUploadsDir, { recursive: true });
 
     // Connect to Redis first
     await connectRedis();
@@ -187,6 +190,9 @@ async function startServer() {
 
     // Mount schedule routes
     app.use('/api/schedule', scheduleRouter);
+
+    // Mount board routes
+    app.use('/api/board', boardRouter);
 
     // Mount sanitization routes (gated: template adapter support route)
     app.use('/api/sanitize', requireFeature('FEATURE_TEMPLATE_ADAPTER'), sanitizationRouter);

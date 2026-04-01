@@ -13,3 +13,7 @@ export function getIO(): Server | null {
 export function emitScheduleInvalidate(resource: 'assignments' | 'absences' | 'holidays' | 'team-members'): void {
   _io?.emit('schedule:invalidate', { resource })
 }
+
+export function emitBoardInvalidate(resource: 'cards' | 'comments' | 'files'): void {
+  _io?.emit('board:invalidate', { resource })
+}

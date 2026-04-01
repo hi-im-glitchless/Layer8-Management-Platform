@@ -36,6 +36,8 @@ model User {
   auditLogs      AuditLog[]
   denyListTerms  DenyListTerm[]
   teamMembers    TeamMember[]
+  boardComments  BoardComment[]
+  boardFiles     BoardFile[]
 }
 
 model TrustedDevice {
@@ -205,6 +207,8 @@ model Assignment {
   client      Client?    @relation("AssignmentClient", fields: [clientId], references: [id], onDelete: SetNull)
   splitClient Client?    @relation("AssignmentSplitClient", fields: [splitClientId], references: [id], onDelete: SetNull)
 
+  boardCard   BoardCard?
+
   @@unique([teamMemberId, weekStart])
   @@index([teamMemberId])
   @@index([weekStart])
@@ -264,4 +268,54 @@ model Client {
 
   assignments      Assignment[] @relation("AssignmentClient")
   splitAssignments Assignment[] @relation("AssignmentSplitClient")
+}
+
+model BoardCard {
+  id            String    @id @default(cuid())
+  assignmentId  String?   @unique
+  /// Valid values: upcoming | preparation | execution | closing | done | archived
+  stage         String    @default("upcoming")
+  checklist     String    @default("[]")
+  notes         String    @default("")
+  stageLockedBy String?
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  comments   BoardComment[]
+  files      BoardFile[]
+
+  @@index([stage])
+  @@index([assignmentId])
+}
+
+model BoardComment {
+  id        String   @id @default(cuid())
+  cardId    String
+  authorId  String?
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  card   BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  author User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([cardId])
+}
+
+model BoardFile {
+  id         String   @id @default(cuid())
+  cardId     String
+  filename   String
+  storedName String
+  mimeType   String
+  sizeBytes  Int
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+
+  card     BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  uploader User?     @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@index([cardId])
 }
