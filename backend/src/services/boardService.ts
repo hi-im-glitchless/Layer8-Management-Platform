@@ -121,6 +121,62 @@ export async function updateCard(
 }
 
 /**
+ * Auto-move cards based on checklist completion progress.
+ * Only moves cards where stageLockedBy is null or 'auto' (respects manual overrides).
+ * Returns the count of cards moved.
+ */
+export async function autoMoveCards(): Promise<number> {
+  const cards = await prisma.boardCard.findMany({
+    where: {
+      stage: { not: 'archived' },
+      OR: [
+        { stageLockedBy: null },
+        { stageLockedBy: 'auto' },
+      ],
+    },
+  });
+
+  let movedCount = 0;
+
+  for (const card of cards) {
+    const checklist: ChecklistItem[] =
+      typeof card.checklist === 'string'
+        ? (JSON.parse(card.checklist) as ChecklistItem[])
+        : (card.checklist as ChecklistItem[]) ?? [];
+
+    const total = checklist.length;
+    if (total === 0) continue;
+
+    const checked = checklist.filter((item) => item.checked).length;
+    const progress = checked / total;
+
+    // Determine target stage based on checklist progress
+    let targetStage: string;
+    if (progress === 0) {
+      targetStage = 'upcoming';
+    } else if (progress < 0.25) {
+      targetStage = 'preparation';
+    } else if (progress < 0.75) {
+      targetStage = 'execution';
+    } else if (progress < 1) {
+      targetStage = 'closing';
+    } else {
+      targetStage = 'done';
+    }
+
+    if (targetStage !== card.stage) {
+      await prisma.boardCard.update({
+        where: { id: card.id },
+        data: { stage: targetStage, stageLockedBy: 'auto' },
+      });
+      movedCount++;
+    }
+  }
+
+  return movedCount;
+}
+
+/**
  * Delete a board card by ID.
  */
 export async function deleteCard(id: string) {

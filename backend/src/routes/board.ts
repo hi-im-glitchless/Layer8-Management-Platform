@@ -156,6 +156,23 @@ router.patch('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, r
 });
 
 /**
+ * POST /cards/auto-move
+ * Trigger auto-move logic for all eligible cards (PM+)
+ */
+router.post('/cards/auto-move', requireRole('PM'), mutationRateLimiter, async (_req, res) => {
+  try {
+    const moved = await boardService.autoMoveCards();
+    res.json({ moved });
+    if (moved > 0) {
+      emitBoardInvalidate('cards');
+    }
+  } catch (error) {
+    console.error('[board routes] Error auto-moving cards:', error);
+    res.status(500).json({ error: 'Failed to auto-move cards' });
+  }
+});
+
+/**
  * DELETE /cards/:id
  * Delete a board card (ADMIN only)
  */
