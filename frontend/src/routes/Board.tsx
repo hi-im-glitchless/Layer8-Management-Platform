@@ -107,12 +107,18 @@ export function Board() {
       )
     }
 
+    if (filterClientId) {
+      result = result.filter(
+        (card) => (card.assignment as Record<string, unknown> | null | undefined)?.clientId === filterClientId,
+      )
+    }
+
     if (!showArchived) {
       result = result.filter((card) => card.stage !== 'archived')
     }
 
     return result
-  }, [cards, filterMode, filterPentesterId, showArchived, user])
+  }, [cards, filterMode, filterClientId, filterPentesterId, showArchived, user])
 
   // ── Group filtered cards by stage ──────────────────────────────────
   const cardsByStage = useMemo(
