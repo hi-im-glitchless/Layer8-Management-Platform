@@ -72,10 +72,51 @@ export interface UpdateCardPayload {
   stage?: BoardStage
   notes?: string
   checklist?: ChecklistItem[]
-  stageLockedBy?: string
+  stageLockedBy?: string | null
 }
 
 export interface CardFilters {
   stage?: BoardStage
   assignmentId?: string
+}
+
+// ── Stage constants ─────────────────────────────────────────────────
+
+/** Display stages (excludes 'archived' — shown only via toggle) */
+export const BOARD_STAGES = ['upcoming', 'preparation', 'execution', 'closing', 'done'] as const
+
+export const STAGE_LABELS: Record<BoardStage, string> = {
+  upcoming: 'Upcoming',
+  preparation: 'Preparation',
+  execution: 'Execution',
+  closing: 'Closing',
+  done: 'Done',
+  archived: 'Archived',
+}
+
+/** Group cards by stage, sorted within each group by weekStart ascending */
+export function groupCardsByStage(cards: BoardCard[]): Record<BoardStage, BoardCard[]> {
+  const grouped: Record<BoardStage, BoardCard[]> = {
+    upcoming: [],
+    preparation: [],
+    execution: [],
+    closing: [],
+    done: [],
+    archived: [],
+  }
+
+  for (const card of cards) {
+    grouped[card.stage]?.push(card)
+  }
+
+  // Sort each group by assignment.weekStart ascending (soonest first)
+  for (const stage of Object.keys(grouped) as BoardStage[]) {
+    grouped[stage].sort((a, b) => {
+      const aDate = a.assignment?.weekStart ?? ''
+      const bDate = b.assignment?.weekStart ?? ''
+      return aDate.localeCompare(bDate)
+    })
+  }
+
+  return grouped
 }
