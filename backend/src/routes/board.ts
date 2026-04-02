@@ -122,7 +122,7 @@ router.patch('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, r
       stage: StageEnum.optional(),
       notes: z.string().optional(),
       checklist: z.array(ChecklistItemSchema).optional(),
-      stageLockedBy: z.string().optional(),
+      stageLockedBy: z.string().nullable().optional(),
     });
     const data = schema.parse(req.body);
 
@@ -130,7 +130,7 @@ router.patch('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, r
       stage?: string;
       notes?: string;
       checklist?: { label: string; checked: boolean; order: number }[];
-      stageLockedBy?: string;
+      stageLockedBy?: string | null;
       archivedAt?: Date | null;
     } = { ...data };
 

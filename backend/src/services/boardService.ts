@@ -101,7 +101,7 @@ export async function updateCard(
     stage?: string;
     notes?: string;
     checklist?: ChecklistItem[];
-    stageLockedBy?: string;
+    stageLockedBy?: string | null;
     archivedAt?: Date | null;
   }
 ) {
