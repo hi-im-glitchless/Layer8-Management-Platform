@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   Calendar,
+  KanbanSquare,
   ScrollText,
   User,
   Shield,
@@ -45,6 +46,7 @@ const navigationGroups: NavGroup[] = [
       // Hidden: tools not currently in use
       // { to: '/documents', icon: FileUp, label: 'Documents' },
       { to: '/schedule', icon: Calendar, label: 'Schedule' },
+      { to: '/board', icon: KanbanSquare, label: 'Planner' },
     ],
   },
   {

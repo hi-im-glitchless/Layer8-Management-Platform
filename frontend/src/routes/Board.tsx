@@ -188,11 +188,11 @@ export function Board() {
   if (isError) {
     return (
       <div className="space-y-4">
-        <h1 className="text-3xl font-bold tracking-tight">Board</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Planner</h1>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <AlertCircle className="h-10 w-10 text-destructive mb-4" />
           <p className="text-lg font-medium text-foreground mb-2">
-            Failed to load board
+            Failed to load planner
           </p>
           <p className="text-sm text-muted-foreground mb-4">
             {error?.message ?? 'An unexpected error occurred'}
@@ -209,7 +209,7 @@ export function Board() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Board</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Planner</h1>
         <div className="flex items-center gap-2">
           <BoardFilters
             filterMode={filterMode}
@@ -276,7 +276,7 @@ export function Board() {
       {!isLoading && cards && filteredCards.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <p className="text-sm text-muted-foreground">
-            No board cards found. Cards are created when projects are added to the board.
+            No planner cards found. Cards are created when projects are added to the planner.
           </p>
         </div>
       )}
