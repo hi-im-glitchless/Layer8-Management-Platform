@@ -177,6 +177,47 @@ export async function autoMoveCards(): Promise<number> {
 }
 
 /**
+ * Sync board cards from assignments that don't yet have an associated card.
+ * Only reads assignments and creates BoardCards — never modifies Assignment records.
+ */
+export async function syncCardsFromAssignments(): Promise<{ created: number }> {
+  const unlinked = await prisma.assignment.findMany({
+    where: { boardCard: null },
+  });
+
+  let created = 0;
+  for (const assignment of unlinked) {
+    await prisma.boardCard.create({
+      data: {
+        assignmentId: assignment.id,
+        stage: 'upcoming',
+        checklist: JSON.stringify(DEFAULT_CHECKLIST),
+        notes: '',
+      },
+    });
+    created++;
+  }
+
+  return { created };
+}
+
+/**
+ * Create a single board card for a given assignment (idempotent via upsert).
+ */
+export async function createCardForAssignment(assignmentId: string) {
+  return prisma.boardCard.upsert({
+    where: { assignmentId },
+    create: {
+      assignmentId,
+      stage: 'upcoming',
+      checklist: JSON.stringify(DEFAULT_CHECKLIST),
+      notes: '',
+    },
+    update: {},
+  });
+}
+
+/**
  * Delete a board card by ID.
  */
 export async function deleteCard(id: string) {
