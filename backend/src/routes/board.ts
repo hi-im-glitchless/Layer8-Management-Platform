@@ -95,6 +95,23 @@ router.post('/cards', requireRole('PM'), mutationRateLimiter, async (req, res) =
 });
 
 /**
+ * POST /cards/sync
+ * Bulk-create BoardCards for assignments that lack one (PM+)
+ */
+router.post('/cards/sync', requireRole('PM'), mutationRateLimiter, async (_req, res) => {
+  try {
+    const result = await boardService.syncCardsFromAssignments();
+    res.json({ created: result.created });
+    if (result.created > 0) {
+      emitBoardInvalidate('cards');
+    }
+  } catch (error) {
+    console.error('[board routes] Error syncing cards:', error);
+    res.status(500).json({ error: 'Failed to sync cards from assignments' });
+  }
+});
+
+/**
  * GET /cards/:id
  * Get a single board card (all authenticated users)
  */

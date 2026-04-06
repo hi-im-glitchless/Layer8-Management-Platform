@@ -5,7 +5,7 @@ title: "Board->Planner Rename and BoardCard Auto-Population"
 type: remediation
 status: in-progress
 completed:
-tasks_completed: 2
+tasks_completed: 3
 tasks_total: 4
 commit_hashes:
   - d1503ca
@@ -13,6 +13,8 @@ files_modified:
   - frontend/src/routes/Board.tsx
   - frontend/src/components/layout/Sidebar.tsx
   - backend/src/services/boardService.ts
+  - backend/src/routes/board.ts
+  - backend/src/services/assignmentService.ts
 deviations: []
 ---
 
@@ -39,6 +41,19 @@ None
 
 ### Files Modified
 - `backend/src/services/boardService.ts` -- added two exported functions: `syncCardsFromAssignments` and `createCardForAssignment`
+
+### Deviations
+None
+
+## Task 3: Add POST /cards/sync endpoint and hook auto-creation into upsertAssignment
+
+### What Was Built
+- Added `POST /cards/sync` endpoint requiring PM role; calls `syncCardsFromAssignments()` and returns `{ created: N }`, emitting WebSocket invalidation when cards are created
+- Hooked `createCardForAssignment` into `upsertAssignment` so every assignment create/update auto-creates a BoardCard (idempotent, non-fatal on failure)
+
+### Files Modified
+- `backend/src/routes/board.ts` -- added `POST /cards/sync` route with PM auth, rate limiter, and WS notification
+- `backend/src/services/assignmentService.ts` -- added boardService import and auto-creation call after transaction in `upsertAssignment`
 
 ### Deviations
 None

@@ -1,5 +1,6 @@
 import { prisma } from '@/db/prisma.js';
 import { upsertProjectColor } from '@/services/scheduleService.js';
+import { createCardForAssignment } from '@/services/boardService.js';
 
 /**
  * Parse JSON-stringified tag fields back to arrays for API responses.
@@ -193,6 +194,15 @@ export async function upsertAssignment(data: {
       },
     });
   });
+
+  // Auto-create BoardCard for this assignment (idempotent upsert — no-op if card exists)
+  try {
+    await createCardForAssignment(result.id);
+  } catch (err) {
+    // Non-fatal: board card creation failure should not break assignment upsert
+    console.error('[assignmentService] Failed to auto-create board card:', err);
+  }
+
   return parseTagFields(result);
 }
 
