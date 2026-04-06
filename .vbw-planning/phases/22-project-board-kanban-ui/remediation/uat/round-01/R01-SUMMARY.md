@@ -3,18 +3,22 @@ phase: 22
 round: 1
 title: "Board->Planner Rename and BoardCard Auto-Population"
 type: remediation
-status: in-progress
-completed:
-tasks_completed: 3
+status: complete
+completed: 2026-04-06
+tasks_completed: 4
 tasks_total: 4
 commit_hashes:
   - d1503ca
+  - fe0853e
+  - 0bd420b
+  - cc33b12
 files_modified:
   - frontend/src/routes/Board.tsx
   - frontend/src/components/layout/Sidebar.tsx
   - backend/src/services/boardService.ts
   - backend/src/routes/board.ts
   - backend/src/services/assignmentService.ts
+  - frontend/src/features/board/types.ts
 deviations: []
 ---
 
@@ -54,6 +58,17 @@ None
 ### Files Modified
 - `backend/src/routes/board.ts` -- added `POST /cards/sync` route with PM auth, rate limiter, and WS notification
 - `backend/src/services/assignmentService.ts` -- added boardService import and auto-creation call after transaction in `upsertAssignment`
+
+### Deviations
+None
+
+## Task 4: Add clientId to BoardCard assignment type
+
+### What Was Built
+- Added `clientId: string | null` to the `assignment` sub-type in `BoardCard` interface, aligning the frontend type with the backend Prisma include
+
+### Files Modified
+- `frontend/src/features/board/types.ts` -- added `clientId: string | null` to assignment sub-type after `weekStart`
 
 ### Deviations
 None
