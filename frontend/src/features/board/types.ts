@@ -25,6 +25,7 @@ export interface BoardCard {
     projectColor: string
     status: string
     weekStart: string
+    clientId: string | null
   } | null
   comments?: BoardComment[]
   files?: BoardFile[]
