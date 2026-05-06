@@ -103,6 +103,16 @@ app.get('/api/csrf-token', (req, res) => {
 });
 
 // Static file serving for uploads (before rate limiting for performance)
+//
+// Phase 23 plan 23-01: board files MUST NOT be reachable through the public
+// `/uploads` static handler — they are session-gated, audit-logged downloads
+// only (the wave-2 plan 03 download route enforces requireCardAccess and
+// emits a `board.file.download` audit event). This 403 short-circuit must
+// run BEFORE the static middleware below, otherwise express.static() would
+// resolve `/uploads/board/...` to disk and bypass auth entirely.
+app.use('/uploads/board', (_req, res) => {
+  res.status(403).json({ error: 'Forbidden' });
+});
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Start server
