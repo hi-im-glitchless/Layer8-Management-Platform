@@ -14,6 +14,6 @@ export function emitScheduleInvalidate(resource: 'assignments' | 'absences' | 'h
   _io?.emit('schedule:invalidate', { resource })
 }
 
-export function emitBoardInvalidate(resource: 'cards' | 'comments' | 'files'): void {
+export function emitBoardInvalidate(resource: 'cards' | 'comments' | 'files' | 'notifications'): void {
   _io?.emit('board:invalidate', { resource })
 }
