@@ -4,9 +4,8 @@ import { prisma } from '../db/prisma.js';
 /**
  * Shape of the snapshot attached to `req.boardCard` by `requireCardAccess`.
  * Downstream handlers can read this to avoid a duplicate `prisma.boardCard.findUnique`
- * round-trip. Wave-2 plans may extend `backend/src/types/express.d.ts` to make this
- * a properly typed property; for now downstream readers cast via
- * `(req as Request & { boardCard?: BoardCardContext })`.
+ * round-trip. The Express.Request augmentation in `backend/src/types/express.d.ts`
+ * imports this type so `req.boardCard` is typed without a per-call cast.
  */
 export interface BoardCardContext {
   id: string;
@@ -79,7 +78,7 @@ export async function requireCardAccess(
       assignmentId: card.assignmentId,
       stage: card.stage,
     };
-    (req as Request & { boardCard?: BoardCardContext }).boardCard = context;
+    req.boardCard = context;
 
     if (role === 'ADMIN') {
       next();
