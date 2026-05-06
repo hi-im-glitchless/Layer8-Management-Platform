@@ -32,12 +32,13 @@ model User {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  trustedDevices TrustedDevice[]
-  auditLogs      AuditLog[]
-  denyListTerms  DenyListTerm[]
-  teamMembers    TeamMember[]
-  boardComments  BoardComment[]
-  boardFiles     BoardFile[]
+  trustedDevices     TrustedDevice[]
+  auditLogs          AuditLog[]
+  denyListTerms      DenyListTerm[]
+  teamMembers        TeamMember[]
+  boardComments      BoardComment[]
+  boardFiles         BoardFile[]
+  boardNotifications BoardNotification[]
 }
 
 model TrustedDevice {
@@ -99,11 +100,11 @@ model LlmSettings {
 
 model TemplateMapping {
   id                    String   @id @default(cuid())
-  templateType          String   // web|internal|mobile
-  language              String   // en|pt-pt
-  normalizedSectionText String   // lowercase, whitespace-collapsed section text
-  gwField               String   // target GW field path (e.g. "client.short_name")
-  markerType            String   // text|paragraph_rt|run_rt|table_row_loop|control_flow
+  templateType          String // web|internal|mobile
+  language              String // en|pt-pt
+  normalizedSectionText String // lowercase, whitespace-collapsed section text
+  gwField               String // target GW field path (e.g. "client.short_name")
+  markerType            String // text|paragraph_rt|run_rt|table_row_loop|control_flow
   confidence            Float    @default(1.0) // last-seen confidence from mapping plan
   usageCount            Int      @default(1) // incremented on each duplicate upsert
   zone                  String   @default("unknown") // header|footer|body|table_cell|text_box|cover|unknown
@@ -122,9 +123,9 @@ model BlueprintPattern {
   id           String   @id @default(cuid())
   templateType String
   zone         String
-  patternType  String   // loop|conditional|group
-  markers      String   // JSON array: [{"gwField":"...","markerType":"..."},...]
-  anchorStyle  String?  // paragraph style that anchors this pattern
+  patternType  String // loop|conditional|group
+  markers      String // JSON array: [{"gwField":"...","markerType":"..."},...]
+  anchorStyle  String? // paragraph style that anchors this pattern
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -150,15 +151,15 @@ model StyleHint {
 /// When the same template is re-uploaded, the stored snapshot is returned directly
 /// without any LLM analysis — giving 100% reproducible results.
 model TemplateMappingSnapshot {
-  id               String   @id @default(cuid())
-  templateHash     String   // structural hash from document-structure service
-  templateType     String   // web|internal|mobile
-  language         String   // en|pt-pt
-  mappingPlanJson  String   // full MappingPlan JSON
-  entryCount       Int      @default(0)
-  usageCount       Int      @default(1) // how many times this snapshot was replayed
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(cuid())
+  templateHash    String // structural hash from document-structure service
+  templateType    String // web|internal|mobile
+  language        String // en|pt-pt
+  mappingPlanJson String // full MappingPlan JSON
+  entryCount      Int      @default(0)
+  usageCount      Int      @default(1) // how many times this snapshot was replayed
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([templateHash, templateType, language])
   @@index([templateType, language])
@@ -170,7 +171,7 @@ model TeamMember {
   displayOrder Int      @default(0)
   status       String   @default("active") // active, inactive, archived
   isBacklog    Boolean  @default(false)
-  displayName  String?  // Used for backlog members (e.g. "Futuro 1")
+  displayName  String? // Used for backlog members (e.g. "Futuro 1")
   joinedAt     DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -185,20 +186,20 @@ model TeamMember {
 }
 
 model Assignment {
-  id                String   @id @default(cuid())
-  teamMemberId      String
-  projectName       String
-  projectColor      String   // Hex color e.g. #FF5733
-  status            String   @default("placeholder") // placeholder, needs-reqs, confirmed
-  weekStart         DateTime // Monday of the week (ISO date)
-  isLocked          Boolean  @default(false)
-  splitProjectName   String?  // Second project name for split cells
-  splitProjectColor  String?  // Second project color for split cells
-  splitProjectStatus String?  // Status for split project half
-  splitClientId      String?  // Optional client for split project
+  id                 String   @id @default(cuid())
+  teamMemberId       String
+  projectName        String
+  projectColor       String // Hex color e.g. #FF5733
+  status             String   @default("placeholder") // placeholder, needs-reqs, confirmed
+  weekStart          DateTime // Monday of the week (ISO date)
+  isLocked           Boolean  @default(false)
+  splitProjectName   String? // Second project name for split cells
+  splitProjectColor  String? // Second project color for split cells
+  splitProjectStatus String? // Status for split project half
+  splitClientId      String? // Optional client for split project
   splitTags          String   @default("[]") // JSON array of tags for split project
-  createdBy          String?  // User ID who last modified
-  clientId           String?  // Optional client association
+  createdBy          String? // User ID who last modified
+  clientId           String? // Optional client association
   tags               String   @default("[]") // JSON array of tag strings e.g. ["Web", "Red Team"]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -207,7 +208,7 @@ model Assignment {
   client      Client?    @relation("AssignmentClient", fields: [clientId], references: [id], onDelete: SetNull)
   splitClient Client?    @relation("AssignmentSplitClient", fields: [splitClientId], references: [id], onDelete: SetNull)
 
-  boardCard   BoardCard?
+  boardCard BoardCard?
 
   @@unique([teamMemberId, weekStart])
   @@index([teamMemberId])
@@ -221,7 +222,7 @@ model Absence {
   id           String   @id @default(cuid())
   teamMemberId String
   date         DateTime // Specific date (YYYY-MM-DD)
-  type         String   // holiday, sick, vacation, other
+  type         String // holiday, sick, vacation, other
   reason       String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -237,8 +238,8 @@ model Absence {
 model Holiday {
   id          String   @id @default(cuid())
   name        String
-  month       Int      // 1-12
-  day         Int      // 1-31
+  month       Int // 1-12
+  day         Int // 1-31
   isRecurring Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -250,7 +251,7 @@ model Holiday {
 model ProjectColor {
   id         String   @id @default(cuid())
   name       String   @unique
-  color      String   // Hex color code
+  color      String // Hex color code
   usageCount Int      @default(1)
   lastUsedAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -262,7 +263,7 @@ model ProjectColor {
 model Client {
   id        String   @id @default(cuid())
   name      String   @unique
-  color     String   // Hex color code
+  color     String // Hex color code
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -271,32 +272,44 @@ model Client {
 }
 
 model BoardCard {
-  id            String    @id @default(cuid())
-  assignmentId  String?   @unique
+  id             String    @id @default(cuid())
+  assignmentId   String?   @unique
   /// Valid values: upcoming | preparation | execution | closing | done | archived
-  stage         String    @default("upcoming")
-  checklist     String    @default("[]")
-  notes         String    @default("")
-  stageLockedBy String?
-  archivedAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  stage          String    @default("upcoming")
+  checklist      String    @default("[]")
+  notes          String    @default("")
+  /// Timestamp of the most recent notes edit; drives "last edited by ... at ..." UI
+  notesUpdatedAt DateTime?
+  /// Free-form user ID of the last notes editor — intentionally not a relation to keep
+  /// migrations trivial and avoid cascade noise when users are removed
+  notesUpdatedBy String?
+  stageLockedBy  String?
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
-  comments   BoardComment[]
-  files      BoardFile[]
+  assignment    Assignment?         @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  comments      BoardComment[]
+  files         BoardFile[]
+  notifications BoardNotification[]
 
   @@index([stage])
   @@index([assignmentId])
 }
 
 model BoardComment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   cardId    String
   authorId  String?
   body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  /// Soft-delete flag; when true the body is hidden and replaced with `[deleted]` in UI
+  isDeleted Boolean   @default(false)
+  /// Timestamp of last user edit (set by Phase 23 wave-2 PATCH handler); drives "edited" indicator
+  editedAt  DateTime?
+  /// Timestamp of the soft-delete event; null for live comments
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   card   BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
   author User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
@@ -305,17 +318,43 @@ model BoardComment {
 }
 
 model BoardFile {
-  id         String   @id @default(cuid())
-  cardId     String
-  filename   String
-  storedName String
-  mimeType   String
-  sizeBytes  Int
-  uploadedBy String?
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  cardId        String
+  filename      String
+  storedName    String
+  mimeType      String
+  sizeBytes     Int
+  uploadedBy    String?
+  /// True when ClamAV reports the file infected; quarantined files are blocked from download
+  isQuarantined Boolean  @default(false)
+  /// Allowed values: pending | clean | infected | error
+  scanStatus    String   @default("pending")
+  createdAt     DateTime @default(now())
 
   card     BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
   uploader User?     @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
 
+  @@index([cardId])
+}
+
+/// In-app notifications for board events (mentions, comments).
+/// FKs: cardId → onDelete: Cascade (notification is meaningless without the card; board-internal),
+///       userId → onDelete: SetNull (preserve historical notifications on user removal).
+/// Both FKs are board-internal — no cascade crosses the schedule boundary
+/// (Assignment / TeamMember / Absence / Holiday).
+model BoardNotification {
+  id        String   @id @default(cuid())
+  /// Mentioned user; nullable so user delete sets to null rather than cascading
+  userId    String?
+  cardId    String
+  /// Notification type: "mention" | "comment"
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  card BoardCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
   @@index([cardId])
 }
