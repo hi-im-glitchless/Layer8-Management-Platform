@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/hooks'
 import { type Role } from '@/lib/rbac'
+import { useUnreadNotificationCount } from '@/features/board/hooks'
 
 interface NavItem {
   to: string
@@ -69,6 +70,10 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const { resolvedTheme } = useTheme()
   const { user, hasRole: userHasRole } = useAuth()
+  // Notification dot for the Planner entry — disabled when unauthenticated
+  // to avoid spamming /api/board/notifications/unread-count with 401s.
+  const { data: unreadData } = useUnreadNotificationCount(!!user)
+  const unreadCount = unreadData?.count ?? 0
 
   const visibleGroups = useMemo(
     () => navigationGroups
@@ -132,25 +137,36 @@ export function Sidebar() {
               </div>
             )}
             <div className="space-y-1.5">
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200',
-                      isActive
-                        ? 'bg-sidebar-accent text-sidebar-accent-foreground border-l-[3px] border-accent pl-[13px]'
-                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
-                      collapsed && 'justify-center'
-                    )
-                  }
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
-                </NavLink>
-              ))}
+              {group.items.map((item) => {
+                const showDot = item.to === '/board' && unreadCount > 0
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200',
+                        isActive
+                          ? 'bg-sidebar-accent text-sidebar-accent-foreground border-l-[3px] border-accent pl-[13px]'
+                          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
+                        collapsed && 'justify-center'
+                      )
+                    }
+                  >
+                    <span className="relative flex-shrink-0">
+                      <item.icon className="h-5 w-5" />
+                      {showDot && (
+                        <span
+                          className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary ring-2 ring-sidebar"
+                          aria-label={`${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}`}
+                        />
+                      )}
+                    </span>
+                    {!collapsed && <span>{item.label}</span>}
+                  </NavLink>
+                )
+              })}
             </div>
           </div>
         ))}
