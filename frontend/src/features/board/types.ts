@@ -14,6 +14,8 @@ export interface BoardCard {
   stage: BoardStage
   checklist: ChecklistItem[]
   notes: string
+  notesUpdatedAt: string | null
+  notesUpdatedBy: string | null
   stageLockedBy: string | null
   archivedAt: string | null
   createdAt: string
@@ -35,7 +37,11 @@ export interface BoardComment {
   id: string
   cardId: string
   authorId: string | null
-  body: string
+  authorName?: string | null
+  body: string | null
+  isDeleted: boolean
+  editedAt: string | null
+  deletedAt: string | null
   createdAt: string
   updatedAt: string
   author?: {
@@ -49,9 +55,11 @@ export interface BoardFile {
   id: string
   cardId: string
   filename: string
-  storedName: string
+  storedName?: string
   mimeType: string
   sizeBytes: number
+  scanStatus: string
+  isQuarantined: boolean
   uploadedBy: string | null
   createdAt: string
   uploader?: {
@@ -59,6 +67,9 @@ export interface BoardFile {
     username: string
   } | null
 }
+
+/** Per-card storage cap (mirrors backend MAX_CARD_BYTES from boardFileService.ts). */
+export const MAX_CARD_BYTES = 500 * 1024 * 1024
 
 // ── API request/response types ───────────────────────────────────────
 

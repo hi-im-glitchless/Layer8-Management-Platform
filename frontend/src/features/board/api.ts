@@ -1,4 +1,4 @@
-import { apiClient, apiUpload } from '@/lib/api'
+import { ApiError, apiClient, apiUpload } from '@/lib/api'
 import type {
   BoardCard,
   BoardComment,
@@ -49,13 +49,27 @@ export const boardApi = {
     return apiClient<{ comments: BoardComment[] }>(`/api/board/cards/${cardId}/comments`)
   },
 
-  async addComment(cardId: string, body: string) {
+  async addComment(cardId: string, body: string, mentions: string[] = []) {
     return apiClient<{ comment: BoardComment }>(`/api/board/cards/${cardId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, mentions }),
     })
   },
 
+  async editComment(cardId: string, commentId: string, body: string) {
+    return apiClient<{ comment: BoardComment }>(
+      `/api/board/cards/${cardId}/comments/${commentId}`,
+      { method: 'PATCH', body: JSON.stringify({ body }) },
+    )
+  },
+
+  async softDeleteComment(cardId: string, commentId: string) {
+    return apiClient<{ success: boolean }>(`/api/board/cards/${cardId}/comments/${commentId}`, {
+      method: 'DELETE',
+    })
+  },
+
+  /** @deprecated Phase 23 soft-deletes comments. Kept as alias of softDeleteComment. */
   async deleteComment(cardId: string, commentId: string) {
     return apiClient<{ success: boolean }>(`/api/board/cards/${cardId}/comments/${commentId}`, {
       method: 'DELETE',
@@ -77,6 +91,60 @@ export const boardApi = {
   async deleteFile(cardId: string, fileId: string) {
     return apiClient<{ success: boolean }>(`/api/board/cards/${cardId}/files/${fileId}`, {
       method: 'DELETE',
+    })
+  },
+
+  async downloadFile(cardId: string, fileId: string): Promise<Blob> {
+    const res = await fetch(`/api/board/cards/${cardId}/files/${fileId}/download`, {
+      credentials: 'include',
+    })
+    if (!res.ok) {
+      throw new ApiError(res.status, `Download failed: ${res.statusText}`)
+    }
+    return res.blob()
+  },
+
+  // ── Notes ──────────────────────────────────────────────────────────
+
+  async updateNotes(cardId: string, notes: string) {
+    return apiClient<{
+      card: {
+        id: string
+        notes: string
+        notesUpdatedAt: string | null
+        notesUpdatedBy: string | null
+      }
+    }>(`/api/board/cards/${cardId}/notes`, {
+      method: 'PATCH',
+      body: JSON.stringify({ notes }),
+    })
+  },
+
+  // ── Admin ──────────────────────────────────────────────────────────
+
+  async archiveCard(cardId: string, confirmProjectName: string) {
+    return apiClient<{
+      success: boolean
+      cardId: string
+      projectName: string
+      fileCount: number
+      totalBytes: number
+    }>(`/api/board/cards/${cardId}/admin/archive`, {
+      method: 'POST',
+      body: JSON.stringify({ confirmProjectName }),
+    })
+  },
+
+  // ── Notifications ──────────────────────────────────────────────────
+
+  async getUnreadNotificationCount() {
+    return apiClient<{ count: number }>(`/api/board/notifications/unread-count`)
+  },
+
+  async markCardNotificationsRead(cardId: string) {
+    return apiClient<{ success: boolean }>(`/api/board/notifications/mark-read`, {
+      method: 'POST',
+      body: JSON.stringify({ cardId }),
     })
   },
 }
