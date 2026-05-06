@@ -4,7 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import { requireCardAccess } from '../middleware/boardAuth.js';
 import { readRateLimiter, mutationRateLimiter } from '../middleware/rateLimit.js';
 import * as boardService from '../services/boardService.js';
@@ -149,13 +149,21 @@ function multerWithErrorMap(req: Request, res: Response, next: NextFunction): vo
 
 /**
  * GET /cards/:id/files
- * List files for a card (all authenticated users)
+ * List files for a card. Gated by `requireCardAccess` so NORMAL pentesters
+ * only see files for cards assigned to them. Quarantined files are hidden
+ * by default; ADMINs may pass `?includeQuarantined=true` to see all rows.
+ * The opaque `storedName` is stripped from every record — clients reach
+ * the bytes via `:fileId/download` exclusively.
  */
-router.get('/', requireAuth, readRateLimiter, async (req, res) => {
+router.get('/', requireAuth, requireCardAccess, readRateLimiter, async (req, res) => {
   try {
     const id = (req.params.cardId ?? req.params.id) as string;
-    const files = await boardService.listFiles(id);
-    res.json({ files });
+    const includeQuarantined =
+      req.query.includeQuarantined === 'true' && req.session.role === 'ADMIN';
+    const all = await boardService.listFiles(id);
+    const filtered = includeQuarantined ? all : all.filter((f) => !f.isQuarantined);
+    const sanitised = filtered.map(({ storedName: _stored, ...rest }) => rest);
+    res.json({ files: sanitised });
   } catch (error) {
     console.error('[board routes] Error listing files:', error);
     res.status(500).json({ error: 'Failed to list files' });
@@ -282,32 +290,118 @@ router.post(
 );
 
 /**
- * DELETE /cards/:cardId/files/:fileId
- * Delete a file from a card (PM+)
+ * GET /cards/:cardId/files/:fileId/download
+ * Session-gated, audited file download. Returns the bytes via
+ * `res.download(diskPath, originalFilename)` so the browser receives
+ * `Content-Disposition: attachment; filename="<original>"` — the opaque
+ * on-disk `storedName` is never exposed. Every successful read emits a
+ * `board.file.download` audit event.
  */
-router.delete('/:fileId', requireRole('PM'), mutationRateLimiter, async (req, res) => {
-  try {
-    const fileId = req.params.fileId as string;
-    const fileRecord = await boardService.getFile(fileId);
-    if (!fileRecord) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-
-    // Delete from disk (log error but don't fail the request)
-    const filePath = path.join(BOARD_UPLOADS_DIR, fileRecord.cardId, fileRecord.storedName);
+router.get(
+  '/:fileId/download',
+  requireAuth,
+  requireCardAccess,
+  readRateLimiter,
+  async (req, res) => {
     try {
-      fs.unlinkSync(filePath);
-    } catch (diskErr) {
-      console.error('[board routes] Failed to delete file from disk:', diskErr);
-    }
+      const cardId = (req.params.cardId ?? req.params.id) as string;
+      const fileId = req.params.fileId as string;
+      const file = await boardService.getFile(fileId);
+      if (!file || file.cardId !== cardId) {
+        res.status(404).json({ error: 'File not found' });
+        return;
+      }
+      if (file.isQuarantined) {
+        res.status(410).json({ error: 'File quarantined' });
+        return;
+      }
 
-    await boardService.deleteFile(fileId);
-    res.json({ success: true });
-    emitBoardInvalidate('files');
-  } catch (error) {
-    console.error('[board routes] Error deleting file:', error);
-    res.status(500).json({ error: 'Failed to delete file' });
-  }
-});
+      const onDisk = path.join(BOARD_UPLOADS_DIR, file.cardId, file.storedName);
+      if (!fs.existsSync(onDisk)) {
+        res.status(404).json({ error: 'File missing on disk' });
+        return;
+      }
+
+      await logAuditEvent({
+        userId: req.session.userId ?? null,
+        action: 'board.file.download',
+        ipAddress: extractIp(req),
+        details: {
+          cardId,
+          fileId: file.id,
+          filename: file.filename,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+        },
+      });
+      res.download(onDisk, file.filename);
+    } catch (error) {
+      console.error('[board routes] Error downloading file:', error);
+      res.status(500).json({ error: 'Failed to download file' });
+    }
+  },
+);
+
+/**
+ * DELETE /cards/:cardId/files/:fileId
+ * Delete a file from a card. `requireCardAccess` enforces ACL (ADMIN, PM,
+ * or assigned pentester); the explicit role check below restricts deletes
+ * to ADMIN/PM only — assigned NORMAL pentesters can read and download but
+ * not destroy. Audits `board.file.delete` after disk + DB removal.
+ */
+router.delete(
+  '/:fileId',
+  requireAuth,
+  requireCardAccess,
+  mutationRateLimiter,
+  async (req, res) => {
+    try {
+      if (req.session.role !== 'ADMIN' && req.session.role !== 'PM') {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+      }
+      const cardId = (req.params.cardId ?? req.params.id) as string;
+      const fileId = req.params.fileId as string;
+      const fileRecord = await boardService.getFile(fileId);
+      if (!fileRecord || fileRecord.cardId !== cardId) {
+        res.status(404).json({ error: 'File not found' });
+        return;
+      }
+
+      const captured = {
+        filename: fileRecord.filename,
+        mimeType: fileRecord.mimeType,
+        sizeBytes: fileRecord.sizeBytes,
+      };
+
+      // Delete from disk (log error but don't fail the request)
+      const filePath = path.join(BOARD_UPLOADS_DIR, fileRecord.cardId, fileRecord.storedName);
+      try {
+        fs.unlinkSync(filePath);
+      } catch (diskErr) {
+        console.error('[board routes] Failed to delete file from disk:', diskErr);
+      }
+
+      await boardService.deleteFile(fileId);
+
+      await logAuditEvent({
+        userId: req.session.userId ?? null,
+        action: 'board.file.delete',
+        ipAddress: extractIp(req),
+        details: {
+          cardId,
+          fileId,
+          ...captured,
+        },
+      });
+
+      res.json({ success: true });
+      emitBoardInvalidate('files');
+    } catch (error) {
+      console.error('[board routes] Error deleting file:', error);
+      res.status(500).json({ error: 'Failed to delete file' });
+    }
+  },
+);
 
 export default router;
