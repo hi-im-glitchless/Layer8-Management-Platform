@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -22,16 +22,19 @@ import {
   FileText,
   Pencil,
   MessageSquare,
+  Archive,
 } from 'lucide-react'
 import type { BoardCard, BoardComment } from '../types'
 import { useAuth } from '@/features/auth/hooks'
 import {
   useAddComment,
   useEditComment,
+  useMarkCardNotificationsRead,
   useSoftDeleteComment,
 } from '../hooks'
 import { NotesEditor } from './NotesEditor'
 import { FilesPanel } from './FilesPanel'
+import { ArchiveCardDialog } from './ArchiveCardDialog'
 
 interface Props {
   card: BoardCard | null
@@ -242,6 +245,19 @@ function CommentSection({
 
 export function CardDetailModal({ card, open, onOpenChange, onResetAutoMove }: Props) {
   const { user, role } = useAuth()
+  const markRead = useMarkCardNotificationsRead()
+  const [archiveOpen, setArchiveOpen] = useState(false)
+
+  // Fire mark-read once per open transition so the sidebar dot clears.
+  // Stable mutate identity is captured via ref to keep the effect deps tight.
+  const markReadMutate = markRead.mutate
+  const markReadRef = useRef(markReadMutate)
+  markReadRef.current = markReadMutate
+  useEffect(() => {
+    if (open && card?.id) {
+      markReadRef.current({ cardId: card.id })
+    }
+  }, [open, card?.id])
 
   if (!card) return null
 
@@ -250,6 +266,11 @@ export function CardDetailModal({ card, open, onOpenChange, onResetAutoMove }: P
   const totalCount = card.checklist.length
   const isManuallyPlaced = card.stageLockedBy !== null && card.stageLockedBy !== 'auto'
   const canDelete = role === 'ADMIN' || role === 'PM'
+  const canArchive = role === 'ADMIN' && !card.archivedAt
+  const filesTotalBytes = (card.files ?? []).reduce(
+    (sum, f) => sum + f.sizeBytes,
+    0,
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -382,11 +403,33 @@ export function CardDetailModal({ card, open, onOpenChange, onResetAutoMove }: P
         </div>
 
         <DialogFooter>
+          {canArchive && (
+            <Button
+              variant="destructive"
+              onClick={() => setArchiveOpen(true)}
+              className="mr-auto"
+            >
+              <Archive className="h-4 w-4 mr-1" />
+              Archive card
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {canArchive && (
+        <ArchiveCardDialog
+          cardId={card.id}
+          projectName={assignment?.projectName ?? ''}
+          fileCount={(card.files ?? []).length}
+          totalBytes={filesTotalBytes}
+          open={archiveOpen}
+          onOpenChange={setArchiveOpen}
+          onArchived={() => onOpenChange(false)}
+        />
+      )}
     </Dialog>
   )
 }
