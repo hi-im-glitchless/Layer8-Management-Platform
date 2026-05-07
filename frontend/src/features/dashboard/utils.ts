@@ -82,6 +82,7 @@ export function buildProjectTimeline(assignments: Assignment[]): DashboardProjec
         endDate: weekDate,
         durationWeeks: 1,
         status: assignment.status,
+        assignmentId: assignment.id,
       }
       currentKey = key
     }
