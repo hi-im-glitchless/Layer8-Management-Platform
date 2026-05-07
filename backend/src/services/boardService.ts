@@ -46,7 +46,17 @@ export async function listCards(filters: { stage?: string; assignmentId?: string
 
   const cards = await prisma.boardCard.findMany({
     where,
-    include: { assignment: true },
+    // Phase 24-05: include teamMember.userId so the FE "My Projects" filter
+    // can compare against the current user's User.id (TeamMember.id and User.id
+    // are different identifiers — see schema.prisma TeamMember.userId).
+    // This is a READ-only join expansion — zero schedule writes.
+    include: {
+      assignment: {
+        include: {
+          teamMember: { select: { userId: true } },
+        },
+      },
+    },
     orderBy: { createdAt: 'desc' },
   });
   return cards.map(parseChecklist);
@@ -59,7 +69,14 @@ export async function getCard(id: string) {
   const card = await prisma.boardCard.findUnique({
     where: { id },
     include: {
-      assignment: true,
+      // Phase 24-05: same include expansion as listCards — surfaces
+      // teamMember.userId for the FE filter without leaking other TeamMember
+      // fields. READ-only join, no schedule writes.
+      assignment: {
+        include: {
+          teamMember: { select: { userId: true } },
+        },
+      },
       comments: {
         include: { author: true },
         orderBy: { createdAt: 'asc' },
