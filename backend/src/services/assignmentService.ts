@@ -298,6 +298,18 @@ export async function swapAssignments(idA: string, idB: string) {
     prisma.assignment.findUniqueOrThrow({ where: { id: idB } }),
   ]);
 
+  // Phase 24-05: capture pre-swap card linkages so we can re-link them after
+  // the transaction commits. The transaction below deletes both Assignment
+  // rows, which triggers BoardCard.assignmentId → NULL via the onDelete:
+  // SetNull FK (schema.prisma:291). The new Assignment rows reuse the same
+  // ids, so we can relink each orphaned card to its original id post-commit.
+  // LIVE-VALIDATED 2026-05-07 against backend/dev.db: orphan reproduces on
+  // both cards without this repair.
+  const [preSwapCardA, preSwapCardB] = await Promise.all([
+    prisma.boardCard.findUnique({ where: { assignmentId: idA } }),
+    prisma.boardCard.findUnique({ where: { assignmentId: idB } }),
+  ]);
+
   // Use a transaction with a temporary value to avoid unique constraint violations
   await prisma.$transaction([
     // Temporarily clear A's unique key fields
@@ -343,6 +355,35 @@ export async function swapAssignments(idA: string, idB: string) {
       },
     }),
   ]);
+
+  // Phase 24-05: re-link the (now-orphaned) BoardCards by setting their
+  // assignmentId back to the same id they had pre-swap. The swap preserves
+  // ids — only the contents (teamMemberId/weekStart/projectName/...) move
+  // between the two rows — so the cards' original linkage is still valid
+  // semantically. createCardForAssignment is the backstop for the
+  // pre-Phase-23 case where the assignment never had a card to begin with.
+  // The whole repair is wrapped in try/catch so a board-side failure cannot
+  // roll back the swap (data-safety: schedule writes must always succeed).
+  try {
+    if (preSwapCardA) {
+      await prisma.boardCard.update({
+        where: { id: preSwapCardA.id },
+        data: { assignmentId: idA },
+      });
+    } else {
+      await createCardForAssignment(idA);
+    }
+    if (preSwapCardB) {
+      await prisma.boardCard.update({
+        where: { id: preSwapCardB.id },
+        data: { assignmentId: idB },
+      });
+    } else {
+      await createCardForAssignment(idB);
+    }
+  } catch (err) {
+    console.error('[assignmentService] Failed to re-link cards post-swap:', err);
+  }
 }
 
 /**
