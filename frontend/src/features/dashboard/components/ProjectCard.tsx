@@ -1,5 +1,9 @@
 import type { DashboardProject } from '@/features/dashboard/types'
+import type { BoardCard } from '@/features/board/types'
 import { format, addDays, parseISO } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { boardApi } from '@/features/board/api'
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   confirmed: {
@@ -27,15 +31,19 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
   const startMonday = parseISO(project.startDate)
   const badge = STATUS_BADGE[project.status] ?? STATUS_BADGE.placeholder
 
-  return (
-    <div className="flex overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { assignmentId } = project
+
+  const cardBody = (
+    <>
       {/* Color accent bar */}
       <div
         className="w-1 shrink-0"
         style={{ backgroundColor: project.projectColor }}
       />
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
+      <div className="flex flex-1 flex-col gap-2 p-4 text-left">
         {/* Header: project name + client + status */}
         <div>
           <div className="flex items-center gap-2">
@@ -90,6 +98,47 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
           )}
         </div>
       </div>
-    </div>
+    </>
+  )
+
+  // No assignmentId → static, non-interactive card (placeholder/synthetic rows).
+  if (!assignmentId) {
+    return (
+      <div className="flex overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
+        {cardBody}
+      </div>
+    )
+  }
+
+  // Interactive: look up the board card on click and navigate.
+  // We use queryClient.fetchQuery + useNavigate (NOT a react-router Link) because
+  // we need to resolve assignmentId → cardId asynchronously before navigating;
+  // a Link's `to` would be unknown at render time and a useQuery on every render
+  // would spawn N parallel lookups on dashboard mount. Cache key matches
+  // useBoardCardByAssignmentId (24-02) so subsequent navigation hits cache.
+  const handleClick = async () => {
+    try {
+      const data = await queryClient.fetchQuery<{ cards: BoardCard[] }>({
+        queryKey: ['board', 'cards', { assignmentId }],
+        queryFn: () => boardApi.getCards({ assignmentId }),
+      })
+      const cardId = data.cards[0]?.id
+      if (cardId) {
+        navigate(`/board?card=${cardId}`)
+      }
+      // No card → silent no-op (consistent with 24-02 / 24-03 — no toast).
+    } catch {
+      // Network/permission error → silent no-op; the card remains useful as info.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm w-full transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      {cardBody}
+    </button>
   )
 }
