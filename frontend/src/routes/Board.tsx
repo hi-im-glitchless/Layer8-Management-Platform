@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-react'
 
 export function Board() {
-  const { user, hasRole } = useAuth()
+  const { user, role, isLoading: authLoading, hasRole } = useAuth()
   useBoardSync()
 
   const { data, isLoading, isError, error, refetch } = useBoardCards()
@@ -46,10 +46,29 @@ export function Board() {
   const [isDragging, setIsDragging] = useState(false)
 
   // ── Filter state ───────────────────────────────────────────────────
-  const [filterMode, setFilterMode] = useState<'mine' | 'all'>('mine')
+  // Phase 24-05: role-aware default. NORMAL (pentesters) default to "mine",
+  // PM/ADMIN default to "all". Initial value derives from useAuth().role
+  // which falls back to 'NORMAL' while the auth query is still loading
+  // (auth/hooks.ts:29) — a useEffect below re-derives the default once
+  // isLoading flips false, covering the brief loading-default-NORMAL window.
+  const [filterMode, setFilterMode] = useState<'mine' | 'all'>(
+    role === 'NORMAL' ? 'mine' : 'all',
+  )
   const [filterClientId, setFilterClientId] = useState<string | null>(null)
   const [filterPentesterId, setFilterPentesterId] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
+
+  // Re-derive the default filter once auth finishes loading. We deliberately
+  // re-set the filter only when the auth state transitions, NOT every render —
+  // hence the eslint-disable below. Users can still toggle the filter
+  // manually after this fires; we just want the initial default to reflect
+  // the resolved role rather than the loading-fallback 'NORMAL'.
+  useEffect(() => {
+    if (!authLoading) {
+      setFilterMode(role === 'NORMAL' ? 'mine' : 'all')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, role])
 
   // ── Modal state (driven by ?card=<id> URL search param) ────────────
   const [searchParams, setSearchParams] = useSearchParams()
@@ -112,8 +131,12 @@ export function Board() {
     let result = cards as BoardCard[]
 
     if (filterMode === 'mine' && user) {
+      // Phase 24-05: compare assignment.teamMember.userId against the User.id.
+      // The previous comparison (assignment.teamMemberId === user.id) was a
+      // type-mismatch — TeamMember.id and User.id are distinct identifiers,
+      // so the filter matched zero cards for any user.
       result = result.filter(
-        (card) => card.assignment?.teamMemberId === user.id,
+        (card) => card.assignment?.teamMember?.userId === user.id,
       )
     }
 

@@ -28,6 +28,14 @@ export interface BoardCard {
     status: string
     weekStart: string
     clientId: string | null
+    /**
+     * Phase 24-05: nested team-member user id so the Board "My Projects"
+     * filter can compare against the current User.id without leaking the
+     * full TeamMember row. Mirrors the Prisma include in boardService.
+     */
+    teamMember?: {
+      userId: string | null
+    } | null
   } | null
   comments?: BoardComment[]
   files?: BoardFile[]
