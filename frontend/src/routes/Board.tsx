@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   DndContext,
   DragOverlay,
@@ -50,8 +51,23 @@ export function Board() {
   const [filterPentesterId, setFilterPentesterId] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
 
-  // ── Modal state ────────────────────────────────────────────────────
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
+  // ── Modal state (driven by ?card=<id> URL search param) ────────────
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedCardId = searchParams.get('card') ?? null
+  const setSelectedCardId = useCallback(
+    (id: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (id === null) next.delete('card')
+          else next.set('card', id)
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
 
   // ── Sensors ────────────────────────────────────────────────────────
   const sensors = useSensors(
