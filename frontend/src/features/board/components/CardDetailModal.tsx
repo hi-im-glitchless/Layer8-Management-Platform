@@ -248,7 +248,8 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
   const { user, role } = useAuth()
   const markRead = useMarkCardNotificationsRead()
   const [archiveOpen, setArchiveOpen] = useState(false)
-  const { data: card } = useBoardCard(cardId ?? '')
+  const { data } = useBoardCard(cardId ?? '')
+  const card = data?.card
 
   // Fire mark-read once per open transition so the sidebar dot clears.
   // Stable mutate identity is captured via ref to keep the effect deps tight.
