@@ -371,32 +371,11 @@ router.get('/absences', requireAuth, readRateLimiter, async (req, res) => {
     });
     const params = schema.parse(req.query);
 
-    const canManageAll = req.session.role === 'ADMIN' || req.session.role === 'PM';
-    let effectiveTeamMemberId = params.teamMemberId;
-
-    if (!canManageAll) {
-      // Look up the requesting user's own TeamMember record
-      const ownMember = await prisma.teamMember.findUnique({
-        where: { userId: req.session.userId },
-        select: { id: true },
-      });
-
-      if (params.teamMemberId) {
-        // Non-admin requesting another user's absences — verify ownership
-        if (!ownMember || params.teamMemberId !== ownMember.id) {
-          return res.status(403).json({ error: 'Forbidden' });
-        }
-      } else {
-        // No teamMemberId specified — scope to own record
-        if (!ownMember) {
-          return res.json({ absences: [] });
-        }
-        effectiveTeamMemberId = ownMember.id;
-      }
-    }
-
+    // Read access is open to all authenticated users — mirrors GET /assignments,
+    // so pentesters can see who is out of office across the whole team.
+    // Mutations stay PM/ADMIN-only via POST /absences/toggle below.
     const absences = await absenceService.listAbsences({
-      teamMemberId: effectiveTeamMemberId,
+      teamMemberId: params.teamMemberId,
       dateStart: new Date(params.dateStart),
       dateEnd: new Date(params.dateEnd),
     });
