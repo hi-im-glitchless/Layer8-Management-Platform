@@ -29,6 +29,7 @@ import { useAuth } from '@/features/auth/hooks'
 import {
   useAddComment,
   useBoardCard,
+  useBoardMembers,
   useEditComment,
   useMarkCardNotificationsRead,
   useSoftDeleteComment,
@@ -193,16 +194,124 @@ function CommentSection({
   currentUserId: string | null
 }) {
   const [draft, setDraft] = useState('')
+  // Track each successfully picked mention — preserved across keystrokes.
+  // De-duplicated on submit by id. Cleared after a successful post.
+  const [mentions, setMentions] = useState<Array<{ id: string; username: string }>>([])
+  // Active @-trigger state: when the cursor is inside a `@partial` token,
+  // `triggerStart` is the index of the `@` and `query` is everything after it
+  // up to the cursor. `null` when no trigger is active.
+  const [trigger, setTrigger] = useState<
+    { start: number; query: string } | null
+  >(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
   const add = useAddComment()
+  const { data: membersData } = useBoardMembers()
+  const allMembers = membersData?.users ?? []
+
+  // Filter suggestions: case-insensitive prefix/substring match on username
+  // OR displayName, exclude the current user, cap at 5 entries to keep the
+  // popover compact.
+  const suggestions = trigger
+    ? allMembers
+        .filter((u) => u.id !== currentUserId)
+        .filter((u) => {
+          const q = trigger.query.toLowerCase()
+          if (q === '') return true
+          return (
+            u.username.toLowerCase().includes(q) ||
+            (u.displayName ?? '').toLowerCase().includes(q)
+          )
+        })
+        .slice(0, 5)
+    : []
+
+  // Compute trigger state from the textarea content + cursor position.
+  // A trigger is active when the cursor sits immediately after a contiguous
+  // `@<word-chars>` sequence with the `@` either at string start or preceded
+  // by whitespace.
+  const updateTrigger = (value: string, cursor: number) => {
+    const before = value.slice(0, cursor)
+    const atIdx = before.lastIndexOf('@')
+    if (atIdx === -1) {
+      setTrigger(null)
+      return
+    }
+    // Reject if `@` is preceded by a non-whitespace char (e.g. email "a@b").
+    if (atIdx > 0 && /\S/.test(before[atIdx - 1])) {
+      setTrigger(null)
+      return
+    }
+    const partial = before.slice(atIdx + 1)
+    // Reject if the partial contains whitespace — trigger ended.
+    if (/\s/.test(partial)) {
+      setTrigger(null)
+      return
+    }
+    setTrigger({ start: atIdx, query: partial })
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setDraft(e.target.value)
+    updateTrigger(e.target.value, e.target.selectionStart ?? e.target.value.length)
+  }
+
+  const handleKeyUpOrClick = (
+    e: React.SyntheticEvent<HTMLTextAreaElement>,
+  ) => {
+    const ta = e.currentTarget
+    updateTrigger(ta.value, ta.selectionStart ?? ta.value.length)
+  }
+
+  const handleSelectSuggestion = (user: {
+    id: string
+    username: string
+    displayName: string | null
+  }) => {
+    if (!trigger) return
+    const before = draft.slice(0, trigger.start)
+    const after = draft.slice(trigger.start + 1 + trigger.query.length)
+    const inserted = `@${user.username} `
+    const next = before + inserted + after
+    setDraft(next)
+    setMentions((prev) =>
+      prev.some((m) => m.id === user.id)
+        ? prev
+        : [...prev, { id: user.id, username: user.username }],
+    )
+    setTrigger(null)
+    // Restore focus and place cursor after the inserted mention.
+    queueMicrotask(() => {
+      const ta = textareaRef.current
+      if (ta) {
+        const pos = before.length + inserted.length
+        ta.focus()
+        ta.setSelectionRange(pos, pos)
+      }
+    })
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const body = draft.trim()
     if (!body) return
+    // Only include mentions whose `@username` token still appears in the
+    // body — if the user deleted the mention text, drop it from the array.
+    const liveMentionIds = Array.from(
+      new Set(
+        mentions
+          .filter((m) => new RegExp(`@${m.username}\\b`).test(body))
+          .map((m) => m.id),
+      ),
+    )
     add.mutate(
-      { cardId, body },
+      { cardId, body, mentions: liveMentionIds },
       {
-        onSuccess: () => setDraft(''),
+        onSuccess: () => {
+          setDraft('')
+          setMentions([])
+          setTrigger(null)
+        },
       },
     )
   }
@@ -228,12 +337,45 @@ function CommentSection({
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-2">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add a comment…"
-          className="w-full min-h-[5rem] rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={handleChange}
+            onKeyUp={handleKeyUpOrClick}
+            onClick={handleKeyUpOrClick}
+            placeholder="Add a comment… use @ to mention a teammate"
+            className="w-full min-h-[5rem] rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          {trigger && suggestions.length > 0 && (
+            <ul
+              role="listbox"
+              aria-label="Mention suggestions"
+              className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-md"
+            >
+              {suggestions.map((u) => (
+                <li key={u.id}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      // Prevent textarea blur stealing the click before it lands.
+                      e.preventDefault()
+                      handleSelectSuggestion(u)
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <span className="font-medium">@{u.username}</span>
+                    {u.displayName && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {u.displayName}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div className="flex justify-end">
           <Button type="submit" size="sm" disabled={add.isPending || !draft.trim()}>
             {add.isPending ? 'Posting…' : 'Post comment'}

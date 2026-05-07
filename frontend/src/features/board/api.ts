@@ -76,6 +76,14 @@ export const boardApi = {
     })
   },
 
+  // ── Members ────────────────────────────────────────────────────────
+
+  async getMembers() {
+    return apiClient<{
+      users: Array<{ id: string; username: string; displayName: string | null }>
+    }>(`/api/board/members`)
+  },
+
   // ── Files ──────────────────────────────────────────────────────────
 
   async getFiles(cardId: string) {

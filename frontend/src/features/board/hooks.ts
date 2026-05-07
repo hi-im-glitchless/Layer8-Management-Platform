@@ -141,12 +141,27 @@ export function useBoardComments(cardId: string) {
   })
 }
 
+export function useBoardMembers() {
+  return useQuery({
+    queryKey: ['board', 'members'],
+    queryFn: () => boardApi.getMembers(),
+    staleTime: 5 * 60 * 1000, // 5 minutes — member list rarely changes
+  })
+}
+
 export function useAddComment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ cardId, body }: { cardId: string; body: string }) =>
-      boardApi.addComment(cardId, body),
+    mutationFn: ({
+      cardId,
+      body,
+      mentions = [],
+    }: {
+      cardId: string
+      body: string
+      mentions?: string[]
+    }) => boardApi.addComment(cardId, body, mentions),
     onSuccess: (_, { cardId }) => {
       queryClient.invalidateQueries({ queryKey: ['board', 'comments', cardId] })
       queryClient.invalidateQueries({ queryKey: ['board', 'cards', cardId] })
