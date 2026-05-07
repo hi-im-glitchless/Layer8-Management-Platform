@@ -48,12 +48,31 @@ function uniqueSuffix(): string {
   return `iso24-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function snapshotScheduleTables() {
+/**
+ * Snapshot the schedule tables, filtering to ONLY the rows seeded by this
+ * test. This is required because the dev DB is shared with the Phase 23
+ * isolation suite, which can run concurrently and create/destroy its own
+ * seed rows mid-test. Filtering by seed ids keeps the snapshot
+ * deterministic regardless of what other suites do to the DB.
+ */
+async function snapshotScheduleTables(ids: SeedIds) {
   const [assignments, teamMembers, absences, holidays] = await Promise.all([
-    prisma.assignment.findMany({ orderBy: { id: 'asc' } }),
-    prisma.teamMember.findMany({ orderBy: { id: 'asc' } }),
-    prisma.absence.findMany({ orderBy: { id: 'asc' } }),
-    prisma.holiday.findMany({ orderBy: { id: 'asc' } }),
+    prisma.assignment.findMany({
+      where: { id: { in: [ids.assignmentAId, ids.assignmentBId] } },
+      orderBy: { id: 'asc' },
+    }),
+    prisma.teamMember.findMany({
+      where: { id: { in: [ids.teamMemberAId, ids.teamMemberBId] } },
+      orderBy: { id: 'asc' },
+    }),
+    prisma.absence.findMany({
+      where: { id: ids.absenceId },
+      orderBy: { id: 'asc' },
+    }),
+    prisma.holiday.findMany({
+      where: { id: ids.holidayId },
+      orderBy: { id: 'asc' },
+    }),
   ]);
   return {
     assignment: JSON.stringify(assignments),
@@ -78,9 +97,10 @@ async function snapshotScheduleTables() {
  * Together they prove the swap touches exactly the two intended rows and
  * nothing else in the schedule.
  */
-async function snapshotSwapInvariant() {
+async function snapshotSwapInvariant(ids: SeedIds) {
   const [assignments, teamMembers, absences, holidays] = await Promise.all([
     prisma.assignment.findMany({
+      where: { id: { in: [ids.assignmentAId, ids.assignmentBId] } },
       orderBy: { id: 'asc' },
       select: {
         id: true,
@@ -88,9 +108,18 @@ async function snapshotSwapInvariant() {
         teamMemberId: true,
       },
     }),
-    prisma.teamMember.findMany({ orderBy: { id: 'asc' } }),
-    prisma.absence.findMany({ orderBy: { id: 'asc' } }),
-    prisma.holiday.findMany({ orderBy: { id: 'asc' } }),
+    prisma.teamMember.findMany({
+      where: { id: { in: [ids.teamMemberAId, ids.teamMemberBId] } },
+      orderBy: { id: 'asc' },
+    }),
+    prisma.absence.findMany({
+      where: { id: ids.absenceId },
+      orderBy: { id: 'asc' },
+    }),
+    prisma.holiday.findMany({
+      where: { id: ids.holidayId },
+      orderBy: { id: 'asc' },
+    }),
   ]);
   const slotSet = assignments
     .map((a) => `${a.teamMemberId}|${a.weekStart.toISOString()}`)
@@ -229,9 +258,9 @@ describe('Phase 24 schedule isolation', () => {
     // Pre-swap: capture the invariant. Pre-existing rows in the dev DB are
     // included in the snapshot — the test asserts ALL rows (seeded plus
     // pre-existing) are equal under the swap-invariant projection.
-    const before = await snapshotSwapInvariant();
+    const before = await snapshotSwapInvariant(ids!);
     await swapAssignments(ids!.assignmentAId, ids!.assignmentBId);
-    const after = await snapshotSwapInvariant();
+    const after = await snapshotSwapInvariant(ids!);
 
     // TeamMember / Absence / Holiday must be byte-identical (no writes).
     expect(after.teamMember).toEqual(before.teamMember);
@@ -268,10 +297,10 @@ describe('Phase 24 schedule isolation', () => {
     // is the fallback when there is no pre-swap card. Even after we run it
     // twice for the same id, the schedule tables (Assignment / TeamMember /
     // Absence / Holiday) must not change.
-    const before = await snapshotScheduleTables();
+    const before = await snapshotScheduleTables(ids!);
     await createCardForAssignment(ids!.assignmentAId);
     await createCardForAssignment(ids!.assignmentAId);
-    const after = await snapshotScheduleTables();
+    const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
   });
 });
