@@ -186,6 +186,7 @@ export function useUploadFile() {
     mutationFn: ({ cardId, file }: { cardId: string; file: File }) =>
       boardApi.uploadFile(cardId, file),
     onSuccess: (_, { cardId }) => {
+      queryClient.invalidateQueries({ queryKey: ['board', 'cards', cardId] })
       queryClient.invalidateQueries({ queryKey: ['board', 'files', cardId] })
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to upload file'),
@@ -199,6 +200,7 @@ export function useDeleteFile() {
     mutationFn: ({ cardId, fileId }: { cardId: string; fileId: string }) =>
       boardApi.deleteFile(cardId, fileId),
     onSuccess: (_, { cardId }) => {
+      queryClient.invalidateQueries({ queryKey: ['board', 'cards', cardId] })
       queryClient.invalidateQueries({ queryKey: ['board', 'files', cardId] })
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to delete file'),

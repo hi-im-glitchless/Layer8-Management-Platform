@@ -178,12 +178,6 @@ export function Board() {
     return findCardById(cards, activeDragId) ?? null
   }, [activeDragId, cards])
 
-  // ── Selected card for modal ────────────────────────────────────────
-  const selectedCard = useMemo(() => {
-    if (!selectedCardId || !cards) return null
-    return findCardById(cards, selectedCardId) ?? null
-  }, [selectedCardId, cards])
-
   // ── Error state ────────────────────────────────────────────────────
   if (isError) {
     return (
@@ -283,7 +277,7 @@ export function Board() {
 
       {/* Card detail modal */}
       <CardDetailModal
-        card={selectedCard}
+        cardId={selectedCardId}
         open={selectedCardId !== null}
         onOpenChange={(open) => {
           if (!open) setSelectedCardId(null)

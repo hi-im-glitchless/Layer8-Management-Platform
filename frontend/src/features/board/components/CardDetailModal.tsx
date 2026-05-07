@@ -24,10 +24,11 @@ import {
   MessageSquare,
   Archive,
 } from 'lucide-react'
-import type { BoardCard, BoardComment } from '../types'
+import type { BoardComment } from '../types'
 import { useAuth } from '@/features/auth/hooks'
 import {
   useAddComment,
+  useBoardCard,
   useEditComment,
   useMarkCardNotificationsRead,
   useSoftDeleteComment,
@@ -37,7 +38,7 @@ import { FilesPanel } from './FilesPanel'
 import { ArchiveCardDialog } from './ArchiveCardDialog'
 
 interface Props {
-  card: BoardCard | null
+  cardId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onResetAutoMove?: (cardId: string) => void
@@ -243,10 +244,11 @@ function CommentSection({
   )
 }
 
-export function CardDetailModal({ card, open, onOpenChange, onResetAutoMove }: Props) {
+export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }: Props) {
   const { user, role } = useAuth()
   const markRead = useMarkCardNotificationsRead()
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const { data: card } = useBoardCard(cardId ?? '')
 
   // Fire mark-read once per open transition so the sidebar dot clears.
   // Stable mutate identity is captured via ref to keep the effect deps tight.
@@ -254,12 +256,12 @@ export function CardDetailModal({ card, open, onOpenChange, onResetAutoMove }: P
   const markReadRef = useRef(markReadMutate)
   markReadRef.current = markReadMutate
   useEffect(() => {
-    if (open && card?.id) {
-      markReadRef.current({ cardId: card.id })
+    if (open && cardId) {
+      markReadRef.current({ cardId })
     }
-  }, [open, card?.id])
+  }, [open, cardId])
 
-  if (!card) return null
+  if (!cardId || !card) return null
 
   const assignment = card.assignment
   const checkedCount = card.checklist.filter((item) => item.checked).length
