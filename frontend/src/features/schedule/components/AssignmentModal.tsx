@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Dialog,
   DialogContent,
@@ -12,9 +13,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Trash2 } from 'lucide-react'
+import { ExternalLink, Trash2 } from 'lucide-react'
 import { ColorPalette } from './ColorPalette'
 import { useUpsertAssignment, useDeleteAssignment, useClients } from '../hooks'
+import { useBoardCardByAssignmentId } from '../../board/hooks'
 import { ASSIGNMENT_STATUSES, COLOR_PALETTE } from '../constants'
 import { CreateAssignmentSchema, PREDEFINED_TAGS } from '../types'
 import type { Assignment, AssignmentStatus, Client } from '../types'
@@ -138,6 +140,15 @@ function parseTags(tags: unknown): string[] {
 
 export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assignment }: AssignmentModalProps) {
   const isEdit = !!assignment
+
+  // Phase 24-02: look up the linked board card so we can render a
+  // "View on Board" deep link for existing assignments. Disabled in
+  // create-mode (assignment === undefined). Returns null when the
+  // assignment has no card (e.g., legacy pre-Phase-23 rows) — in that
+  // case the link is hidden, not an error.
+  const { data: boardCard } = useBoardCardByAssignmentId(
+    isEdit && assignment ? assignment.id : undefined,
+  )
 
   const [projectName, setProjectName] = useState('')
   const [projectColor, setProjectColor] = useState<string>(COLOR_PALETTE[0].hex)
@@ -408,6 +419,17 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
             >
               <Trash2 className="w-4 h-4 mr-1" />
               Delete
+            </Button>
+          )}
+          {isEdit && boardCard && (
+            <Button asChild type="button" variant="link" size="sm">
+              <Link
+                to={`/board?card=${boardCard.id}`}
+                onClick={() => onClose()}
+              >
+                <ExternalLink className="w-4 h-4 mr-1" />
+                View on Board
+              </Link>
             </Button>
           )}
           <Button type="button" variant="outline" onClick={onClose}>
