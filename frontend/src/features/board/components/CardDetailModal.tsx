@@ -33,6 +33,7 @@ import {
   useEditComment,
   useMarkCardNotificationsRead,
   useSoftDeleteComment,
+  useUpdateCard,
 } from '../hooks'
 import { NotesEditor } from './NotesEditor'
 import { FilesPanel } from './FilesPanel'
@@ -389,6 +390,7 @@ function CommentSection({
 export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }: Props) {
   const { user, role } = useAuth()
   const markRead = useMarkCardNotificationsRead()
+  const updateCard = useUpdateCard()
   const [archiveOpen, setArchiveOpen] = useState(false)
   const { data } = useBoardCard(cardId ?? '')
   const card = data?.card
@@ -502,18 +504,30 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
               <ul className="space-y-1 pl-6">
                 {card.checklist
                   .sort((a, b) => a.order - b.order)
-                  .map((item, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm">
-                      {item.checked ? (
-                        <CheckSquare className="h-3.5 w-3.5 text-primary shrink-0" />
-                      ) : (
-                        <Square className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      )}
-                      <span
-                        className={item.checked ? 'line-through text-muted-foreground' : ''}
+                  .map((item) => (
+                    <li key={item.order}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = card.checklist.map((it) =>
+                            it.order === item.order ? { ...it, checked: !it.checked } : it,
+                          )
+                          updateCard.mutate({ id: card.id, data: { checklist: next } })
+                        }}
+                        disabled={updateCard.isPending}
+                        className="flex w-full items-center gap-2 rounded text-left text-sm hover:bg-accent/50 px-1 py-0.5 disabled:opacity-60"
                       >
-                        {item.label}
-                      </span>
+                        {item.checked ? (
+                          <CheckSquare className="h-3.5 w-3.5 text-primary shrink-0" />
+                        ) : (
+                          <Square className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        <span
+                          className={item.checked ? 'line-through text-muted-foreground' : ''}
+                        >
+                          {item.label}
+                        </span>
+                      </button>
                     </li>
                   ))}
               </ul>
