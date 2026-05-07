@@ -28,6 +28,7 @@ import templateAdapterRouter from './routes/templateAdapter.js';
 import executiveReportRouter from './routes/executiveReport.js';
 import scheduleRouter from './routes/schedule.js';
 import boardRouter from './routes/board.js';
+import boardMembersRouter from './routes/boardMembers.js';
 import { waitForSanitizer } from './services/sanitization.js';
 import { checkGotenbergHealth } from './services/documents.js';
 import { initSocket } from './services/socketService.js';
@@ -203,6 +204,9 @@ async function startServer() {
 
     // Mount board routes
     app.use('/api/board', boardRouter);
+
+    // Mount board members route (authenticated-only slim user list for @mention autocomplete)
+    app.use('/api/board/members', boardMembersRouter);
 
     // Mount sanitization routes (gated: template adapter support route)
     app.use('/api/sanitize', requireFeature('FEATURE_TEMPLATE_ADAPTER'), sanitizationRouter);
