@@ -472,7 +472,12 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
             <div className="flex items-center gap-2 text-sm">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">Pentester:</span>
-              <span>{assignment.teamMemberId}</span>
+              <span>
+                {assignment.teamMember?.user?.displayName ??
+                  assignment.teamMember?.user?.username ??
+                  assignment.teamMember?.displayName ??
+                  'Unknown'}
+              </span>
             </div>
           )}
 

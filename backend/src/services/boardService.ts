@@ -53,7 +53,13 @@ export async function listCards(filters: { stage?: string; assignmentId?: string
     include: {
       assignment: {
         include: {
-          teamMember: { select: { userId: true } },
+          teamMember: {
+            select: {
+              userId: true,
+              displayName: true,
+              user: { select: { displayName: true, username: true } },
+            },
+          },
         },
       },
     },
@@ -74,7 +80,13 @@ export async function getCard(id: string) {
       // fields. READ-only join, no schedule writes.
       assignment: {
         include: {
-          teamMember: { select: { userId: true } },
+          teamMember: {
+            select: {
+              userId: true,
+              displayName: true,
+              user: { select: { displayName: true, username: true } },
+            },
+          },
         },
       },
       comments: {

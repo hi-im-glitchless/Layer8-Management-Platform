@@ -35,6 +35,11 @@ export interface BoardCard {
      */
     teamMember?: {
       userId: string | null
+      displayName?: string | null
+      user?: {
+        displayName?: string | null
+        username?: string | null
+      } | null
     } | null
   } | null
   comments?: BoardComment[]
