@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
@@ -13,6 +14,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { useAuth } from '@/features/auth/hooks'
+import { boardApi } from '@/features/board/api'
 import {
   useTeamMembers,
   useAssignments,
@@ -76,7 +78,8 @@ function splitCellKey(key: string): [string, string] {
 
 export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
   const queryClient = useQueryClient()
-  const { hasRole } = useAuth()
+  const navigate = useNavigate()
+  const { hasRole, user, role } = useAuth()
   const canEdit = hasRole('PM')
 
   const teamMembersQuery = useTeamMembers()
@@ -233,7 +236,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     return assignmentMap.get(key)
   }, [assignmentMap])
 
-  const handleCellClick = useCallback((teamMemberId: string, weekStart: Date, assignment: Assignment | undefined, e?: React.MouseEvent) => {
+  const handleCellClick = useCallback(async (teamMemberId: string, weekStart: Date, assignment: Assignment | undefined, e?: React.MouseEvent) => {
     // After a drag-select, the browser fires a click event — ignore it
     if (wasDragSelectingRef.current) {
       wasDragSelectingRef.current = false
@@ -255,6 +258,25 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
     if (selectedCells.size > 0) {
       setSelectedCells(new Set())
     }
+    // Pentester branch (plan 24-03): a NORMAL-role user clicking their OWN
+    // assignment cell navigates to the linked board card. Falls through to
+    // the canEdit gate below for PMs / Admins / cells that aren't this
+    // pentester's. A missing card (legacy assignment without auto-create) is
+    // a silent no-op — auto-create lives in the backend, not here.
+    if (
+      assignment &&
+      role === 'NORMAL' &&
+      assignment.teamMember?.userId === user?.id &&
+      user?.id
+    ) {
+      const result = await queryClient.fetchQuery({
+        queryKey: ['board', 'cards', { assignmentId: assignment.id }],
+        queryFn: () => boardApi.getCards({ assignmentId: assignment.id }),
+      })
+      const card = result.cards[0]
+      if (card) navigate(`/board?card=${card.id}`)
+      return
+    }
     if (!canEdit) return
     setModalState({
       open: true,
@@ -262,7 +284,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       weekStart: toLocalDateString(weekStart),
       assignment,
     })
-  }, [canEdit, selectedCells])
+  }, [canEdit, selectedCells, role, user?.id, navigate, queryClient])
 
   const toggleLockMutation = useToggleLock()
 

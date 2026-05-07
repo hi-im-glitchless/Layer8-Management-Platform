@@ -26,6 +26,20 @@ export type AssignmentStatus = 'placeholder' | 'needs-reqs' | 'confirmed'
 export interface Assignment {
   id: string
   teamMemberId: string
+  /**
+   * Nested team-member fields surfaced for pentester self-detection on the
+   * schedule grid (plan 24-03). The data already arrives via the existing
+   * `include: { teamMember: { include: { user: ... } } }` on
+   * `assignmentService.listAssignments`; this declaration just exposes the
+   * `userId` foreign key (and the avatar-relevant `user` block PMs render
+   * elsewhere in the grid) on the FE type so call sites can compare it with
+   * `useAuth().user.id` without an extra round-trip. Optional for backwards
+   * compatibility with any consumer that hand-crafts an Assignment shape.
+   */
+  teamMember?: {
+    userId: string | null
+    user?: TeamMemberUser | null
+  }
   projectName: string
   projectColor: string
   status: AssignmentStatus
