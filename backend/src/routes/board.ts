@@ -123,9 +123,13 @@ router.get('/cards/:id', requireAuth, readRateLimiter, async (req, res) => {
 
 /**
  * PATCH /cards/:id
- * Update a board card (PM+)
+ * Update a board card.
+ * - PM/ADMIN: full access (any field, any stage including archived).
+ * - NORMAL: only when the card's assignment belongs to the caller's TeamMember.
+ *   Stage moves are limited to non-archived stages, and `stageLockedBy` cannot
+ *   be set (the manual-pin override is reserved for PM/ADMIN).
  */
-router.patch('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
+router.patch('/cards/:id', requireAuth, mutationRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       stage: StageEnum.optional(),
@@ -134,6 +138,26 @@ router.patch('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, r
       stageLockedBy: z.string().nullable().optional(),
     });
     const data = schema.parse(req.body);
+    const id = req.params.id as string;
+    const role = req.session.role;
+    const isManager = role === 'PM' || role === 'ADMIN';
+
+    if (!isManager) {
+      const existing = await boardService.getCard(id);
+      if (!existing) {
+        return res.status(404).json({ error: 'Card not found' });
+      }
+      const ownerUserId = existing.assignment?.teamMember?.userId ?? null;
+      if (!ownerUserId || ownerUserId !== req.session.userId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      if (data.stage === 'archived') {
+        return res.status(403).json({ error: 'Only PM or ADMIN can archive cards' });
+      }
+      if (data.stageLockedBy !== undefined) {
+        return res.status(403).json({ error: 'Only PM or ADMIN can change stage lock' });
+      }
+    }
 
     const updateData: {
       stage?: string;
@@ -148,7 +172,6 @@ router.patch('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, r
       updateData.archivedAt = new Date();
     }
 
-    const id = req.params.id as string;
     const card = await boardService.updateCard(id, updateData);
     res.json({ card });
     emitBoardInvalidate('cards');
