@@ -112,7 +112,7 @@ export const BOARD_STAGES = ['upcoming', 'preparation', 'execution', 'closing', 
 
 export const STAGE_LABELS: Record<BoardStage, string> = {
   upcoming: 'Upcoming',
-  preparation: 'Preparation',
+  preparation: 'Next Week',
   execution: 'Execution',
   closing: 'Closing',
   done: 'Done',
