@@ -63,6 +63,12 @@ interface ClipboardAssignment {
   status: AssignmentStatus
   clientId?: string | null
   tags?: string[]
+  // Phase 24-R03: split half. Undefined/null when the source cell is single-project.
+  splitProjectName?: string | null
+  splitProjectColor?: string | null
+  splitProjectStatus?: AssignmentStatus | null
+  splitClientId?: string | null
+  splitTags?: string[]
 }
 
 interface ClipboardAbsence {
@@ -515,6 +521,12 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
         status: parsed.status,
         clientId: parsed.clientId ?? null,
         tags: parsed.tags ?? [],
+        // Phase 24-R03: carry split data across paste so two-project cells stay two-project.
+        splitProjectName: parsed.splitProjectName ?? null,
+        splitProjectColor: parsed.splitProjectColor ?? null,
+        splitProjectStatus: parsed.splitProjectStatus ?? null,
+        splitClientId: parsed.splitClientId ?? null,
+        splitTags: parsed.splitTags ?? [],
       })
       pastedCount++
     }
@@ -653,6 +665,11 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
             status: assignment.status,
             clientId: assignment.clientId ?? null,
             tags: assignment.tags ?? [],
+            splitProjectName: assignment.splitProjectName ?? null,
+            splitProjectColor: assignment.splitProjectColor ?? null,
+            splitProjectStatus: (assignment.splitProjectStatus as AssignmentStatus | null) ?? null,
+            splitClientId: assignment.splitClientId ?? null,
+            splitTags: assignment.splitTags ?? [],
           }
           navigator.clipboard.writeText(JSON.stringify(data))
           toast.success('Assignment copied')
