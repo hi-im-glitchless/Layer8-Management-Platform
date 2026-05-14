@@ -94,6 +94,40 @@ export function ClientManager() {
           <DialogTitle>{canManage ? 'Manage Clients' : 'Clients'}</DialogTitle>
         </DialogHeader>
 
+        {canManage && (
+          <div className="border rounded-md p-3 space-y-3">
+            <h4 className="text-sm font-medium">Add Client</h4>
+            <div className="space-y-2">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 min-w-[140px]">
+                  <label className="text-xs text-muted-foreground mb-1 block">Name</label>
+                  <Input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Client name"
+                    className="h-8"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleCreate}
+                  disabled={!newName.trim() || createClient.isPending}
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Add
+                </Button>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Color</label>
+                <ColorPalette
+                  selectedColor={newColor}
+                  onColorSelect={setNewColor}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -201,46 +235,12 @@ export function ClientManager() {
             {clients.length === 0 && (
               <TableRow>
                 <TableCell colSpan={canManage ? 3 : 2} className="text-center text-muted-foreground py-6">
-                  {canManage ? 'No clients yet. Add one below.' : 'No clients configured.'}
+                  {canManage ? 'No clients yet. Add one above.' : 'No clients configured.'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-
-        {canManage && (
-          <div className="border rounded-md p-3 space-y-3">
-            <h4 className="text-sm font-medium">Add Client</h4>
-            <div className="space-y-2">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 min-w-[140px]">
-                  <label className="text-xs text-muted-foreground mb-1 block">Name</label>
-                  <Input
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Client name"
-                    className="h-8"
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  onClick={handleCreate}
-                  disabled={!newName.trim() || createClient.isPending}
-                >
-                  <Plus className="mr-1 h-4 w-4" />
-                  Add
-                </Button>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Color</label>
-                <ColorPalette
-                  selectedColor={newColor}
-                  onColorSelect={setNewColor}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   )
