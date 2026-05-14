@@ -3,10 +3,10 @@
 **Project:** Template AI Engine (Layer8)
 
 ## Current Phase
-Phase: 6 of 15 (06.1 Executive Report Html Overhaul)
-Plans: 0/TBD
-Progress: 0%
-Status: needs_remediation
+Phase: 10 of 10 (Project Board Schedule Integration)
+Plans: 5/5
+Progress: 100%
+Status: complete
 
 ## Decisions
 - CLIProxyAPI as primary LLM provider (OpenAI SDK format)
@@ -21,7 +21,13 @@ Status: needs_remediation
 - docxtpl for Jinja2 template rendering (native GW template syntax support)
 
 ## Todos
-- Plan Phase 9 (Team Schedule & Allocation)
+- Plan and execute Phase 24 (Project Board — Schedule Integration & Navigation)
+- [SIDE-FINDING] ArchiveCardDialog has empty-projectName UX edge case — when a card has no linked schedule assignment, the typed-confirmation target is empty string and the user has no visible name to type. Recommend disabling Archive when no project, or using a literal "DELETE" sentinel. (Surfaced in Phase 23 UAT R01, P05-T2; not blocking — typical cards have project names. See remediation/uat/round-01/R01-UAT.md.)
+
+- [KNOWN-ISSUE] scheduleIsolation.phase23.test.ts (6/6) (backend/src/services/__tests__/scheduleIsolation.phase23.test.ts): better-sqlite3 NODE_MODULE_VERSION mismatch when run with Node v22.22.2 (comp... — accepted as process-exception for this phase (phase 23, seen 1x) (see remediation/qa/round-02/R02-SUMMARY.md) (added 2026-05-07) (ref:013d20be)
+
+- [KNOWN-ISSUE] scheduleIsolation.phase23 (concurrent run) (backend/src/services/__tests__/scheduleIsolation.phase23.test.ts): 4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts d... (phase 24, seen 1x) (see 24-VERIFICATION.md) (added 2026-05-07) (ref:115b175a)
+- [KNOWN-ISSUE] scheduleIsolation.phase23 (concurrent run) (backend/src/services/__tests__/scheduleIsolation.phase23.test.ts): 4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts d... (phase 24, seen 1x) (see 24-05-SUMMARY.md) (added 2026-05-07) (ref:b990eb11)
 
 ## Blockers
 None
@@ -33,6 +39,19 @@ None
 **Registry available:** yes
 
 ## Activity Log
+- 2026-05-07: Phase 23 UAT R02 complete — @mention pipeline wired (new /api/board/members endpoint, useBoardMembers, autocomplete UI, mentions delivery through useAddComment). P07-T1 + P07-T2 PASS. Commits: c85cd39 (backend), e1d00a4 (frontend).
+- 2026-05-07: Phase 23 UAT R01 complete — fixed CardDetailModal data-source defect (modal pulled from list query missing files/comments/notes; switched to useBoardCard detail query, unwrapped data?.card response, aligned mutation cache keys). 7/9 PASS, 1 SKIP (P07-T2 dep), 1 ISSUE (P07-T1 — @mention gap routed to R02). Commits: 0fdec0e, ab30fee.
+- 2026-05-07: Phase 23 in-progress UAT discarded per user request — to be re-run fresh
+- 2026-05-07: Phase 23 QA R02 acceptance round complete — better-sqlite3 ABI mismatch accepted as non-blocking process-exception
+- 2026-05-07: Phase 23 QA R01 remediation complete — 5 DEVN classifications resolved (1 code-fix, 1 process-exception, 3 plan-amendments); R01-VERIFICATION PASS 13/13
+- 2026-05-06: Phase 23 plans 23-01..23-07 completed (board files/notes/comments/notifications/admin archive); phase-level QA returned PARTIAL with 5 deviations
+- 2026-04-06: Phase 22 UAT remediation R01 complete (kanban UI accepted)
+- 2026-04-02: Phase 22 build complete + QA R01 remediation PASS (kanban UI)
+- 2026-04-01: Phase 21 build complete; UAT complete (board data model & API)
+- Late March 2026: Phases 18, 19, 20 built; user-accepted informally without formal VBW UAT
+- 2026-03-24: Phases 16, 17 built; phase 16 has formal QA PASS (auth light mode fix); user-accepted informally without formal UAT
+- 2026-03-20: Phases 10-14 completed (schedule polish, UI cleanup, clients/tags, dashboard redesign, security hardening)
+- 2026-03-20: Phase 15 planned and built (production deployment script); user-accepted informally without formal VBW UAT/QA
 - 2026-02-25: Phase 9 reset — reverted code to pre-Phase-9 (705d53e), cleared planning artifacts, rewrote requirements from Alocacao reference study
 - 2026-02-18: Phase 8 completed (role-based access control)
 - 2026-02-17: Phase 7 completed (UI polish)

@@ -964,3 +964,1455 @@
   "title": "",
   "message": "Claude Code needs your attention"
 }
+{
+  "timestamp": "2026-03-20T20:40:56Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T20:48:11Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T20:50:42Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T20:51:09Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T20:52:29Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T20:52:53Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T20:54:08Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T20:55:14Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T21:00:30Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-20T21:06:28Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-20T21:29:33Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-20T21:43:30Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T12:57:38Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T13:00:00Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T13:02:09Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T13:03:46Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T14:20:36Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T14:56:34Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T15:17:16Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T18:39:10Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-21T18:52:48Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-23T17:03:48Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-23T17:05:45Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-23T17:08:49Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-03-24T10:50:38Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-24T10:52:34Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-24T11:22:43Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-24T12:09:28Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-24T13:42:12Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-24T14:10:58Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-24T14:33:10Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-24T16:27:40Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-25T14:32:00Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-25T16:03:12Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-25T16:20:14Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-26T09:54:02Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-26T10:21:08Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T12:16:13Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T13:22:45Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-26T13:28:42Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-26T13:29:18Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-03-26T13:34:46Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T14:05:43Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T14:11:44Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T14:17:32Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T15:24:08Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T15:29:00Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T17:31:14Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T17:43:45Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T19:06:17Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-26T19:32:08Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-27T10:22:11Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-27T10:59:12Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-27T11:10:09Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-27T12:10:11Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-27T14:20:00Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-27T18:38:40Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-30T09:57:42Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-30T09:59:24Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-03-30T10:04:11Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-30T10:06:34Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-30T10:15:53Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-30T11:11:03Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-30T16:43:55Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T09:01:04Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T09:11:39Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T09:35:16Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T09:37:54Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T09:49:19Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T10:05:18Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T12:34:20Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T12:39:31Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-03-31T15:53:24Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-01T09:54:36Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-01T09:57:53Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:03:15Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:04:20Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:18:46Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:43:27Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:46:24Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:46:54Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:47:49Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:48:09Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:48:46Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:49:14Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T10:55:13Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-01T11:00:59Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T11:01:17Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T11:01:47Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T11:02:17Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T11:02:46Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T11:04:40Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T11:05:04Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T11:05:36Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T11:14:06Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-01T11:53:38Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-01T15:34:45Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-01T15:36:36Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-01T15:42:16Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T15:44:04Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T15:57:59Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T15:59:43Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T16:01:30Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T16:01:49Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T16:02:43Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T16:14:06Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T16:14:38Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T16:15:36Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-01T16:17:22Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-06T15:39:00Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-06T15:41:10Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-04-30T11:34:51Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-30T11:39:13Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-30T11:44:17Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-04-30T11:46:51Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Write"
+}
+{
+  "timestamp": "2026-04-30T12:17:22Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-04T15:46:05Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T09:49:49Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T09:51:48Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T09:53:21Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T09:54:47Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T09:57:57Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T09:58:25Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T09:59:46Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T10:01:58Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:02:14Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:02:37Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:03:53Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T10:08:31Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:09:38Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:12:30Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:13:06Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:19:51Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:22:06Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T10:23:20Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T10:37:52Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T10:42:36Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T14:05:15Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T14:05:41Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T14:05:55Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T14:07:24Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T14:42:45Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T14:45:47Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T14:52:20Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T14:54:34Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T15:01:50Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T15:02:27Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T15:04:04Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T15:05:38Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T15:06:42Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-06T15:07:54Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T15:10:10Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-06T15:13:08Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-06T15:40:16Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T19:32:11Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T19:39:19Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T19:40:48Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T19:45:23Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Write"
+}
+{
+  "timestamp": "2026-05-06T19:56:05Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T19:56:58Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:19:23Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T20:23:40Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:26:13Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:26:48Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:27:16Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:27:36Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:30:57Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:32:09Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:36:37Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:47:45Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:54:44Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:54:59Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T20:57:27Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T21:03:18Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T21:08:33Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-06T21:14:21Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-06T21:29:08Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T21:34:04Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-06T21:59:30Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-07T07:53:32Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:04:20Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:17:48Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:21:32Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:28:37Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:51:15Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:53:51Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:58:49Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:59:19Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T08:59:54Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:01:59Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:04:38Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:08:55Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:12:03Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:14:40Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:19:03Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:22:27Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:23:15Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:23:59Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:25:04Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:25:48Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:28:53Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:33:06Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:35:48Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:46:03Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:50:27Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:53:11Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:54:11Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:55:00Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:56:16Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T09:58:51Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T10:02:39Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T10:04:21Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T10:05:11Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T10:08:06Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T10:10:18Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T10:13:27Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T10:19:24Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T10:44:35Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T11:05:10Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T11:10:38Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T11:50:15Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T12:43:35Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T12:45:19Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T12:48:23Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T13:02:03Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T13:06:45Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T13:07:26Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T13:14:43Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T13:17:39Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T13:25:55Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-07T13:36:30Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T13:39:36Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-07T13:54:45Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-07T14:39:44Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-07T14:42:04Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-07T16:07:35Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude Code needs your attention"
+}
+{
+  "timestamp": "2026-05-07T16:19:24Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-07T16:25:55Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-08T10:00:44Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-05-08T10:13:49Z",
+  "type": "auth_success",
+  "title": "",
+  "message": "Claude Code login successful"
+}
+{
+  "timestamp": "2026-05-08T10:15:11Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission to use Bash"
+}
+{
+  "timestamp": "2026-05-08T10:19:34Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}

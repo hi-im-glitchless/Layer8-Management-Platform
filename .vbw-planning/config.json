@@ -8,6 +8,7 @@
   "skill_suggestions": true,
   "auto_install_skills": false,
   "discovery_questions": true,
+  "discussion_mode": "questions",
   "context_compiler": true,
   "visual_format": "unicode",
   "max_tasks_per_plan": 5,
@@ -41,5 +42,14 @@
   "monorepo_routing": false,
   "rolling_summary": false,
   "require_phase_discussion": false,
-  "auto_uat": false
+  "auto_uat": false,
+  "max_uat_remediation_rounds": false,
+  "statusline_hide_limits": false,
+  "statusline_hide_limits_for_api_key": false,
+  "statusline_hide_agent_in_tmux": false,
+  "statusline_collapse_agent_in_tmux": false,
+  "debug_logging": false,
+  "caveman_style": "none",
+  "caveman_commit": false,
+  "caveman_review": false
 }

@@ -21,8 +21,24 @@ Layer8 automates template adaptation and executive report generation for offensi
 - [x] Phase 6.1: Executive Report HTML Overhaul (INSERTED)
 - [x] Phase 7: UI Polish (INSERTED)
 - [x] Phase 8: Role-Based Access Control (INSERTED)
-- [ ] Phase 9: Team Schedule & Allocation
-- [ ] Phase 10: Security Hardening
+- [x] Phase 9: Team Schedule & Allocation
+- [x] Phase 10: Schedule Visual Polish
+- [x] Phase 11: UI Cleanup & Role Simplification
+- [x] Phase 12: Clients & Project Tags
+- [x] Phase 13: Dashboard Redesign
+- [x] Phase 14: Security Hardening
+- [x] Phase 15: Production Deployment Script
+- [x] Phase 16: Auth Light Mode Text Visibility Fix
+- [x] Phase 17: Security & Bug Fixes
+- [x] Phase 18: Schedule Multi-Select & Bulk Operations
+- [x] Phase 19: Real-Time Sync & Mobile Fix
+- [x] Phase 20: Schedule HTML Export
+- [x] Phase 21: Project Board — Data Model & API
+- [x] Phase 22: Project Board — Kanban UI
+- [ ] Phase 23: Project Board — Files, Notes & Comments
+- [ ] Phase 24: Project Board — Schedule Integration & Navigation
+
+> **Note on completion criteria:** Phases 15–20 were verified informally by the project owner (no formal VBW UAT or QA artifacts were produced for those phases). Phase 21 is closed by `21-UAT.md` (status: complete). Phase 22 is closed by the QA remediation chain (`R01-VERIFICATION.md` PASS) plus UAT remediation chain (`R01-UAT.md` complete).
 
 ### Phase 1: Foundation, Security & Web UI Design
 **Goal:** Secure infrastructure for authentication, session isolation, compliance-grade audit logging, and fully designed frontend
@@ -174,11 +190,150 @@ Layer8 automates template adaptation and executive report generation for offensi
 - SCHED-11: Holiday and absence management
 - SCHED-12: RBAC integration (ADMIN/MANAGER write, PENTESTER read-only)
 
-### Phase 10: Security Hardening
-**Goal:** Production security hardening with rate limiting, CSRF protection, and security headers
+### Phase 10: Schedule Visual Polish
+**Goal:** Visual refinements and UX improvements to the schedule feature
+**Deps:** Phase 9
+**Success:** Polished schedule UI with improved interactions
+
+### Phase 11: UI Cleanup & Role Simplification
+**Goal:** Clean up unused UI elements and simplify role structure
+**Deps:** Phase 10
+**Success:** Streamlined UI with simplified roles
+
+### Phase 12: Clients & Project Tags
+**Goal:** Add client management and project tagging to schedule assignments
+**Deps:** Phase 11
+**Success:** Clients and tags integrated into schedule workflow
+
+### Phase 13: Dashboard Redesign
+**Goal:** Redesign the main dashboard for schedule-focused workflow
+**Deps:** Phase 12
+**Success:** Dashboard reflects active schedule data
+
+### Phase 14: Security Hardening
+**Goal:** Production security hardening with rate limiting, CSRF protection, session management, and security headers
 **Deps:** Phase 8
 **Reqs:** SECR-01-06
-**Success:** OWASP-compliant security posture, rate limiting, CSRF tokens, security headers
+**Success:** OWASP-compliant security posture, rate limiting, CSRF tokens, security headers, feature gates
+
+### Phase 15: Production Deployment Script
+**Goal:** Create `launcher.sh` bash script with install/start/stop/update/status subcommands for deploying Layer8 on AWS EC2 Linux. Schedule-only deployment: Express backend (systemd), nginx (frontend + reverse proxy), Redis, SQLite. Must safely handle updates without destroying the database.
+**Deps:** Phase 14
+**Reqs:** DEPLOY-01 (install), DEPLOY-02 (start), DEPLOY-03 (stop), DEPLOY-04 (update)
+**Success:**
+- Single `launcher.sh` script with `install|start|stop|update|status` commands
+- Install provisions EC2 with Node.js, Redis, nginx, certbot, Docker
+- Express backend as systemd unit, nginx serves frontend SPA
+- Let's Encrypt SSL with interactive domain setup
+- Update does git pull + npm install + build + prisma db push (non-destructive) + restart
+- SQLite database preserved across updates
+- Admin user seeded with forced password reset
+
+### Phase 16: Auth Light Mode Text Visibility Fix
+**Goal:** Fix invisible text on MFA setup, MFA verification, and password change pages when the browser is in light mode — applying the same hardcoded light-text pattern already used on the login form
+**Deps:** Phase 1
+**Reqs:** UIUX (accessibility)
+**Success:** All auth flows (TOTP setup, TOTP verification, password change) display readable text in both light and dark mode, including when rendered inside Profile page dialogs
+**Files:** TOTPSetup.tsx, TOTPVerification.tsx, PasswordChange.tsx, Profile.tsx (dialog wrappers)
+
+### Phase 17: Security & Bug Fixes
+**Goal:** Fix 4 security/bug issues: hide rate limit response headers, block breached passwords, hide nginx version on 301s, fix TOTP regeneration so new secret persists correctly
+**Deps:** Phase 14, Phase 15
+**Reqs:** SECR-01-06
+**Success:** Rate limit headers hidden, breached passwords rejected, nginx version not leaked, TOTP regeneration produces working codes at login
+**Files:** backend/src/middleware/rateLimit.ts, backend/src/routes/auth.ts, deploy/nginx-layer8.conf, launcher.sh, frontend/src/components/auth/TOTPSetup.tsx
+
+### Phase 18: Schedule Multi-Select & Bulk Operations
+**Goal:** Add multi-cell selection to the schedule grid (Ctrl+Click individual cells, Click+Drag for range selection) with bulk paste (Ctrl+V pastes copied project onto all selected cells) and bulk delete (Delete/Backspace clears all selected cells). Visual feedback for selected state.
+**Deps:** Phase 9, Phase 12
+**Reqs:** UX enhancement
+**Success:**
+- Ctrl+Click toggles individual cell selection with visual highlight
+- Click+Drag selects a rectangular range of cells
+- Ctrl+V pastes clipboard assignment onto all selected cells (skipping locked cells)
+- Delete/Backspace bulk-deletes all selected assignments (skipping locked cells)
+- Selection clears after paste/delete operations
+- PM role required for all mutation operations
+**Files:** frontend/src/features/schedule/components/ScheduleGrid.tsx, frontend/src/features/schedule/components/ScheduleCell.tsx
+
+### Phase 19: Real-Time Sync & Mobile Fix
+**Goal:** Add WebSocket (Socket.IO) real-time sync so all users see schedule changes instantly when someone adds, deletes, or modifies assignments. Also fix schedule grid layout on mobile.
+**Deps:** Phase 18
+**Reqs:** UX enhancement, collaboration
+**Success:**
+- Socket.IO server integrated with Express backend, sharing session auth
+- Frontend connects on schedule page, auto-reconnects on disconnect
+- Assignment create/update/delete emits event to all connected clients
+- Other users' React Query cache invalidates on WebSocket event (grid refreshes)
+- Absence/holiday changes also broadcast
+- Mobile schedule grid renders correctly (horizontal scroll, readable cells)
+- PM delete permission works from grid (Ctrl+Click select + Delete key)
+**Files:** backend/src/index.ts, backend/src/routes/schedule.ts, frontend/src/features/schedule/hooks.ts, frontend/src/features/schedule/components/ScheduleGrid.tsx
+
+### Phase 20: Schedule HTML Export
+**Goal:** Add an "Export HTML" button (PM/Admin only) to the schedule page that generates a self-contained HTML file matching the current grid view (year + quarter). The file opens locally in any browser as a visual backup of the schedule — colored cells, project names, team members, absences, holidays.
+**Deps:** Phase 9, Phase 18
+**Reqs:** Data backup, offline viewing
+**Success:**
+- Backend endpoint `GET /api/schedule/export/html` restricted to PM/ADMIN roles
+- Accepts year and quarter params matching the current view
+- Generates self-contained HTML (inline CSS, no external deps) replicating the schedule grid
+- Includes team member names, project assignments with colors, tags, status badges
+- Shows absence (OUT) cells and holiday dots
+- Frontend "Export" button in schedule toolbar, visible only to PM/Admin
+- Clicking downloads the HTML file with filename like `schedule-2026-Q2.html`
+**Files:** backend/src/routes/schedule.ts, frontend/src/routes/Schedule.tsx, backend/src/services/scheduleExportService.ts (new)
+
+### Phase 21: Project Board — Data Model & API
+**Goal:** Create the database schema and REST API for project board cards. A board card represents a pentest project with its lifecycle stage, checklist, and metadata. Cards link to schedule assignments via project+client+dates.
+**Deps:** Phase 9 (Schedule)
+**Reqs:** Data persistence, CRUD API
+**Success:**
+- Prisma schema: BoardCard model with fields for stage (upcoming/preparation/execution/closing/done/archived), checklist items (JSON), notes, linked assignment references, timestamps
+- BoardCardComment model for threaded comments
+- BoardCardFile model for file attachment metadata
+- CRUD endpoints: GET /api/board/cards (with filters), POST, PUT, DELETE
+- Stage transition endpoint: PUT /api/board/cards/:id/stage
+- Checklist toggle endpoint: PUT /api/board/cards/:id/checklist/:index
+- Role-based access: all roles can read, PM+ can create/edit, Admin can archive
+- Default checklist template: Kickoff, Requirements, Pentest, Report, Review, Delivery
+
+### Phase 22: Project Board — Kanban UI
+**Goal:** Build the Kanban board page with drag-and-drop columns (Upcoming, Preparation, Execution, Closing, Done). Cards show project name, client, assigned pentester, dates, checklist progress, and status badge. Role-based filtering and column interactions.
+**Deps:** Phase 21
+**Reqs:** Kanban UI, drag-and-drop, filtering
+**Success:**
+- New "Board" page in sidebar, accessible to all roles
+- 5 columns: Upcoming, Preparation, Execution, Closing, Done
+- Drag-and-drop cards between columns (PM/pentester can move cards)
+- Card shows: project name, client, tags, assigned pentester(s), dates, checklist progress (e.g. "3/6"), status badge
+- Auto-move: cards move to Preparation 1 week before start, to Execution when week arrives
+- Done column cards visible until Admin archives them
+- Filter: "My Projects" / "All Projects" toggle, plus client and pentester filters
+- "Show Archived" toggle for Admins
+
+### Phase 23: Project Board — Files, Notes & Comments
+**Goal:** Add file attachments, notes, and threaded comments to project cards. Files stored server-side with upload/download. Admin archive action deletes files to save storage. Notes field for free-text instructions. Comments for PM-pentester communication.
+**Deps:** Phase 21, Phase 22
+**Reqs:** File management, team communication
+**Success:**
+- File upload/download on project cards (scope docs, credentials, VPN configs)
+- Files stored in server uploads directory, linked to board card
+- Notes field (rich text or markdown) for special instructions
+- Threaded comments on cards (PM and pentester can communicate in context)
+- Admin archive action: hides card from board, permanently deletes attached files, preserves metadata/checklist/comments
+
+### Phase 24: Project Board — Schedule Integration & Navigation
+**Goal:** Connect the Board to the Schedule and Dashboard with seamless navigation. PMs see a "View on Board" button in the assignment edit modal. Pentesters click schedule cells to go directly to the project card. Dashboard Current/Next Project cards link to the Board. Auto-creation of board cards when assignments are created on the schedule. Date sync between schedule and board.
+**Deps:** Phase 21, Phase 22, Phase 23
+**Reqs:** Schedule-Board integration, navigation, auto-sync
+**Success:**
+- Assignment edit modal shows "View on Board" link when a board card exists
+- Pentester click on schedule cell redirects to the project card on the Board
+- Dashboard project cards link to the Board card
+- Creating a schedule assignment auto-creates a Board card (or links to existing one for same project+client)
+- Changing schedule dates updates the Board card dates
+- Board default filter: "My Projects" for pentesters, "All Projects" for PMs/Admins
 
 ## Progress
 
@@ -189,17 +344,31 @@ Layer8 automates template adaptation and executive report generation for offensi
 | 2 - Sanitization | 8/8 | Complete | 2026-02-12 |
 | 2.1 - Profile | 2/2 | Complete | 2026-02-11 |
 | 3 - LLM Integration | 3/3 | Complete | 2026-02-12 |
-| 4 - Document Processing | 5/5 | Complete | 2026-02-13 |
-| 5 - Template Adapter Core | 5/5 | Complete | 2026-02-14 |
+| 4 - Document Processing | 3/3 | complete | 2026-03-26 |
+| 5 - Template Adapter Core | 3/3 | complete | 2026-03-27 |
 | 5.1 - Analysis Preview & Memory | 5/5 | Complete | 2026-02-13 |
 | 5.2 - Interactive PDF Mapping | 5/5 | Complete | 2026-02-14 |
 | 5.3 - Placeholder Verification | 5/5 | Complete | 2026-02-14 |
 | 5.4 - Intelligent KB | 5/5 | Complete | 2026-02-14 |
 | 5.5 - LLM Placeholder Regen | 4/4 | Complete | 2026-02-15 |
 | 5.6 - Prescriptive KB | 5/5 | Complete | 2026-02-15 |
-| 6 - Executive Report | 5/5 | complete | 2026-02-25 |
+| 6 - Executive Report | 2/2 | complete | 2026-03-31 |
 | 6.1 - Executive Report HTML | 5/5 | Complete | 2026-02-16 |
-| 7 - UI Polish | 5/5 | Complete | 2026-02-17 |
-| 8 - Role-Based Access Control | 5/5 | Complete | 2026-02-18 |
-| 9 - Team Schedule & Allocation | 0/TBD | Not started | - |
-| 10 - Security Hardening | 0/TBD | Not started | - |
+| 7 - UI Polish | 3/3 | complete | 2026-04-01 |
+| 8 - Role-Based Access Control | 0/4 | planned | - |
+| 9 - Team Schedule | 7/7 | complete | 2026-05-07 |
+| 10 - Schedule Visual Polish | 5/5 | complete | 2026-05-07 |
+| 11 - UI Cleanup & Role Simplification | Done | Complete | 2026-03-20 |
+| 12 - Clients & Project Tags | Done | Complete | 2026-03-20 |
+| 13 - Dashboard Redesign | Done | Complete | 2026-03-20 |
+| 14 - Security Hardening | Done | Complete | 2026-03-20 |
+| 15 - Production Deploy Script | 2/2 | complete | 2026-03-20 |
+| 16 - Auth Light Mode Fix | 3/3 | complete | 2026-03-24 |
+| 17 - Security | 4/4 | complete | 2026-03-24 |
+| 18 - Schedule Multi-Select | 3/3 | Complete | 2026-03-26 |
+| 19 - Real-Time Sync & Mobile Fix | Done | Complete | 2026-03-30 |
+| 20 - Schedule HTML Export | 2/2 | Complete | 2026-03-31 |
+| 21 - Board: Data Model & API | 0/0 | Pending | - |
+| 22 - Board: Kanban UI | 0/0 | Pending | - |
+| 23 - Board: Files, Notes & Comments | 0/0 | Pending | - |
+| 24 - Board: Schedule Integration | 0/0 | Pending | - |
