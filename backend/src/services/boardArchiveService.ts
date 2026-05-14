@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { prisma } from '@/db/prisma.js';
 
-export type ArchiveErrorCode = 'NOT_FOUND' | 'PROJECT_NAME_MISMATCH' | 'NO_ASSIGNMENT';
+export type ArchiveErrorCode = 'NOT_FOUND' | 'PROJECT_NAME_MISMATCH';
 
 export class ArchiveError extends Error {
   constructor(public readonly code: ArchiveErrorCode) {
@@ -56,13 +56,12 @@ export async function archiveCard(
   const card = await prisma.boardCard.findUnique({
     where: { id: cardId },
     include: {
-      assignment: { select: { projectName: true } }, // READ-ONLY — invariant
+      project: { select: { name: true } },
       files: { select: { id: true, storedName: true, sizeBytes: true } },
     },
   });
   if (!card) throw new ArchiveError('NOT_FOUND');
-  if (!card.assignment) throw new ArchiveError('NO_ASSIGNMENT');
-  if (card.assignment.projectName !== confirmProjectName) {
+  if (card.project.name !== confirmProjectName) {
     throw new ArchiveError('PROJECT_NAME_MISMATCH');
   }
 
@@ -94,7 +93,7 @@ export async function archiveCard(
 
   return {
     cardId,
-    projectName: card.assignment.projectName,
+    projectName: card.project.name,
     fileCount,
     totalBytes,
     adminId: adminUserId,

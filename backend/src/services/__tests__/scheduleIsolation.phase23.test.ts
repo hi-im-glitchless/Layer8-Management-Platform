@@ -30,6 +30,7 @@ interface SeedIds {
   teamMemberId: string;
   assignmentId: string;
   cardId: string;
+  projectId: string;
   commentId: string;
   fileId: string;
   storedName: string;
@@ -82,9 +83,20 @@ async function seedDataset(): Promise<SeedIds> {
       weekStart: new Date('2099-01-05T00:00:00.000Z'),
     },
   });
+  // Phase 24-R03: BoardCard is now keyed by Project, not Assignment.
+  // Materialise a Project for the test fixture so the card has somewhere to attach.
+  const project = await prisma.project.create({
+    data: {
+      name: `Iso Project ${suffix}`,
+      clientId: null,
+      tags: '["Externa"]',
+      color: '#abcdef',
+      status: 'placeholder',
+    },
+  });
   const card = await prisma.boardCard.create({
     data: {
-      assignmentId: assignment.id,
+      projectId: project.id,
       stage: 'preparation',
       checklist: '[]',
       notes: 'initial notes',
@@ -132,6 +144,7 @@ async function seedDataset(): Promise<SeedIds> {
     teamMemberId: teamMember.id,
     assignmentId: assignment.id,
     cardId: card.id,
+    projectId: project.id,
     commentId: comment.id,
     fileId: file.id,
     storedName,
@@ -150,6 +163,7 @@ async function teardownDataset(ids: SeedIds | null) {
   await prisma.boardFile.deleteMany({ where: { cardId: ids.cardId } }).catch(() => undefined);
   await prisma.boardComment.deleteMany({ where: { cardId: ids.cardId } }).catch(() => undefined);
   await prisma.boardCard.deleteMany({ where: { id: ids.cardId } }).catch(() => undefined);
+  await prisma.project.deleteMany({ where: { id: ids.projectId } }).catch(() => undefined);
   await prisma.absence.deleteMany({ where: { id: ids.absenceId } }).catch(() => undefined);
   await prisma.assignment.deleteMany({ where: { id: ids.assignmentId } }).catch(() => undefined);
   await prisma.teamMember.deleteMany({ where: { id: ids.teamMemberId } }).catch(() => undefined);

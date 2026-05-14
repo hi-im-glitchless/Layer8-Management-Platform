@@ -273,11 +273,15 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
       assignment &&
       role === 'NORMAL' &&
       assignment.teamMember?.userId === user?.id &&
-      user?.id
+      user?.id &&
+      assignment.projectId
     ) {
+      // Phase 24-R03: open the Planner card for the primary Project on this
+      // assignment. If projectId is null (missing name/client/tags), there is
+      // no Planner card to navigate to — silent no-op.
       const result = await queryClient.fetchQuery({
-        queryKey: ['board', 'cards', { assignmentId: assignment.id }],
-        queryFn: () => boardApi.getCards({ assignmentId: assignment.id }),
+        queryKey: ['board', 'cards', { projectId: assignment.projectId }],
+        queryFn: () => boardApi.getCards({ projectId: assignment.projectId! }),
       })
       const card = result.cards[0]
       if (card) navigate(`/board?card=${card.id}`)

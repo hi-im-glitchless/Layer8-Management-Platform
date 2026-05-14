@@ -44,10 +44,9 @@ router.get('/cards', requireAuth, readRateLimiter, async (req, res) => {
   try {
     const schema = z.object({
       stage: StageEnum.optional(),
-      assignmentId: z.string().optional(),
-      // Phase 24-R02: allow filtering by side so the Dashboard's ProjectCard
-      // can fetch the exact card for the project half it represents.
-      side: z.enum(['primary', 'secondary']).optional(),
+      // Phase 24-R03: cards are keyed by Project, so the assignmentId/side
+      // filters from R02 are replaced with a single projectId filter.
+      projectId: z.string().optional(),
     });
     const filters = schema.parse(req.query);
     const cards = await boardService.listCards(filters);
@@ -62,49 +61,13 @@ router.get('/cards', requireAuth, readRateLimiter, async (req, res) => {
 });
 
 /**
- * POST /cards
- * Create a board card (PM+)
+ * Phase 24-R03: direct card creation and bulk sync endpoints are gone.
+ * Cards are now created automatically by projectService.upsertByKey when an
+ * assignment links to a Project (see assignmentService.linkProjectsForAssignment).
+ * If a sync-style operation is needed in the future, run linkProjects across
+ * all assignments rather than creating bare BoardCards.
  */
-router.post('/cards', requireRole('PM'), mutationRateLimiter, async (req, res) => {
-  try {
-    const schema = z.object({
-      assignmentId: z.string().optional(),
-      stage: StageEnum.optional(),
-      checklist: z.array(ChecklistItemSchema).optional(),
-      notes: z.string().optional(),
-    });
-    const data = schema.parse(req.body);
-    const card = await boardService.createCard(data);
-    res.status(201).json({ card });
-    emitBoardInvalidate('cards');
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.issues[0].message });
-    }
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return res.status(409).json({ error: 'A card already exists for this assignment' });
-    }
-    console.error('[board routes] Error creating card:', error);
-    res.status(500).json({ error: 'Failed to create card' });
-  }
-});
 
-/**
- * POST /cards/sync
- * Bulk-create BoardCards for assignments that lack one (PM+)
- */
-router.post('/cards/sync', requireRole('PM'), mutationRateLimiter, async (_req, res) => {
-  try {
-    const result = await boardService.syncCardsFromAssignments();
-    res.json({ created: result.created });
-    if (result.created > 0) {
-      emitBoardInvalidate('cards');
-    }
-  } catch (error) {
-    console.error('[board routes] Error syncing cards:', error);
-    res.status(500).json({ error: 'Failed to sync cards from assignments' });
-  }
-});
 
 /**
  * GET /cards/:id
@@ -150,8 +113,15 @@ router.patch('/cards/:id', requireAuth, mutationRateLimiter, async (req, res) =>
       if (!existing) {
         return res.status(404).json({ error: 'Card not found' });
       }
-      const ownerUserId = existing.assignment?.teamMember?.userId ?? null;
-      if (!ownerUserId || ownerUserId !== req.session.userId) {
+      // Phase 24-R03: card.assignments is now a list (one Project can have
+      // multiple Assignments). User has ownership if their userId matches any
+      // assigned team member.
+      const ownerUserIds = new Set(
+        existing.assignments
+          .map((a) => a.teamMember?.userId)
+          .filter((u): u is string => !!u),
+      );
+      if (!ownerUserIds.has(req.session.userId ?? '')) {
         return res.status(403).json({ error: 'Forbidden' });
       }
       if (data.stage === 'archived') {

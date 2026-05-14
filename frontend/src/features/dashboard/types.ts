@@ -8,18 +8,18 @@ export interface DashboardProject {
   durationWeeks: number // count of consecutive weeks
   status: string       // assignment status (confirmed, needs-reqs, placeholder)
   /**
-   * Id of the underlying Assignment row that anchors this project entry.
-   * Used by the Dashboard ProjectCard to deep-link to the corresponding
-   * /board?card=<id>. Optional because synthetic/placeholder timeline rows
-   * (with no backing Assignment) do not have one.
+   * Phase 24-R03: FK to the Project entity for click-through. NULL when
+   * this dashboard entry belongs to a pre-R03 assignment (or one missing
+   * name/client/tags) — those entries are visible on the dashboard but do
+   * not have a Planner card to navigate to.
+   */
+  projectId: string | null
+  /**
+   * Underlying Assignment row id — retained for the "View on Board" link
+   * and for legacy callers. Optional because synthetic timeline rows may
+   * not have one.
    */
   assignmentId?: string
-  /**
-   * Phase 24-R02: which half of a split assignment this entry represents.
-   * Primary = the main project; secondary = the split half. Non-split
-   * assignments only emit a primary entry. ProjectCard.handleClick passes
-   * this through to /api/board/cards?side=... so the deep link lands on
-   * the right BoardCard.
-   */
+  /** Phase 24-R02: which half of a split assignment this entry represents. */
   side?: 'primary' | 'secondary'
 }

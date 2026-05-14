@@ -55,6 +55,18 @@ export interface Assignment {
   clientId: string | null
   tags: string[]
   client: Client | null
+  /**
+   * Phase 24-R03: FK to the Project entity for the primary half. Set
+   * automatically by the backend when the assignment has name + client +
+   * at least one tag. NULL otherwise — those rows do not appear in the
+   * new Project-based Planner.
+   */
+  projectId: string | null
+  /** Same as projectId but for the secondary half of a split assignment. */
+  splitProjectId: string | null
+  /** Project metadata (when projectId is set). Read-only at this layer. */
+  project: { id: string; name: string; color: string; status: string } | null
+  splitProject: { id: string; name: string; color: string; status: string } | null
   createdAt: string
   updatedAt: string
 }

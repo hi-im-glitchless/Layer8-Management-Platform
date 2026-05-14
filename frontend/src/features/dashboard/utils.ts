@@ -41,6 +41,8 @@ interface VirtualAssignment {
   status: string
   clientName: string | null
   tags: string[]
+  /** Phase 24-R03: FK to Project. NULL for non-Planner-eligible assignments. */
+  projectId: string | null
 }
 
 /** Does an Assignment row have meaningful split content? */
@@ -67,6 +69,7 @@ function expandAssignments(assignments: Assignment[]): VirtualAssignment[] {
       status: a.status,
       clientName: a.client?.name ?? null,
       tags: parseTags(a.tags),
+      projectId: a.projectId ?? null,
     })
     if (hasSplitContent(a)) {
       out.push({
@@ -78,6 +81,7 @@ function expandAssignments(assignments: Assignment[]): VirtualAssignment[] {
         status: a.splitProjectStatus ?? a.status,
         clientName: a.splitClient?.name ?? null,
         tags: parseTags(a.splitTags),
+        projectId: a.splitProjectId ?? null,
       })
     }
   }
@@ -91,6 +95,12 @@ function expandAssignments(assignments: Assignment[]): VirtualAssignment[] {
  * with no name AND no client are excluded (truly empty).
  */
 function virtualKey(v: VirtualAssignment): string | null {
+  // Phase 24-R03: when the virtual row has a real Project FK, that IS the
+  // identity — group strictly by projectId. Pre-R03 / missing-fields rows
+  // fall back to the legacy (side + name + client + tags) key.
+  if (v.projectId) {
+    return `pid:${v.projectId}`
+  }
   if (!v.projectName && !v.clientName) return null
   const tags = [...v.tags].sort().join(',')
   return `${v.side}|${v.projectName}|${v.clientName ?? ''}|${tags}`
@@ -149,6 +159,7 @@ export function buildProjectTimeline(assignments: Assignment[]): DashboardProjec
         status: v.status,
         assignmentId: v.assignmentId,
         side: v.side,
+        projectId: v.projectId,
       }
       currentKey = key
     }

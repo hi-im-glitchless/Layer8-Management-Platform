@@ -1,6 +1,6 @@
 import { prisma } from '@/db/prisma.js';
 import { upsertProjectColor } from '@/services/scheduleService.js';
-import { reconcileCardsForAssignment } from '@/services/boardService.js';
+import { isPlannerEligible, parseTags, upsertByKey as upsertProjectByKey } from '@/services/projectService.js';
 
 /**
  * Parse JSON-stringified tag fields back to arrays for API responses.
@@ -37,11 +37,6 @@ function validateTags(tags: string[]): string[] {
 /**
  * Get the date range for a year/quarter filter.
  */
-/**
- * Get the date range for fetching assignments.
- * Extends start back to the Monday of the week containing the period start,
- * so assignments on boundary weeks (e.g., Dec 29 for a Jan 1 year start) are included.
- */
 function getDateRange(year: number, quarter?: number): { start: Date; end: Date } {
   let start: Date;
   let end: Date;
@@ -55,7 +50,6 @@ function getDateRange(year: number, quarter?: number): { start: Date; end: Date 
     end = new Date(year + 1, 0, 1);
   }
 
-  // Extend start back to the Monday of the week containing the start date
   const day = start.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   start.setDate(start.getDate() + diff);
@@ -82,16 +76,76 @@ export async function listAssignments(params: {
     include: {
       teamMember: {
         include: {
-          user: {
-            select: { username: true, displayName: true },
-          },
+          user: { select: { username: true, displayName: true } },
         },
       },
       client: true,
       splitClient: true,
+      project: true,
+      splitProject: true,
     },
   });
   return assignments.map(parseTagFields);
+}
+
+/**
+ * Phase 24-R03: link an assignment's primary and secondary halves to Project
+ * rows when they are Planner-eligible (have name + clientId + at least one
+ * tag). Ineligible halves get NULL projectId — they remain in the schedule
+ * but do not show up in the Planner.
+ *
+ * Idempotent: re-running with the same data is a no-op. Re-running with
+ * changed eligibility re-links to a different Project (or sets NULL).
+ */
+async function linkProjectsForAssignment(assignmentId: string): Promise<void> {
+  const a = await prisma.assignment.findUnique({ where: { id: assignmentId } });
+  if (!a) return;
+
+  const primaryTags = parseTags(a.tags);
+  const secondaryTags = parseTags(a.splitTags);
+
+  const primaryEligible = isPlannerEligible({
+    name: a.projectName,
+    clientId: a.clientId,
+    tags: primaryTags,
+  });
+  const secondaryEligible = isPlannerEligible({
+    name: a.splitProjectName,
+    clientId: a.splitClientId,
+    tags: secondaryTags,
+  });
+
+  let nextProjectId: string | null = null;
+  let nextSplitProjectId: string | null = null;
+
+  if (primaryEligible) {
+    const proj = await upsertProjectByKey({
+      name: a.projectName,
+      clientId: a.clientId!,
+      tags: primaryTags,
+      color: a.projectColor,
+      status: a.status,
+    });
+    nextProjectId = proj.id;
+  }
+
+  if (secondaryEligible) {
+    const proj = await upsertProjectByKey({
+      name: a.splitProjectName!,
+      clientId: a.splitClientId!,
+      tags: secondaryTags,
+      color: a.splitProjectColor ?? a.projectColor,
+      status: a.splitProjectStatus ?? a.status,
+    });
+    nextSplitProjectId = proj.id;
+  }
+
+  if (nextProjectId !== a.projectId || nextSplitProjectId !== a.splitProjectId) {
+    await prisma.assignment.update({
+      where: { id: assignmentId },
+      data: { projectId: nextProjectId, splitProjectId: nextSplitProjectId },
+    });
+  }
 }
 
 /**
@@ -115,10 +169,10 @@ export async function upsertAssignment(data: {
   clientId?: string | null;
   tags?: string[];
   /**
-   * Phase 24-R02: when the caller is removing one half of a split, pass
-   * which side they removed so the board-card reconciliation can preserve
-   * the surviving card's notes/files/comments (see boardService
-   * reconcileCardsForAssignment).
+   * Phase 24-R02: when the caller is removing one half of a split, this
+   * tells the FE-side reconciliation which surviving card to preserve.
+   * Phase 24-R03 keeps it as a forward-compatible no-op signal — cards are
+   * now Project-scoped, so the reconciliation falls out of linkProjects.
    */
   removedSide?: 'primary' | 'secondary';
 }) {
@@ -130,11 +184,9 @@ export async function upsertAssignment(data: {
     await upsertProjectColor(data.splitProjectName, data.splitProjectColor);
   }
 
-  // Validate tags if provided
   const validatedTags = data.tags ? validateTags(data.tags) : undefined;
   const validatedSplitTags = data.splitTags ? validateTags(data.splitTags) : undefined;
 
-  // Validate clientId exists if provided
   if (data.clientId) {
     const client = await prisma.client.findUnique({ where: { id: data.clientId } });
     if (!client) {
@@ -142,7 +194,6 @@ export async function upsertAssignment(data: {
     }
   }
 
-  // Validate splitClientId exists if provided
   if (data.splitClientId) {
     const client = await prisma.client.findUnique({ where: { id: data.splitClientId } });
     if (!client) {
@@ -202,13 +253,13 @@ export async function upsertAssignment(data: {
     });
   });
 
-  // Phase 24-R02: reconcile board cards (creates primary + secondary as needed,
-  // or promotes secondary→primary if the caller removed the primary half).
+  // Phase 24-R03: after the assignment row is written, link both halves to
+  // Project rows when eligible. Non-fatal — a board-side failure must not
+  // roll back the schedule write.
   try {
-    await reconcileCardsForAssignment(result.id, data.removedSide);
+    await linkProjectsForAssignment(result.id);
   } catch (err) {
-    // Non-fatal: board card reconciliation failure should not break the assignment upsert
-    console.error('[assignmentService] Failed to reconcile board cards:', err);
+    console.error('[assignmentService] Failed to link projects after upsert:', err);
   }
 
   return parseTagFields(result);
@@ -243,7 +294,6 @@ export async function updateAssignment(
     throw new Error('Cannot update a locked assignment. Unlock it first.');
   }
 
-  // Validate tags if provided
   if (data.tags) {
     validateTags(data.tags);
   }
@@ -251,7 +301,6 @@ export async function updateAssignment(
     validateTags(data.splitTags);
   }
 
-  // Validate clientId exists if provided (and not null — null means unlink)
   if (data.clientId) {
     const client = await prisma.client.findUnique({ where: { id: data.clientId } });
     if (!client) {
@@ -259,7 +308,6 @@ export async function updateAssignment(
     }
   }
 
-  // Validate splitClientId exists if provided
   if (data.splitClientId) {
     const client = await prisma.client.findUnique({ where: { id: data.splitClientId } });
     if (!client) {
@@ -267,7 +315,6 @@ export async function updateAssignment(
     }
   }
 
-  // Build update payload, converting tags arrays to JSON strings
   const { tags, splitTags, ...rest } = data;
   const updateData: Record<string, unknown> = { ...rest };
   if (tags !== undefined) {
@@ -281,6 +328,14 @@ export async function updateAssignment(
     where: { id },
     data: updateData,
   });
+
+  // Phase 24-R03: re-link projects in case key fields changed.
+  try {
+    await linkProjectsForAssignment(result.id);
+  } catch (err) {
+    console.error('[assignmentService] Failed to link projects after update:', err);
+  }
+
   return parseTagFields(result);
 }
 
@@ -299,6 +354,10 @@ export async function deleteAssignment(id: string) {
 
 /**
  * Swap the teamMemberId and weekStart between two assignments (for drag-and-drop).
+ *
+ * Phase 24-R03 simplification: BoardCards are now Project-scoped (not
+ * Assignment-scoped), so the swap no longer has to relink any cards.
+ * Project metadata stays with the content as it moves between rows.
  */
 export async function swapAssignments(idA: string, idB: string) {
   const [a, b] = await Promise.all([
@@ -306,24 +365,9 @@ export async function swapAssignments(idA: string, idB: string) {
     prisma.assignment.findUniqueOrThrow({ where: { id: idB } }),
   ]);
 
-  // Phase 24-05 / 24-R02: capture pre-swap card linkages so we can re-link
-  // them after the transaction commits. The transaction below deletes both
-  // Assignment rows, which triggers BoardCard.assignmentId → NULL via the
-  // onDelete: SetNull FK. The new Assignment rows reuse the same ids, so we
-  // can relink each orphaned card to its original id post-commit.
-  // 24-R02: assignments may now have up to two cards (primary + secondary)
-  // — capture both arrays.
-  const [preSwapCardsA, preSwapCardsB] = await Promise.all([
-    prisma.boardCard.findMany({ where: { assignmentId: idA } }),
-    prisma.boardCard.findMany({ where: { assignmentId: idB } }),
-  ]);
-
-  // Use a transaction with a temporary value to avoid unique constraint violations
   await prisma.$transaction([
-    // Temporarily clear A's unique key fields
     prisma.assignment.delete({ where: { id: idA } }),
     prisma.assignment.delete({ where: { id: idB } }),
-    // Re-create with swapped positions (project data including clientId/tags stays with content)
     prisma.assignment.create({
       data: {
         id: idA,
@@ -341,6 +385,8 @@ export async function swapAssignments(idA: string, idB: string) {
         createdBy: a.createdBy,
         clientId: a.clientId,
         tags: a.tags,
+        projectId: a.projectId,
+        splitProjectId: a.splitProjectId,
       },
     }),
     prisma.assignment.create({
@@ -360,40 +406,11 @@ export async function swapAssignments(idA: string, idB: string) {
         createdBy: b.createdBy,
         clientId: b.clientId,
         tags: b.tags,
+        projectId: b.projectId,
+        splitProjectId: b.splitProjectId,
       },
     }),
   ]);
-
-  // Phase 24-05 / 24-R02: re-link the (now-orphaned) BoardCards by setting
-  // their assignmentId back to the same id they had pre-swap. The swap
-  // preserves ids — only the contents (teamMemberId/weekStart/projectName
-  // /splitProjectName/...) move between the two rows — so the cards'
-  // original linkage AND their side ('primary' | 'secondary') are still
-  // valid semantically. reconcileCardsForAssignment is the backstop for the
-  // pre-Phase-23 case where the assignment never had a card to begin with
-  // (and also ensures a secondary card materialises if one is missing).
-  // The whole repair is wrapped in try/catch so a board-side failure cannot
-  // roll back the swap (data-safety: schedule writes must always succeed).
-  try {
-    for (const card of preSwapCardsA) {
-      await prisma.boardCard.update({
-        where: { id: card.id },
-        data: { assignmentId: idA },
-      });
-    }
-    for (const card of preSwapCardsB) {
-      await prisma.boardCard.update({
-        where: { id: card.id },
-        data: { assignmentId: idB },
-      });
-    }
-    // Backstop: create any cards that should exist but don't (pre-Phase-23 rows
-    // or secondary cards that materialise from the post-swap content).
-    await reconcileCardsForAssignment(idA);
-    await reconcileCardsForAssignment(idB);
-  } catch (err) {
-    console.error('[assignmentService] Failed to re-link cards post-swap:', err);
-  }
 }
 
 /**

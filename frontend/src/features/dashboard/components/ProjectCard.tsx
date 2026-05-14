@@ -33,7 +33,7 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { assignmentId, side = 'primary' } = project
+  const { projectId } = project
 
   const cardBody = (
     <>
@@ -101,8 +101,10 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
     </>
   )
 
-  // No assignmentId → static, non-interactive card (placeholder/synthetic rows).
-  if (!assignmentId) {
+  // Phase 24-R03: no projectId → no Planner card to navigate to (pre-R03
+  // assignment, or one missing name/client/tags). Render as static, non-
+  // interactive card.
+  if (!projectId) {
     return (
       <div className="flex overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
         {cardBody}
@@ -110,25 +112,18 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
     )
   }
 
-  // Interactive: look up the board card on click and navigate.
-  // We use queryClient.fetchQuery + useNavigate (NOT a react-router Link) because
-  // we need to resolve assignmentId → cardId asynchronously before navigating;
-  // a Link's `to` would be unknown at render time and a useQuery on every render
-  // would spawn N parallel lookups on dashboard mount. Cache key matches
-  // useBoardCardByAssignmentId so subsequent navigation hits cache.
-  // Phase 24-R02: include the `side` in the cache key + query so split weeks
-  // resolve to the correct BoardCard.
+  // Interactive: look up the board card on click and navigate. Cache key
+  // matches useBoardCardByProjectId so subsequent navigation hits cache.
   const handleClick = async () => {
     try {
       const data = await queryClient.fetchQuery<{ cards: BoardCard[] }>({
-        queryKey: ['board', 'cards', { assignmentId, side }],
-        queryFn: () => boardApi.getCards({ assignmentId, side }),
+        queryKey: ['board', 'cards', { projectId }],
+        queryFn: () => boardApi.getCards({ projectId }),
       })
       const cardId = data.cards[0]?.id
       if (cardId) {
         navigate(`/board?card=${cardId}`)
       }
-      // No card → silent no-op (consistent with 24-02 / 24-03 — no toast).
     } catch {
       // Network/permission error → silent no-op; the card remains useful as info.
     }

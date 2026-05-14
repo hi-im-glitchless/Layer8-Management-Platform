@@ -80,7 +80,7 @@ export const KanbanCard = memo(
         {/* Color accent bar */}
         <div
           className="w-1 shrink-0"
-          style={{ backgroundColor: card.assignment?.projectColor }}
+          style={{ backgroundColor: card.project.color }}
         />
 
         {/* Content */}
@@ -88,17 +88,33 @@ export const KanbanCard = memo(
           {/* Row 1: project name + pin */}
           <div className="flex items-start justify-between gap-1">
             <p className="text-sm font-semibold leading-tight line-clamp-2">
-              {card.assignment?.projectName ?? '(No project)'}
+              {card.project.name || '(No project)'}
             </p>
             {card.stageLockedBy && card.stageLockedBy !== 'auto' && (
               <Pin className="h-3 w-3 shrink-0 text-muted-foreground" />
             )}
           </div>
 
-          {/* Row 2: client name (not in current types but guard for future) */}
+          {/* Row 2: client + pentester list (Phase 24-R03) */}
+          {(card.project.client?.name || card.assignments.length > 0) && (
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              {card.project.client?.name && <p>{card.project.client.name}</p>}
+              {card.assignments.length > 0 && (
+                <p className="line-clamp-1">
+                  {Array.from(
+                    new Set(
+                      card.assignments
+                        .map((a) => a.teamMember?.user?.displayName ?? a.teamMember?.displayName ?? a.teamMember?.user?.username ?? a.teamMemberId)
+                        .filter(Boolean),
+                    ),
+                  ).join(', ')}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Row 3: checklist progress + status badge */}
-          {(totalCount > 0 || card.assignment?.status) && (
+          {(totalCount > 0 || card.project.status) && (
             <div className="flex items-center justify-between">
               {totalCount > 0 ? (
                 <span className="text-xs text-muted-foreground">
@@ -107,7 +123,7 @@ export const KanbanCard = memo(
               ) : (
                 <span />
               )}
-              <StatusBadge status={card.assignment?.status} />
+              <StatusBadge status={card.project.status} />
             </div>
           )}
         </div>
@@ -119,7 +135,8 @@ export const KanbanCard = memo(
     prev.card.stage === next.card.stage &&
     prev.card.checklist === next.card.checklist &&
     prev.card.stageLockedBy === next.card.stageLockedBy &&
-    prev.card.assignment?.projectName === next.card.assignment?.projectName &&
+    prev.card.project.name === next.card.project.name &&
+    prev.card.assignments.length === next.card.assignments.length &&
     prev.isDragOverlay === next.isDragOverlay &&
     prev.onCardClick === next.onCardClick,
 )

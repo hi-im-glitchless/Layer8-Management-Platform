@@ -204,11 +204,20 @@ model Assignment {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  teamMember  TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
-  client      Client?    @relation("AssignmentClient", fields: [clientId], references: [id], onDelete: SetNull)
-  splitClient Client?    @relation("AssignmentSplitClient", fields: [splitClientId], references: [id], onDelete: SetNull)
+  /// Phase 24-R03: optional FK to the Project entity. Set when an upsert
+  /// has name + clientId + at least one tag on the primary half. NULL for
+  /// pre-R03 assignments and for any assignment that lacks one of those
+  /// three fields — those rows remain in the schedule UI but do NOT show
+  /// up in the new Project-based Planner.
+  projectId      String?
+  /// Same as projectId but for the secondary half of a split assignment.
+  splitProjectId String?
 
-  boardCards BoardCard[]
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  client       Client?    @relation("AssignmentClient", fields: [clientId], references: [id], onDelete: SetNull)
+  splitClient  Client?    @relation("AssignmentSplitClient", fields: [splitClientId], references: [id], onDelete: SetNull)
+  project      Project?   @relation("AssignmentProject", fields: [projectId], references: [id], onDelete: SetNull)
+  splitProject Project?   @relation("AssignmentSplitProject", fields: [splitProjectId], references: [id], onDelete: SetNull)
 
   @@unique([teamMemberId, weekStart])
   @@index([teamMemberId])
@@ -216,6 +225,8 @@ model Assignment {
   @@index([projectName])
   @@index([clientId])
   @@index([splitClientId])
+  @@index([projectId])
+  @@index([splitProjectId])
 }
 
 model Absence {
@@ -269,14 +280,44 @@ model Client {
 
   assignments      Assignment[] @relation("AssignmentClient")
   splitAssignments Assignment[] @relation("AssignmentSplitClient")
+  projects         Project[]    @relation("ProjectClient")
+}
+
+/// Phase 24-R03: first-class Project entity.
+///
+/// A Project is the unit of work that appears in the Planner. Many
+/// Assignments can reference the same Project — multi-pentester engagements
+/// share one card, one checklist, one notes blob, one set of files/comments.
+///
+/// Identity (the dedupe key) is enforced at the application layer in
+/// projectService.upsertByKey: (name, clientId, sortedTags). Two assignments
+/// that match on those three values link to the same Project; anything else
+/// is a distinct Project even if name and client coincide.
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  clientId  String?
+  /// JSON array of tag strings — canonical sort enforced by projectService.
+  tags      String   @default("[]")
+  color     String
+  status    String   @default("placeholder")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client             Client?      @relation("ProjectClient", fields: [clientId], references: [id], onDelete: SetNull)
+  primaryAssignments Assignment[] @relation("AssignmentProject")
+  splitAssignments   Assignment[] @relation("AssignmentSplitProject")
+  boardCard          BoardCard?
+
+  @@index([clientId])
 }
 
 model BoardCard {
   id             String    @id @default(cuid())
-  assignmentId   String?
-  /// Phase 24-R02: which half of a split assignment this card represents.
-  /// Values: "primary" | "secondary". Non-split assignments have one card with side="primary".
-  side           String    @default("primary")
+  /// Phase 24-R03: Project this card represents. One Project = one card. The
+  /// Planner reads cards by projectId; many Assignments may link to the same
+  /// Project (multi-pentester / multi-week), but they share one card.
+  projectId      String    @unique
   /// Valid values: upcoming | preparation | execution | closing | done | archived
   stage          String    @default("upcoming")
   checklist      String    @default("[]")
@@ -291,14 +332,12 @@ model BoardCard {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  assignment    Assignment?         @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
   comments      BoardComment[]
   files         BoardFile[]
   notifications BoardNotification[]
 
-  @@unique([assignmentId, side])
   @@index([stage])
-  @@index([assignmentId])
 }
 
 model BoardComment {

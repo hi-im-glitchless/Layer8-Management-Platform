@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ApiError, apiClient } from '@/lib/api'
 import { boardApi } from './api'
-import type { CardFilters, CreateCardPayload, UpdateCardPayload } from './types'
+import type { CardFilters, UpdateCardPayload } from './types'
 
 function handleMutationError(error: Error, fallbackMessage: string) {
   if (error instanceof ApiError && error.status === 403) {
@@ -30,34 +30,18 @@ export function useBoardCard(id: string) {
 }
 
 /**
- * Look up the BoardCard linked to a given Assignment id, if any.
+ * Look up the BoardCard for a given Project id, if any.
  *
- * Used by the schedule AssignmentModal "View on Board" link (plan 24-02)
- * and (24-R02) the dashboard ProjectCard click handler. The optional
- * `side` filter defaults to 'primary' so callers that don't care about
- * split assignments get the primary card deterministically.
+ * Phase 24-R03: cards are keyed by Project now (was Assignment+side). The
+ * schedule AssignmentModal "View on Board" link reads this hook to find the
+ * Planner card for whichever Project the assignment links to.
  */
-export function useBoardCardByAssignmentId(
-  assignmentId: string | undefined,
-  side: 'primary' | 'secondary' = 'primary',
-) {
+export function useBoardCardByProjectId(projectId: string | null | undefined) {
   return useQuery({
-    queryKey: ['board', 'cards', { assignmentId, side }],
-    queryFn: () => boardApi.getCards({ assignmentId: assignmentId!, side }),
-    enabled: !!assignmentId,
+    queryKey: ['board', 'cards', { projectId }],
+    queryFn: () => boardApi.getCards({ projectId: projectId! }),
+    enabled: !!projectId,
     select: (data) => data.cards[0] ?? null,
-  })
-}
-
-export function useCreateCard() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (data: CreateCardPayload) => boardApi.createCard(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['board', 'cards'] })
-    },
-    onError: (error: Error) => handleMutationError(error, 'Failed to create card'),
   })
 }
 

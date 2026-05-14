@@ -108,22 +108,30 @@ export function Board() {
   }, [cards !== undefined])
 
   // ── Extract filter options from cards ──────────────────────────────
+  // Phase 24-R03: cards now carry a `project` + an `assignments` list (one
+  // entry per pentester/week sharing this Project). Pentester and client
+  // filters source from those structures.
   const pentesters = useMemo(() => {
     if (!cards) return []
     const map = new Map<string, string>()
     for (const card of cards) {
-      if (card.assignment?.teamMemberId) {
-        map.set(card.assignment.teamMemberId, card.assignment.teamMemberId)
+      for (const a of card.assignments) {
+        map.set(a.teamMemberId, a.teamMember?.displayName ?? a.teamMemberId)
       }
     }
     return Array.from(map, ([id, name]) => ({ id, name }))
   }, [cards])
 
   const clients = useMemo(() => {
-    // Client data not currently in BoardCard assignment type — return empty
-    // Can be populated when the API includes client info on assignments
-    return [] as { id: string; name: string }[]
-  }, [])
+    if (!cards) return []
+    const map = new Map<string, string>()
+    for (const card of cards) {
+      if (card.project.client) {
+        map.set(card.project.client.id, card.project.client.name)
+      }
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }))
+  }, [cards])
 
   // ── Client-side filtering ──────────────────────────────────────────
   const filteredCards = useMemo(() => {
@@ -131,25 +139,19 @@ export function Board() {
     let result = cards as BoardCard[]
 
     if (filterMode === 'mine' && user) {
-      // Phase 24-05: compare assignment.teamMember.userId against the User.id.
-      // The previous comparison (assignment.teamMemberId === user.id) was a
-      // type-mismatch — TeamMember.id and User.id are distinct identifiers,
-      // so the filter matched zero cards for any user.
-      result = result.filter(
-        (card) => card.assignment?.teamMember?.userId === user.id,
+      result = result.filter((card) =>
+        card.assignments.some((a) => a.teamMember?.userId === user.id),
       )
     }
 
     if (filterPentesterId) {
-      result = result.filter(
-        (card) => card.assignment?.teamMemberId === filterPentesterId,
+      result = result.filter((card) =>
+        card.assignments.some((a) => a.teamMemberId === filterPentesterId),
       )
     }
 
     if (filterClientId) {
-      result = result.filter(
-        (card) => (card.assignment as Record<string, unknown> | null | undefined)?.clientId === filterClientId,
-      )
+      result = result.filter((card) => card.project.clientId === filterClientId)
     }
 
     if (!showArchived) {

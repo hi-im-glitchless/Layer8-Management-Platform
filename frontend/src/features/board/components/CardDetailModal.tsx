@@ -408,7 +408,13 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
 
   if (!cardId || !card) return null
 
-  const assignment = card.assignment
+  // Phase 24-R03: card.project carries the canonical metadata; card.assignments
+  // is the list of (pentester, week) commitments that link to this Project.
+  const project = card.project
+  const assignments = card.assignments
+  const earliestWeek = assignments.length
+    ? [...assignments].map((a) => a.weekStart).sort()[0]
+    : null
   const checkedCount = card.checklist.filter((item) => item.checked).length
   const totalCount = card.checklist.length
   const isManuallyPlaced = card.stageLockedBy !== null && card.stageLockedBy !== 'auto'
@@ -423,17 +429,15 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Color accent bar */}
-        {assignment?.projectColor && (
-          <div
-            className="absolute top-0 left-0 right-0 h-1 rounded-t-lg"
-            style={{ backgroundColor: assignment.projectColor }}
-          />
-        )}
+        <div
+          className="absolute top-0 left-0 right-0 h-1 rounded-t-lg"
+          style={{ backgroundColor: project.color }}
+        />
 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="flex-1">
-              {assignment?.projectName ?? '(No project)'}
+              {project.name || '(No project)'}
             </span>
             {isManuallyPlaced && onResetAutoMove && (
               <Tooltip>
@@ -457,9 +461,9 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
           {/* Status + Stage */}
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="secondary">{stageLabel(card.stage)}</Badge>
-            {assignment?.status && (
+            {project.status && (
               <span className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                {assignment.status}
+                {project.status}
               </span>
             )}
             {card.archivedAt && (
@@ -469,26 +473,54 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
             )}
           </div>
 
-          {/* Pentester */}
-          {assignment?.teamMemberId && (
-            <div className="flex items-center gap-2 text-sm">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Pentester:</span>
-              <span>
-                {assignment.teamMember?.user?.displayName ??
-                  assignment.teamMember?.user?.username ??
-                  assignment.teamMember?.displayName ??
-                  'Unknown'}
-              </span>
+          {/* Client + tags row */}
+          {(project.client?.name || project.tags.length > 0) && (
+            <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
+              {project.client?.name && <span className="font-medium">{project.client.name}</span>}
+              {project.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
           )}
 
-          {/* Dates */}
-          {assignment?.weekStart && (
+          {/* Pentesters — one row per assignment slot. */}
+          {assignments.length > 0 && (
+            <div className="flex items-start gap-2 text-sm">
+              <User className="h-4 w-4 text-muted-foreground mt-0.5" />
+              <div className="flex-1">
+                <p className="text-muted-foreground mb-1">
+                  Pentester{assignments.length > 1 ? 's' : ''}:
+                </p>
+                <ul className="space-y-0.5">
+                  {assignments.map((a) => (
+                    <li key={a.assignmentId} className="flex items-center gap-2">
+                      <span>
+                        {a.teamMember?.user?.displayName ??
+                          a.teamMember?.user?.username ??
+                          a.teamMember?.displayName ??
+                          'Unknown'}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        · week of {formatDate(a.weekStart)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Earliest week (legacy "Week start" line — keep for quick reference) */}
+          {earliestWeek && (
             <div className="flex items-center gap-2 text-sm">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Week start:</span>
-              <span>{formatDate(assignment.weekStart)}</span>
+              <span className="text-muted-foreground">Starts:</span>
+              <span>{formatDate(earliestWeek)}</span>
             </div>
           )}
 
@@ -586,7 +618,7 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
       {canArchive && (
         <ArchiveCardDialog
           cardId={card.id}
-          projectName={assignment?.projectName ?? ''}
+          projectName={project.name}
           fileCount={(card.files ?? []).length}
           totalBytes={filesTotalBytes}
           open={archiveOpen}

@@ -27,7 +27,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { ColorPalette } from './ColorPalette'
 import { useUpsertAssignment, useDeleteAssignment, useClients } from '../hooks'
-import { useBoardCardByAssignmentId } from '../../board/hooks'
+import { useBoardCardByProjectId } from '../../board/hooks'
 import { ASSIGNMENT_STATUSES, COLOR_PALETTE } from '../constants'
 import { CreateAssignmentSchema, PREDEFINED_TAGS } from '../types'
 import type { Assignment, AssignmentStatus, Client } from '../types'
@@ -157,8 +157,11 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
   // create-mode (assignment === undefined). Returns null when the
   // assignment has no card (e.g., legacy pre-Phase-23 rows) — in that
   // case the link is hidden, not an error.
-  const { data: boardCard } = useBoardCardByAssignmentId(
-    isEdit && assignment ? assignment.id : undefined,
+  // Phase 24-R03: open the Planner via the assignment's primary projectId.
+  // If the assignment has no Project link (legacy / missing fields), the
+  // hook returns null and the "View on Board" link is hidden.
+  const { data: boardCard } = useBoardCardByProjectId(
+    isEdit && assignment ? assignment.projectId ?? undefined : undefined,
   )
 
   const [projectName, setProjectName] = useState('')

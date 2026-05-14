@@ -8,15 +8,14 @@ export interface ChecklistItem {
 
 export type BoardStage = 'upcoming' | 'preparation' | 'execution' | 'closing' | 'done' | 'archived'
 
+/**
+ * Phase 24-R03: a BoardCard now represents a Project, not an Assignment.
+ * The `project` field carries the canonical project metadata; `assignments`
+ * lists every (pentester, week) commitment that links to this Project.
+ * Multiple assignments → multi-pentester / multi-week engagement, one card.
+ */
 export interface BoardCard {
   id: string
-  assignmentId: string | null
-  /**
-   * Phase 24-R02: which half of a split assignment this card represents.
-   * Backend resolves project name/color/status/tags inside `assignment`
-   * based on this value, so most rendering code can stay unchanged.
-   */
-  side?: 'primary' | 'secondary'
   stage: BoardStage
   checklist: ChecklistItem[]
   notes: string
@@ -26,30 +25,31 @@ export interface BoardCard {
   archivedAt: string | null
   createdAt: string
   updatedAt: string
-  assignment?: {
+  project: {
     id: string
-    teamMemberId: string
-    projectName: string
-    projectColor: string
-    status: string
-    weekStart: string
+    name: string
     clientId: string | null
-    /**
-     * Phase 24-05: nested team-member user id so the Board "My Projects"
-     * filter can compare against the current User.id without leaking the
-     * full TeamMember row. Mirrors the Prisma include in boardService.
-     */
-    teamMember?: {
-      userId: string | null
-      displayName?: string | null
-      user?: {
-        displayName?: string | null
-        username?: string | null
-      } | null
-    } | null
-  } | null
+    tags: string[]
+    color: string
+    status: string
+    client?: { id: string; name: string; color: string } | null
+  }
+  assignments: BoardCardAssignment[]
   comments?: BoardComment[]
   files?: BoardFile[]
+}
+
+/** One Assignment row's slot in a card — pentester + week + which side. */
+export interface BoardCardAssignment {
+  assignmentId: string
+  teamMemberId: string
+  weekStart: string
+  side: 'primary' | 'secondary'
+  teamMember: {
+    userId: string | null
+    displayName: string | null
+    user: { displayName: string | null; username: string } | null
+  } | null
 }
 
 export interface BoardComment {
@@ -92,13 +92,6 @@ export const MAX_CARD_BYTES = 500 * 1024 * 1024
 
 // ── API request/response types ───────────────────────────────────────
 
-export interface CreateCardPayload {
-  assignmentId?: string
-  stage?: BoardStage
-  checklist?: ChecklistItem[]
-  notes?: string
-}
-
 export interface UpdateCardPayload {
   stage?: BoardStage
   notes?: string
@@ -108,9 +101,8 @@ export interface UpdateCardPayload {
 
 export interface CardFilters {
   stage?: BoardStage
-  assignmentId?: string
-  /** Phase 24-R02: filter to just one half of split assignments. */
-  side?: 'primary' | 'secondary'
+  /** Phase 24-R03: cards are keyed by Project. */
+  projectId?: string
 }
 
 // ── Stage constants ─────────────────────────────────────────────────
@@ -127,7 +119,7 @@ export const STAGE_LABELS: Record<BoardStage, string> = {
   archived: 'Archived',
 }
 
-/** Group cards by stage, sorted within each group by weekStart ascending */
+/** Group cards by stage, sorted within each group by earliest assignment weekStart. */
 export function groupCardsByStage(cards: BoardCard[]): Record<BoardStage, BoardCard[]> {
   const grouped: Record<BoardStage, BoardCard[]> = {
     upcoming: [],
@@ -142,11 +134,16 @@ export function groupCardsByStage(cards: BoardCard[]): Record<BoardStage, BoardC
     grouped[card.stage]?.push(card)
   }
 
-  // Sort each group by assignment.weekStart ascending (soonest first)
+  // Sort each group by earliest assignment weekStart (soonest first). Cards
+  // with no assignments sort last.
   for (const stage of Object.keys(grouped) as BoardStage[]) {
     grouped[stage].sort((a, b) => {
-      const aDate = a.assignment?.weekStart ?? ''
-      const bDate = b.assignment?.weekStart ?? ''
+      const aDate = a.assignments.length
+        ? a.assignments.map((x) => x.weekStart).sort()[0]
+        : '￿'
+      const bDate = b.assignments.length
+        ? b.assignments.map((x) => x.weekStart).sort()[0]
+        : '￿'
       return aDate.localeCompare(bDate)
     })
   }
