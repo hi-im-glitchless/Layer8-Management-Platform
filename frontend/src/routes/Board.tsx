@@ -31,7 +31,7 @@ import { Button } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-react'
 
 export function Board() {
-  const { user, role, isLoading: authLoading, hasRole } = useAuth()
+  const { user, role, isLoading: authLoading } = useAuth()
   useBoardSync()
 
   const { data, isLoading, isError, error, refetch } = useBoardCards()
