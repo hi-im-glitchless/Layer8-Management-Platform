@@ -16,6 +16,7 @@ const envSchema = z.object({
   GHOSTWRITER_REPORT_ID: z.string().optional().transform((v) => v ? Number(v) : undefined),
   CLAMAV_HOST: z.string().default('localhost'),
   CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+  DISABLE_VIRUS_SCAN: z.string().default('false').transform(v => v === 'true'),
   FEATURE_TEMPLATE_ADAPTER: z.string().default('false').transform(v => v === 'true'),
   FEATURE_EXECUTIVE_REPORT: z.string().default('false').transform(v => v === 'true'),
   FEATURE_DOCUMENT_PROCESSING: z.string().default('false').transform(v => v === 'true'),

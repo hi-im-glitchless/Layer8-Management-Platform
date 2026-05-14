@@ -17,6 +17,7 @@ import {
 import { scanFile } from '../services/clamService.js';
 import { logAuditEvent } from '../services/audit.js';
 import { emitBoardInvalidate } from '../services/socketService.js';
+import { config } from '../config.js';
 
 /**
  * Sub-router for board card file routes. Mounted from `board.ts` at
@@ -202,45 +203,50 @@ router.post(
     }
 
     // ── ClamAV scan (post-disk-write, pre-DB-insert) ──────────────
-    try {
-      const { clean, virus } = await scanFile(file.path);
-      if (!clean) {
+    // Bypass entirely when DISABLE_VIRUS_SCAN=true (internal-only deployments
+    // where the pentester team handles potentially-malicious samples as part
+    // of normal work).
+    if (!config.DISABLE_VIRUS_SCAN) {
+      try {
+        const { clean, virus } = await scanFile(file.path);
+        if (!clean) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (unlinkErr) {
+            console.error('[boardFiles] failed to unlink quarantined file:', unlinkErr);
+          }
+          await logAuditEvent({
+            userId,
+            action: 'board.file.quarantine',
+            ipAddress,
+            details: {
+              cardId,
+              filename: file.originalname,
+              mimeType: file.mimetype,
+              sizeBytes: file.size,
+              virus,
+            },
+          });
+          res.status(422).json({ error: 'File failed virus scan', virus });
+          return;
+        }
+      } catch (err) {
+        // Fail-closed: clamService throws Error('CLAMAV_UNREACHABLE') when
+        // the daemon cannot be contacted — never silently accept.
+        const message = (err as Error).message;
         try {
           fs.unlinkSync(file.path);
         } catch (unlinkErr) {
-          console.error('[boardFiles] failed to unlink quarantined file:', unlinkErr);
+          console.error('[boardFiles] failed to unlink after scan error:', unlinkErr);
         }
-        await logAuditEvent({
-          userId,
-          action: 'board.file.quarantine',
-          ipAddress,
-          details: {
-            cardId,
-            filename: file.originalname,
-            mimeType: file.mimetype,
-            sizeBytes: file.size,
-            virus,
-          },
-        });
-        res.status(422).json({ error: 'File failed virus scan', virus });
+        if (message === 'CLAMAV_UNREACHABLE') {
+          res.status(503).json({ error: 'Virus scanner unavailable' });
+          return;
+        }
+        console.error('[boardFiles] unexpected scan error:', err);
+        res.status(500).json({ error: 'Failed to scan file' });
         return;
       }
-    } catch (err) {
-      // Fail-closed: clamService throws Error('CLAMAV_UNREACHABLE') when
-      // the daemon cannot be contacted — never silently accept.
-      const message = (err as Error).message;
-      try {
-        fs.unlinkSync(file.path);
-      } catch (unlinkErr) {
-        console.error('[boardFiles] failed to unlink after scan error:', unlinkErr);
-      }
-      if (message === 'CLAMAV_UNREACHABLE') {
-        res.status(503).json({ error: 'Virus scanner unavailable' });
-        return;
-      }
-      console.error('[boardFiles] unexpected scan error:', err);
-      res.status(500).json({ error: 'Failed to scan file' });
-      return;
     }
 
     // ── DB insert (only reached when scan returned clean) ─────────
