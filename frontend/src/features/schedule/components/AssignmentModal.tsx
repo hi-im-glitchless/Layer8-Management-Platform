@@ -8,6 +8,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
@@ -262,6 +273,58 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
     })
   }
 
+  // Remove the primary project, promote the secondary to primary, save.
+  const handleRemovePrimary = () => {
+    if (!assignment) return
+    const data = {
+      teamMemberId,
+      projectName: splitProjectName.trim(),
+      projectColor: splitProjectColor,
+      status: splitProjectStatus,
+      weekStart,
+      splitProjectName: null,
+      splitProjectColor: null,
+      splitProjectStatus: null,
+      splitClientId: null,
+      splitTags: [],
+      clientId: splitClientId || null,
+      tags: splitSelectedTags,
+    }
+    const result = CreateAssignmentSchema.safeParse(data)
+    if (!result.success) {
+      setError(result.error.issues[0]?.message ?? 'Invalid data')
+      return
+    }
+    setError(null)
+    upsertMutation.mutate(result.data, { onSuccess: () => onClose() })
+  }
+
+  // Remove the secondary project, keep the primary, save.
+  const handleRemoveSecondary = () => {
+    if (!assignment) return
+    const data = {
+      teamMemberId,
+      projectName: projectName.trim(),
+      projectColor,
+      status,
+      weekStart,
+      splitProjectName: null,
+      splitProjectColor: null,
+      splitProjectStatus: null,
+      splitClientId: null,
+      splitTags: [],
+      clientId: clientId || null,
+      tags: selectedTags,
+    }
+    const result = CreateAssignmentSchema.safeParse(data)
+    if (!result.success) {
+      setError(result.error.issues[0]?.message ?? 'Invalid data')
+      return
+    }
+    setError(null)
+    upsertMutation.mutate(result.data, { onSuccess: () => onClose() })
+  }
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent className={isSplit ? 'sm:max-w-[760px]' : 'sm:max-w-[440px]'}>
@@ -276,7 +339,36 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
           <div className={isSplit ? 'grid grid-cols-2 gap-6' : ''}>
             {/* Primary Project Column */}
             <div className="space-y-4">
-              {isSplit && <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Primary Project</Label>}
+              {isSplit && (
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Primary Project</Label>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        title="Remove primary project"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove primary project?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          The second project will be kept and promoted to the only project. This saves immediately.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRemovePrimary}>Remove primary</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              )}
 
               {/* Client Selection */}
               <div className="space-y-2">
@@ -332,7 +424,34 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
             {/* Split Project Column (side by side when split is active) */}
             {isSplit && (
               <div className="space-y-4 pl-6 border-l-2 border-border">
-                <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Second Project</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Second Project</Label>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        title="Remove second project"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove second project?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          The primary project will be kept. This saves immediately.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRemoveSecondary}>Remove second</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
 
                 {/* Split Client */}
                 <div className="space-y-2">
