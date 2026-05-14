@@ -88,7 +88,7 @@ export function NotesEditor({
           />
         </TabsContent>
         <TabsContent value="preview">
-          <div className="prose prose-sm max-w-none rounded-md border border-input bg-background p-3 min-h-[24rem]">
+          <div className="prose prose-sm dark:prose-invert max-w-none rounded-md border border-input bg-background p-3 min-h-[24rem]">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <ReactMarkdown rehypePlugins={rehypePlugins as any}>
               {draft || '*No notes yet.*'}
