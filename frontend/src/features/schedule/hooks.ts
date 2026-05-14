@@ -126,6 +126,9 @@ export function useUpsertAssignment() {
     mutationFn: (data: CreateAssignmentRequest) => scheduleApi.upsertAssignment(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
+      // Phase 24-R02: upserts also create/destroy BoardCards via the backend
+      // reconcile pass, so the planner queries need to refetch.
+      queryClient.invalidateQueries({ queryKey: ['board', 'cards'] })
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to save assignment'),
   })

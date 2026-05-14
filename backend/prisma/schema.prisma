@@ -208,7 +208,7 @@ model Assignment {
   client      Client?    @relation("AssignmentClient", fields: [clientId], references: [id], onDelete: SetNull)
   splitClient Client?    @relation("AssignmentSplitClient", fields: [splitClientId], references: [id], onDelete: SetNull)
 
-  boardCard BoardCard?
+  boardCards BoardCard[]
 
   @@unique([teamMemberId, weekStart])
   @@index([teamMemberId])
@@ -273,7 +273,10 @@ model Client {
 
 model BoardCard {
   id             String    @id @default(cuid())
-  assignmentId   String?   @unique
+  assignmentId   String?
+  /// Phase 24-R02: which half of a split assignment this card represents.
+  /// Values: "primary" | "secondary". Non-split assignments have one card with side="primary".
+  side           String    @default("primary")
   /// Valid values: upcoming | preparation | execution | closing | done | archived
   stage          String    @default("upcoming")
   checklist      String    @default("[]")
@@ -293,6 +296,7 @@ model BoardCard {
   files         BoardFile[]
   notifications BoardNotification[]
 
+  @@unique([assignmentId, side])
   @@index([stage])
   @@index([assignmentId])
 }

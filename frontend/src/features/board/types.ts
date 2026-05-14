@@ -11,6 +11,12 @@ export type BoardStage = 'upcoming' | 'preparation' | 'execution' | 'closing' | 
 export interface BoardCard {
   id: string
   assignmentId: string | null
+  /**
+   * Phase 24-R02: which half of a split assignment this card represents.
+   * Backend resolves project name/color/status/tags inside `assignment`
+   * based on this value, so most rendering code can stay unchanged.
+   */
+  side?: 'primary' | 'secondary'
   stage: BoardStage
   checklist: ChecklistItem[]
   notes: string
@@ -103,6 +109,8 @@ export interface UpdateCardPayload {
 export interface CardFilters {
   stage?: BoardStage
   assignmentId?: string
+  /** Phase 24-R02: filter to just one half of split assignments. */
+  side?: 'primary' | 'secondary'
 }
 
 // ── Stage constants ─────────────────────────────────────────────────

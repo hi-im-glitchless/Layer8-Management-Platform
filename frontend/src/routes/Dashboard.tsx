@@ -3,7 +3,7 @@ import { Calendar } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks'
 import { useMyAssignments } from '@/features/schedule/hooks'
-import { buildProjectTimeline, getCurrentProject, getNextProject } from '@/features/dashboard/utils'
+import { buildProjectTimeline, getCurrentProjects, getNextProjects } from '@/features/dashboard/utils'
 import { ProjectCard } from '@/features/dashboard/components/ProjectCard'
 import { NoScheduleState } from '@/features/dashboard/components/NoScheduleState'
 import { ApiError } from '@/lib/api'
@@ -27,13 +27,14 @@ export function Dashboard() {
     assignmentsQuery.error instanceof ApiError &&
     assignmentsQuery.error.status === 404
 
-  const { currentProject, nextProject } = useMemo(() => {
+  const { currentProjects, nextProjects } = useMemo(() => {
     const assignments = assignmentsQuery.data?.assignments ?? []
-    if (assignments.length === 0) return { currentProject: null, nextProject: null }
+    if (assignments.length === 0) return { currentProjects: [], nextProjects: [] }
     const timeline = buildProjectTimeline(assignments)
     return {
-      currentProject: getCurrentProject(timeline),
-      nextProject: getNextProject(timeline),
+      // Phase 24-R02: split weeks yield 1 or 2 entries — render stacked.
+      currentProjects: getCurrentProjects(timeline),
+      nextProjects: getNextProjects(timeline),
     }
   }, [assignmentsQuery.data])
 
@@ -112,10 +113,18 @@ export function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Current Project
+                {currentProjects.length > 1 ? 'Current Projects' : 'Current Project'}
               </p>
-              {currentProject ? (
-                <ProjectCard project={currentProject} variant="current" />
+              {currentProjects.length > 0 ? (
+                <div className="space-y-2">
+                  {currentProjects.map((p) => (
+                    <ProjectCard
+                      key={`${p.assignmentId ?? ''}-${p.side ?? 'primary'}`}
+                      project={p}
+                      variant="current"
+                    />
+                  ))}
+                </div>
               ) : (
                 <div className="flex items-center justify-center rounded-lg border bg-card px-6 py-8 text-center">
                   <p className="text-sm text-muted-foreground">No project this week</p>
@@ -124,10 +133,18 @@ export function Dashboard() {
             </div>
             <div className="space-y-1.5">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Next Project
+                {nextProjects.length > 1 ? 'Next Projects' : 'Next Project'}
               </p>
-              {nextProject ? (
-                <ProjectCard project={nextProject} variant="next" />
+              {nextProjects.length > 0 ? (
+                <div className="space-y-2">
+                  {nextProjects.map((p) => (
+                    <ProjectCard
+                      key={`${p.assignmentId ?? ''}-${p.side ?? 'primary'}`}
+                      project={p}
+                      variant="next"
+                    />
+                  ))}
+                </div>
               ) : (
                 <div className="flex items-center justify-center rounded-lg border bg-card px-6 py-8 text-center">
                   <p className="text-sm text-muted-foreground">No upcoming projects</p>

@@ -45,6 +45,9 @@ router.get('/cards', requireAuth, readRateLimiter, async (req, res) => {
     const schema = z.object({
       stage: StageEnum.optional(),
       assignmentId: z.string().optional(),
+      // Phase 24-R02: allow filtering by side so the Dashboard's ProjectCard
+      // can fetch the exact card for the project half it represents.
+      side: z.enum(['primary', 'secondary']).optional(),
     });
     const filters = schema.parse(req.query);
     const cards = await boardService.listCards(filters);

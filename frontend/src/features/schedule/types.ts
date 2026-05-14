@@ -137,6 +137,14 @@ export const CreateAssignmentSchema = z.object({
   splitTags: z.array(z.string()).optional(),
   clientId: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
+  /**
+   * Phase 24-R02: optional signal sent by the AssignmentModal when the user
+   * is removing one half of a split. The backend uses this to decide which
+   * BoardCard to keep (so the surviving project's notes/files/comments
+   * are preserved). Plain upserts (creating, editing without side removal)
+   * leave this undefined.
+   */
+  removedSide: z.enum(['primary', 'secondary']).optional(),
 })
 
 export type CreateAssignmentRequest = z.infer<typeof CreateAssignmentSchema>

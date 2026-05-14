@@ -14,4 +14,12 @@ export interface DashboardProject {
    * (with no backing Assignment) do not have one.
    */
   assignmentId?: string
+  /**
+   * Phase 24-R02: which half of a split assignment this entry represents.
+   * Primary = the main project; secondary = the split half. Non-split
+   * assignments only emit a primary entry. ProjectCard.handleClick passes
+   * this through to /api/board/cards?side=... so the deep link lands on
+   * the right BoardCard.
+   */
+  side?: 'primary' | 'secondary'
 }

@@ -33,7 +33,7 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { assignmentId } = project
+  const { assignmentId, side = 'primary' } = project
 
   const cardBody = (
     <>
@@ -115,12 +115,14 @@ export function ProjectCard({ project, variant }: ProjectCardProps) {
   // we need to resolve assignmentId → cardId asynchronously before navigating;
   // a Link's `to` would be unknown at render time and a useQuery on every render
   // would spawn N parallel lookups on dashboard mount. Cache key matches
-  // useBoardCardByAssignmentId (24-02) so subsequent navigation hits cache.
+  // useBoardCardByAssignmentId so subsequent navigation hits cache.
+  // Phase 24-R02: include the `side` in the cache key + query so split weeks
+  // resolve to the correct BoardCard.
   const handleClick = async () => {
     try {
       const data = await queryClient.fetchQuery<{ cards: BoardCard[] }>({
-        queryKey: ['board', 'cards', { assignmentId }],
-        queryFn: () => boardApi.getCards({ assignmentId }),
+        queryKey: ['board', 'cards', { assignmentId, side }],
+        queryFn: () => boardApi.getCards({ assignmentId, side }),
       })
       const cardId = data.cards[0]?.id
       if (cardId) {

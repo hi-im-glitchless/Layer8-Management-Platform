@@ -234,6 +234,11 @@ router.post('/assignments', requireRole('PM'), mutationRateLimiter, async (req, 
       splitTags: z.array(z.string()).optional(),
       clientId: z.string().cuid().nullable().optional(),
       tags: z.array(z.string()).optional(),
+      // Phase 24-R02: optional signal from the FE when the user removes
+      // one half of a split. Tells the service which BoardCard to keep
+      // (preserving its notes/files/comments). See AssignmentModal
+      // handleRemovePrimary / handleRemoveSecondary.
+      removedSide: z.enum(['primary', 'secondary']).optional(),
     });
     const data = schema.parse(req.body);
     const assignment = await assignmentService.upsertAssignment({

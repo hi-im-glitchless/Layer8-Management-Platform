@@ -289,6 +289,9 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
       splitTags: [],
       clientId: splitClientId || null,
       tags: splitSelectedTags,
+      // Phase 24-R02: tell the backend which half was removed so the
+      // surviving BoardCard's notes/files/comments are preserved.
+      removedSide: 'primary' as const,
     }
     const result = CreateAssignmentSchema.safeParse(data)
     if (!result.success) {
@@ -315,6 +318,9 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
       splitTags: [],
       clientId: clientId || null,
       tags: selectedTags,
+      // Phase 24-R02: signal which half was removed so the backend deletes
+      // the right BoardCard (the now-orphaned secondary).
+      removedSide: 'secondary' as const,
     }
     const result = CreateAssignmentSchema.safeParse(data)
     if (!result.success) {

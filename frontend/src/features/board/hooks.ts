@@ -32,14 +32,18 @@ export function useBoardCard(id: string) {
 /**
  * Look up the BoardCard linked to a given Assignment id, if any.
  *
- * Used by the schedule AssignmentModal "View on Board" link (plan 24-02).
- * Returns the first matching card or null. Hidden when no card exists
- * (e.g., legacy assignments from before Phase 23 auto-create).
+ * Used by the schedule AssignmentModal "View on Board" link (plan 24-02)
+ * and (24-R02) the dashboard ProjectCard click handler. The optional
+ * `side` filter defaults to 'primary' so callers that don't care about
+ * split assignments get the primary card deterministically.
  */
-export function useBoardCardByAssignmentId(assignmentId: string | undefined) {
+export function useBoardCardByAssignmentId(
+  assignmentId: string | undefined,
+  side: 'primary' | 'secondary' = 'primary',
+) {
   return useQuery({
-    queryKey: ['board', 'cards', { assignmentId }],
-    queryFn: () => boardApi.getCards({ assignmentId: assignmentId! }),
+    queryKey: ['board', 'cards', { assignmentId, side }],
+    queryFn: () => boardApi.getCards({ assignmentId: assignmentId!, side }),
     enabled: !!assignmentId,
     select: (data) => data.cards[0] ?? null,
   })

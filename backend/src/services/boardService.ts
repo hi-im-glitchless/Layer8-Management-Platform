@@ -37,12 +37,53 @@ function serialiseChecklist(items: ChecklistItem[]): string {
 }
 
 /**
+ * Phase 24-R02: server-side resolution of which Assignment fields back this
+ * card. A BoardCard.side === 'secondary' card reads its project name / color
+ * / status / tags from the assignment's split* columns; primary reads from
+ * the primary columns. The returned shape is the same as the legacy single-
+ * card view, so existing FE code paths reading card.assignment.projectName
+ * keep working without changes.
+ */
+function resolveCardSide<
+  T extends {
+    side: string;
+    assignment: Record<string, unknown> | null;
+  }
+>(card: T): T {
+  if (!card.assignment) return card;
+  if (card.side !== 'secondary') return card;
+  const a = card.assignment as Record<string, unknown> & {
+    projectName?: string;
+    projectColor?: string;
+    status?: string;
+    tags?: unknown;
+    splitProjectName?: string | null;
+    splitProjectColor?: string | null;
+    splitProjectStatus?: string | null;
+    splitClientId?: string | null;
+    splitTags?: unknown;
+  };
+  return {
+    ...card,
+    assignment: {
+      ...a,
+      projectName: a.splitProjectName ?? '',
+      projectColor: a.splitProjectColor ?? a.projectColor,
+      status: a.splitProjectStatus ?? a.status,
+      clientId: a.splitClientId ?? null,
+      tags: a.splitTags ?? '[]',
+    },
+  };
+}
+
+/**
  * List board cards with optional filters.
  */
-export async function listCards(filters: { stage?: string; assignmentId?: string }) {
+export async function listCards(filters: { stage?: string; assignmentId?: string; side?: string }) {
   const where: Record<string, unknown> = {};
   if (filters.stage) where.stage = filters.stage;
   if (filters.assignmentId) where.assignmentId = filters.assignmentId;
+  if (filters.side) where.side = filters.side;
 
   const cards = await prisma.boardCard.findMany({
     where,
@@ -65,7 +106,7 @@ export async function listCards(filters: { stage?: string; assignmentId?: string
     },
     orderBy: { createdAt: 'desc' },
   });
-  return cards.map(parseChecklist);
+  return cards.map((c) => resolveCardSide(parseChecklist(c)));
 }
 
 /**
@@ -97,7 +138,7 @@ export async function getCard(id: string) {
     },
   });
   if (!card) return null;
-  return parseChecklist(card);
+  return resolveCardSide(parseChecklist(card));
 }
 
 /**
@@ -206,44 +247,155 @@ export async function autoMoveCards(): Promise<number> {
 }
 
 /**
- * Sync board cards from assignments that don't yet have an associated card.
- * Only reads assignments and creates BoardCards — never modifies Assignment records.
+ * Phase 24-R02: a split assignment has secondary data when either the split
+ * project name has content or a split client is set. Matches FE handleSave
+ * logic in AssignmentModal.
+ */
+function hasSecondaryData(a: {
+  splitProjectName: string | null;
+  splitClientId: string | null;
+}): boolean {
+  return !!(a.splitProjectName?.trim()) || !!a.splitClientId;
+}
+
+/**
+ * Sync board cards from assignments. Creates a primary card for every
+ * assignment that lacks one, plus a secondary card for every assignment
+ * that has split data but no secondary card yet. Idempotent — safe to
+ * call repeatedly.
  */
 export async function syncCardsFromAssignments(): Promise<{ created: number }> {
-  const unlinked = await prisma.assignment.findMany({
-    where: { boardCard: null },
+  const assignments = await prisma.assignment.findMany({
+    include: { boardCards: true },
   });
 
   let created = 0;
-  for (const assignment of unlinked) {
-    await prisma.boardCard.create({
-      data: {
-        assignmentId: assignment.id,
-        stage: 'upcoming',
-        checklist: JSON.stringify(DEFAULT_CHECKLIST),
-        notes: '',
-      },
-    });
-    created++;
+  for (const assignment of assignments) {
+    const hasPrimary = assignment.boardCards.some((c) => c.side === 'primary');
+    const hasSecondary = assignment.boardCards.some((c) => c.side === 'secondary');
+    const needsSecondary = hasSecondaryData(assignment);
+
+    if (!hasPrimary) {
+      await prisma.boardCard.create({
+        data: {
+          assignmentId: assignment.id,
+          side: 'primary',
+          stage: 'upcoming',
+          checklist: JSON.stringify(DEFAULT_CHECKLIST),
+          notes: '',
+        },
+      });
+      created++;
+    }
+
+    if (needsSecondary && !hasSecondary) {
+      await prisma.boardCard.create({
+        data: {
+          assignmentId: assignment.id,
+          side: 'secondary',
+          stage: 'upcoming',
+          checklist: JSON.stringify(DEFAULT_CHECKLIST),
+          notes: '',
+        },
+      });
+      created++;
+    }
   }
 
   return { created };
 }
 
 /**
- * Create a single board card for a given assignment (idempotent via upsert).
+ * Phase 24-R02: reconcile BoardCards for one assignment to match its split
+ * state. Always called after upsertAssignment to keep cards in sync.
+ *
+ * - Ensures a primary card exists.
+ * - Creates a secondary card if the assignment has split data and none exists.
+ * - Deletes the secondary card if the assignment no longer has split data,
+ *   UNLESS `removedSide === 'primary'` — in that case the secondary card is
+ *   promoted to primary (preserving its notes/files/comments) and the old
+ *   primary card is deleted instead. This is the "Remove primary half"
+ *   user flow from AssignmentModal.
+ *
+ * For the simpler "Remove secondary half" flow, the caller does not pass
+ * removedSide and the default deletion of the now-unbacked secondary card
+ * happens automatically.
  */
-export async function createCardForAssignment(assignmentId: string) {
-  return prisma.boardCard.upsert({
-    where: { assignmentId },
-    create: {
-      assignmentId,
-      stage: 'upcoming',
-      checklist: JSON.stringify(DEFAULT_CHECKLIST),
-      notes: '',
-    },
-    update: {},
+export async function reconcileCardsForAssignment(
+  assignmentId: string,
+  removedSide?: 'primary' | 'secondary',
+): Promise<void> {
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: { boardCards: true },
   });
+  if (!assignment) return;
+
+  const primary = assignment.boardCards.find((c) => c.side === 'primary');
+  const secondary = assignment.boardCards.find((c) => c.side === 'secondary');
+
+  if (removedSide === 'primary') {
+    // Old primary's content is gone; the old secondary is the new primary in the row.
+    // Drop the old primary card, promote the old secondary card (keeps its notes/files).
+    if (primary) {
+      await prisma.boardCard.delete({ where: { id: primary.id } });
+    }
+    if (secondary) {
+      await prisma.boardCard.update({
+        where: { id: secondary.id },
+        data: { side: 'primary' },
+      });
+    } else {
+      await prisma.boardCard.create({
+        data: {
+          assignmentId,
+          side: 'primary',
+          stage: 'upcoming',
+          checklist: JSON.stringify(DEFAULT_CHECKLIST),
+          notes: '',
+        },
+      });
+    }
+    return;
+  }
+
+  // Default path (incl. removedSide==='secondary' and ordinary upserts):
+  // Ensure primary exists. Match secondary state to whether assignment has split data.
+  if (!primary) {
+    await prisma.boardCard.create({
+      data: {
+        assignmentId,
+        side: 'primary',
+        stage: 'upcoming',
+        checklist: JSON.stringify(DEFAULT_CHECKLIST),
+        notes: '',
+      },
+    });
+  }
+
+  const needsSecondary = hasSecondaryData(assignment);
+  if (needsSecondary && !secondary) {
+    await prisma.boardCard.create({
+      data: {
+        assignmentId,
+        side: 'secondary',
+        stage: 'upcoming',
+        checklist: JSON.stringify(DEFAULT_CHECKLIST),
+        notes: '',
+      },
+    });
+  } else if (!needsSecondary && secondary) {
+    await prisma.boardCard.delete({ where: { id: secondary.id } });
+  }
+}
+
+/**
+ * Back-compat shim for callers that don't need side-aware reconciliation
+ * (e.g., the post-swap repair in assignmentService.swapAssignments).
+ * Delegates to reconcileCardsForAssignment which is the proper entry point.
+ */
+export async function createCardForAssignment(assignmentId: string): Promise<void> {
+  await reconcileCardsForAssignment(assignmentId);
 }
 
 /**
