@@ -116,7 +116,12 @@ export function Board() {
     const map = new Map<string, string>()
     for (const card of cards) {
       for (const a of card.assignments) {
-        map.set(a.teamMemberId, a.teamMember?.displayName ?? a.teamMemberId)
+        const name =
+          a.teamMember?.displayName ??
+          a.teamMember?.user?.displayName ??
+          a.teamMember?.user?.username ??
+          a.teamMemberId
+        map.set(a.teamMemberId, name)
       }
     }
     return Array.from(map, ([id, name]) => ({ id, name }))

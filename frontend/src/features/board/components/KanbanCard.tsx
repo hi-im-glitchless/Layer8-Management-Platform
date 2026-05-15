@@ -104,7 +104,7 @@ export const KanbanCard = memo(
                   {Array.from(
                     new Set(
                       card.assignments
-                        .map((a) => a.teamMember?.user?.displayName ?? a.teamMember?.displayName ?? a.teamMember?.user?.username ?? a.teamMemberId)
+                        .map((a) => a.teamMember?.displayName ?? a.teamMember?.user?.displayName ?? a.teamMember?.user?.username ?? a.teamMemberId)
                         .filter(Boolean),
                     ),
                   ).join(', ')}

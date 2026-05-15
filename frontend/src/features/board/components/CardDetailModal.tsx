@@ -500,9 +500,9 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
                   {assignments.map((a) => (
                     <li key={a.assignmentId} className="flex items-center gap-2">
                       <span>
-                        {a.teamMember?.user?.displayName ??
+                        {a.teamMember?.displayName ??
+                          a.teamMember?.user?.displayName ??
                           a.teamMember?.user?.username ??
-                          a.teamMember?.displayName ??
                           'Unknown'}
                       </span>
                       <span className="text-xs text-muted-foreground">
