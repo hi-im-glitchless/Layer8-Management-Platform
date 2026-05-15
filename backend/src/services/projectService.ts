@@ -1,4 +1,5 @@
 import { prisma } from '@/db/prisma.js';
+import { DEFAULT_CHECKLIST } from './boardService.js';
 
 /**
  * Phase 24-R03 — Project service.
@@ -80,7 +81,7 @@ export async function upsertByKey(opts: {
       boardCard: {
         create: {
           stage: 'upcoming',
-          checklist: '[]',
+          checklist: JSON.stringify(DEFAULT_CHECKLIST),
           notes: '',
         },
       },

@@ -7,7 +7,7 @@ interface ChecklistItem {
   order: number;
 }
 
-const DEFAULT_CHECKLIST: ChecklistItem[] = [
+export const DEFAULT_CHECKLIST: ChecklistItem[] = [
   { label: 'Kickoff', checked: false, order: 0 },
   { label: 'Requirements', checked: false, order: 1 },
   { label: 'Pentest', checked: false, order: 2 },
@@ -199,10 +199,27 @@ export async function updateCard(
   return parseChecklist(card);
 }
 
+/** Monday (UTC, 00:00) of the week containing `date`, as YYYY-MM-DD. */
+function getMondayISO(date: Date): string {
+  const d = new Date(date);
+  const day = d.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
- * Auto-move cards based on checklist completion progress.
- * Only moves cards where stageLockedBy is null or 'auto' (respects manual overrides).
- * Returns the count of cards moved.
+ * Auto-move cards based on the earliest linked assignment's weekStart.
+ * Behaviour (per team decision):
+ *  - earliest assignment week > next Monday → 'upcoming'
+ *  - earliest assignment week == next Monday → 'preparation' (label: "Next Week")
+ *  - earliest assignment week <= current Monday → not touched (PMs drive the
+ *    Execution → Closing → Done flow manually by dragging)
+ *  - cards with no linked assignments are not touched
+ *
+ * Only moves cards where `stageLockedBy` is null or 'auto' so manual drags
+ * (which set `stageLockedBy` to the user's id) stick permanently. Use the
+ * resetAutoMove endpoint to re-enable auto-management.
  */
 export async function autoMoveCards(): Promise<number> {
   const cards = await prisma.boardCard.findMany({
@@ -213,36 +230,45 @@ export async function autoMoveCards(): Promise<number> {
         { stageLockedBy: 'auto' },
       ],
     },
+    include: {
+      project: {
+        select: {
+          primaryAssignments: { select: { weekStart: true } },
+          splitAssignments: { select: { weekStart: true } },
+        },
+      },
+    },
   });
+
+  const today = new Date();
+  const currentMondayISO = getMondayISO(today);
+  const nextMondayISO = getMondayISO(
+    new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000),
+  );
 
   let movedCount = 0;
 
   for (const card of cards) {
-    const checklist: ChecklistItem[] =
-      typeof card.checklist === 'string'
-        ? (JSON.parse(card.checklist) as ChecklistItem[])
-        : (card.checklist as ChecklistItem[]) ?? [];
+    const weeks: Date[] = [
+      ...card.project.primaryAssignments.map((a) => a.weekStart),
+      ...card.project.splitAssignments.map((a) => a.weekStart),
+    ];
+    if (weeks.length === 0) continue;
 
-    const total = checklist.length;
-    if (total === 0) continue;
+    const earliestISO = weeks
+      .map((w) => new Date(w).toISOString().slice(0, 10))
+      .sort()[0];
 
-    const checked = checklist.filter((item) => item.checked).length;
-    const progress = checked / total;
-
-    let targetStage: string;
-    if (progress === 0) {
+    let targetStage: string | null = null;
+    if (earliestISO > nextMondayISO) {
       targetStage = 'upcoming';
-    } else if (progress < 0.25) {
+    } else if (earliestISO === nextMondayISO) {
       targetStage = 'preparation';
-    } else if (progress < 0.75) {
-      targetStage = 'execution';
-    } else if (progress < 1) {
-      targetStage = 'closing';
-    } else {
-      targetStage = 'done';
     }
+    // earliestISO <= currentMondayISO → leave alone (manual control)
+    void currentMondayISO;
 
-    if (targetStage !== card.stage) {
+    if (targetStage && targetStage !== card.stage) {
       await prisma.boardCard.update({
         where: { id: card.id },
         data: { stage: targetStage, stageLockedBy: 'auto' },

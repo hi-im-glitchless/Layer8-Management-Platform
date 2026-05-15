@@ -145,6 +145,14 @@ router.patch('/cards/:id', requireAuth, mutationRateLimiter, async (req, res) =>
       updateData.archivedAt = new Date();
     }
 
+    // Pin the card to whoever moved it: any stage change without an explicit
+    // stageLockedBy (i.e. a drag) sets the lock to the user's id, so autoMoveCards
+    // never overrides the manual placement. Use the resetAutoMove endpoint to
+    // hand control back to the auto-mover.
+    if (data.stage !== undefined && data.stageLockedBy === undefined) {
+      updateData.stageLockedBy = req.session.userId ?? 'manual';
+    }
+
     const card = await boardService.updateCard(id, updateData);
     res.json({ card });
     emitBoardInvalidate('cards');
