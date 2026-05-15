@@ -394,6 +394,8 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
   const [archiveOpen, setArchiveOpen] = useState(false)
   const { data } = useBoardCard(cardId ?? '')
   const card = data?.card
+  const { data: membersData } = useBoardMembers()
+  const allMembers = membersData?.users ?? []
 
   // Fire mark-read once per open transition so the sidebar dot clears.
   // Stable mutate identity is captured via ref to keep the effect deps tight.
@@ -440,6 +442,28 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
       weeks: [...g.weeks].sort(),
     }))
   })()
+
+  // Resolve a User.id to a display name using the same alias > displayName >
+  // username precedence as the rest of the planner (see commit 6797b19).
+  // Prefers a per-card pentester alias when the editor is on the card; falls
+  // back to the global member list for PM/Admin editors who aren't assigned.
+  const resolveEditorName = (userId: string | null): string | null => {
+    if (!userId) return null
+    for (const a of assignments) {
+      if (a.teamMember?.userId === userId) {
+        return (
+          a.teamMember.displayName ??
+          a.teamMember.user?.displayName ??
+          a.teamMember.user?.username ??
+          null
+        )
+      }
+    }
+    const m = allMembers.find((u) => u.id === userId)
+    if (m) return m.displayName ?? m.username
+    return null
+  }
+  const notesUpdatedByName = resolveEditorName(card.notesUpdatedBy)
   const checkedCount = card.checklist.filter((item) => item.checked).length
   const totalCount = card.checklist.length
   const isManuallyPlaced = card.stageLockedBy !== null && card.stageLockedBy !== 'auto'
@@ -597,7 +621,7 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
               cardId={card.id}
               initialNotes={card.notes ?? ''}
               notesUpdatedAt={card.notesUpdatedAt}
-              notesUpdatedBy={card.notesUpdatedBy}
+              notesUpdatedBy={notesUpdatedByName}
             />
           </div>
 
