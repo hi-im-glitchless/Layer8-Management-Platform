@@ -415,6 +415,31 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
   const earliestWeek = assignments.length
     ? [...assignments].map((a) => a.weekStart).sort()[0]
     : null
+
+  // Group assignments by pentester so a multi-week engagement on the same
+  // person renders as one row ("Ricardo · weeks of 18 May, 25 May 2026")
+  // rather than one row per week.
+  const pentesterGroups = (() => {
+    const map = new Map<string, { name: string; weeks: string[] }>()
+    for (const a of assignments) {
+      const name =
+        a.teamMember?.displayName ??
+        a.teamMember?.user?.displayName ??
+        a.teamMember?.user?.username ??
+        'Unknown'
+      const existing = map.get(a.teamMemberId)
+      if (existing) {
+        existing.weeks.push(a.weekStart)
+      } else {
+        map.set(a.teamMemberId, { name, weeks: [a.weekStart] })
+      }
+    }
+    return Array.from(map.entries()).map(([teamMemberId, g]) => ({
+      teamMemberId,
+      name: g.name,
+      weeks: [...g.weeks].sort(),
+    }))
+  })()
   const checkedCount = card.checklist.filter((item) => item.checked).length
   const totalCount = card.checklist.length
   const isManuallyPlaced = card.stageLockedBy !== null && card.stageLockedBy !== 'auto'
@@ -488,25 +513,21 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
             </div>
           )}
 
-          {/* Pentesters — one row per assignment slot. */}
-          {assignments.length > 0 && (
+          {/* Pentesters — one row per distinct pentester, weeks listed. */}
+          {pentesterGroups.length > 0 && (
             <div className="flex items-start gap-2 text-sm">
               <User className="h-4 w-4 text-muted-foreground mt-0.5" />
               <div className="flex-1">
                 <p className="text-muted-foreground mb-1">
-                  Pentester{assignments.length > 1 ? 's' : ''}:
+                  Pentester{pentesterGroups.length > 1 ? 's' : ''}:
                 </p>
                 <ul className="space-y-0.5">
-                  {assignments.map((a) => (
-                    <li key={a.assignmentId} className="flex items-center gap-2">
-                      <span>
-                        {a.teamMember?.displayName ??
-                          a.teamMember?.user?.displayName ??
-                          a.teamMember?.user?.username ??
-                          'Unknown'}
-                      </span>
+                  {pentesterGroups.map((g) => (
+                    <li key={g.teamMemberId} className="flex items-center gap-2">
+                      <span>{g.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        · week of {formatDate(a.weekStart)}
+                        · week{g.weeks.length > 1 ? 's' : ''} of{' '}
+                        {g.weeks.map(formatDate).join(', ')}
                       </span>
                     </li>
                   ))}
