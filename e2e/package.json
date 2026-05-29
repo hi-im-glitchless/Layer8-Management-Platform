@@ -1,0 +1,23 @@
+{
+  "name": "layer8-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright end-to-end UI tests for the Layer8 Management Platform",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test smoke",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen http://localhost:5173",
+    "install:browsers": "playwright install chromium",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.2",
+    "otplib": "^13.2.1",
+    "typescript": "^5.7.2"
+  }
+}
