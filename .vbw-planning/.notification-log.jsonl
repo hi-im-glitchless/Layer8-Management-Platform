@@ -2656,3 +2656,33 @@
   "title": "",
   "message": "Claude is waiting for your input"
 }
+{
+  "timestamp": "2026-06-01T11:32:18Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-01T11:43:11Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-06-01T12:27:34Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-06-01T12:33:19Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-01T12:45:11Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}

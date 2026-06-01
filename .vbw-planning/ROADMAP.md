@@ -34,7 +34,7 @@ Layer8 automates template adaptation and executive report generation for offensi
 - [x] Phase 19: Real-Time Sync & Mobile Fix
 - [x] Phase 20: Schedule HTML Export
 - [x] Phase 21: Project Board — Data Model & API
-- [ ] Phase 22: Project Board — Kanban UI
+- [x] Phase 22: Project Board — Kanban UI
 - [x] Phase 23: Project Board — Files, Notes & Comments
 - [x] Phase 24: Project Board — Schedule Integration & Navigation
 
@@ -369,6 +369,6 @@ Layer8 automates template adaptation and executive report generation for offensi
 | 19 - Real-Time Sync & Mobile Fix | Done | Complete | 2026-03-30 |
 | 20 - Schedule HTML Export | 2/2 | Complete | 2026-03-31 |
 | 21 - Board: Data Model & API | 0/0 | Pending | - |
-| 22 - Board: Kanban UI | 1/1 | needs verification | - |
+| 22 - Board: Kanban UI | 1/1 | uat issues | - |
 | 23 - Board: Files, Notes & Comments | 0/0 | Pending | - |
 | 24 - Board: Schedule Integration | 0/0 | Pending | - |
