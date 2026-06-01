@@ -3,13 +3,15 @@
  *
  * SCHEDULE-ISOLATION INVARIANT (DO NOT REMOVE):
  *   This module MUST NOT call `prisma.assignment.*`, `prisma.teamMember.*`,
- *   `prisma.absence.*`, or `prisma.holiday.*` for any operation other than
- *   the read-only `BoardCard.assignment` join below (which fetches only the
- *   linked Assignment's `projectName`). Any future edit must preserve this
- *   invariant; reviewers should reject changes that introduce schedule-domain
- *   writes here. The board archive flow has a non-negotiable no-write
- *   boundary against the schedule domain (see 23-CONTEXT.md "Data Safety —
- *   Schedule Protection").
+ *   `prisma.absence.*`, or `prisma.holiday.*` at all. The only relation read
+ *   here is the read-only `BoardCard.project` join below
+ *   (`project: { select: { name: true } }`, which fetches only the linked
+ *   Project's `name` for typed-confirmation). Any future edit must preserve
+ *   this invariant; reviewers should reject changes that introduce
+ *   schedule-domain writes here. The board archive flow has a non-negotiable
+ *   no-write boundary against the schedule domain (see 23-CONTEXT.md "Data
+ *   Safety — Schedule Protection"). Phase 24-R03 restructured BoardCard to
+ *   link directly to Project, so confirmation reads `card.project.name`.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -38,12 +40,11 @@ export interface ArchiveAuditDetails {
  * archived (`stage='archived'`, `archivedAt=now()`). Comments + notes +
  * checklist are preserved per CONTEXT.md "metadata retention".
  *
- * The linked Assignment is read-only here — only `projectName` is fetched
- * for confirmation, never written.
+ * The linked Project is read-only here — only its `name` is fetched for
+ * typed-confirmation, never written (Phase 24-R03 BoardCard→Project model).
  *
  * Throws `ArchiveError` on policy violations:
  *   - NOT_FOUND               — card does not exist
- *   - NO_ASSIGNMENT           — card has no linked Assignment (cannot confirm)
  *   - PROJECT_NAME_MISMATCH   — typed name does not exactly match
  *
  * Returns the audit-detail payload for the route layer to log.
