@@ -301,8 +301,14 @@ export function Board() {
                 ))}
           </div>
 
-          {/* Drag overlay ghost */}
-          <DragOverlay>
+          {/* Drag overlay ghost. dropAnimation={null}: the card is moved
+              optimistically by useMoveCard.onMutate, so the default drop
+              animation (which tweens the ghost back to the source position)
+              produced a visible "snap back to origin, then jump to target"
+              glitch on cross-column drops. Disabling it lets the ghost vanish
+              on release while the optimistic re-render already shows the card
+              in the target column. */}
+          <DragOverlay dropAnimation={null}>
             {activeCard ? (
               <div className="w-80">
                 <KanbanCard card={activeCard} isDragOverlay />
