@@ -34,9 +34,9 @@ Layer8 automates template adaptation and executive report generation for offensi
 - [x] Phase 19: Real-Time Sync & Mobile Fix
 - [x] Phase 20: Schedule HTML Export
 - [x] Phase 21: Project Board — Data Model & API
-- [x] Phase 22: Project Board — Kanban UI
-- [ ] Phase 23: Project Board — Files, Notes & Comments
-- [ ] Phase 24: Project Board — Schedule Integration & Navigation
+- [ ] Phase 22: Project Board — Kanban UI
+- [x] Phase 23: Project Board — Files, Notes & Comments
+- [x] Phase 24: Project Board — Schedule Integration & Navigation
 
 > **Note on completion criteria:** Phases 15–20 were verified informally by the project owner (no formal VBW UAT or QA artifacts were produced for those phases). Phase 21 is closed by `21-UAT.md` (status: complete). Phase 22 is closed by the QA remediation chain (`R01-VERIFICATION.md` PASS) plus UAT remediation chain (`R01-UAT.md` complete).
 
@@ -369,6 +369,6 @@ Layer8 automates template adaptation and executive report generation for offensi
 | 19 - Real-Time Sync & Mobile Fix | Done | Complete | 2026-03-30 |
 | 20 - Schedule HTML Export | 2/2 | Complete | 2026-03-31 |
 | 21 - Board: Data Model & API | 0/0 | Pending | - |
-| 22 - Board: Kanban UI | 0/0 | Pending | - |
+| 22 - Board: Kanban UI | 1/1 | needs verification | - |
 | 23 - Board: Files, Notes & Comments | 0/0 | Pending | - |
 | 24 - Board: Schedule Integration | 0/0 | Pending | - |

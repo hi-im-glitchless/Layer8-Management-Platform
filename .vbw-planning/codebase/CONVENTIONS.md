@@ -1,40 +1,38 @@
-# Coding Conventions
+# Conventions
 
-## Naming
-- **Backend files**: camelCase (auth.ts, denyList.ts)
-- **Frontend components**: PascalCase (UserManagement.tsx, TOTPSetup.tsx)
-- **Frontend features**: camelCase directories (auth/, admin/)
-- **Python**: snake_case files and functions, PascalCase classes
-- **Routes**: kebab-case URLs (/api/auth/login, /api/deny-list)
+## Language / module
+- **TypeScript everywhere** (backend + frontend), `strict: true`.
+- Backend is **ESM** (`"type": "module"`, `module: NodeNext`) — **relative imports use `.js` extensions** even for `.ts` sources (e.g. `import { config } from './config.js'`). Match this when adding backend imports.
+- Path alias `@/*` → `src/*` in both services (backend `tsconfig.paths`, frontend vite+tsconfig). Frontend mixes `@/...` aliases and relative imports.
+- Backend dev runs via `tsx` (no compile step); `npm run build` = `tsc` to `dist/`. Frontend build = `tsc -b && vite build`.
 
-## Import Aliases
-- `@/` → `./src` in both backend and frontend (tsconfig paths + Vite alias)
+## File / symbol naming
+- Backend routes: `routes/<domain>.ts` exporting a default Express router; paired logic in `services/<domain>Service.ts` (or `services/<domain>.ts`).
+- Frontend: components `PascalCase.tsx`; hooks/api/types/util modules `camelCase.ts`; feature directories lowercase or kebab (`executive-report`).
+- React component files export a named component (`export function Dashboard()`); `App` is default-exported.
+- Tests: co-located in `__tests__/` dirs, `*.test.ts(x)` (TS) / `test_*.py` (Python).
 
-## API Patterns
-- Express Router per domain (routes/auth.ts, routes/users.ts)
-- Thin route handlers delegating to service layer
-- Zod validation at route entry
-- Consistent JSON response shape
-- CSRF token via double-submit cookie (excluded for GET/HEAD/OPTIONS)
+## Backend patterns
+- **Config:** all env access goes through the zod-validated `config` object (`src/config.ts`) — do not read `process.env` directly in app code (DB/redis bootstrap excepted).
+- **Data access:** import the shared `prisma` singleton from `db/prisma.js`; routes delegate to services, services own Prisma queries.
+- **Auth on routes:** apply `requireAuth` / `requireRole(min)` from `middleware/auth.ts`; board sub-resources use `requireCardAccess` from `middleware/boardAuth.ts`; feature routes wrapped with `requireFeature(FLAG)`.
+- **Validation:** zod schemas for request bodies (mirrors config style).
+- **Audit:** security-relevant actions call `logAuditEvent(...)` (fire-and-forget, `.catch` logged) — preserves the hash chain. Access denials auto-audited in `middleware/auth.ts`.
+- **JSON-in-SQLite:** array/structured columns stored as JSON strings (`tags`, `splitTags`, `checklist`, audit `details`) with `@default("[]")` / `"{}"`; parse/stringify at the service boundary.
+- **Async boot:** server start is wrapped in `startServer()` with try/catch → `process.exit(1)`; optional services probed non-blocking.
 
-## Frontend Patterns
-- **Feature modules**: Each domain gets `features/{name}/api.ts` + `features/{name}/hooks.ts`
-- **Server state**: TanStack Query hooks wrapping API calls
-- **Forms**: React Hook Form + Zod resolvers
-- **Route guards**: ProtectedRoute/PublicRoute HOCs
-- **Auth state**: `useAuth()` hook with 5-min stale time
-- **UI components**: shadcn/ui (Radix primitives + Tailwind)
+## Frontend patterns
+- **Server state** via TanStack Query hooks in `features/<domain>/hooks.ts`; **all HTTP** through `lib/api.ts` `apiClient<T>` (never raw `fetch` in components) — it injects credentials + CSRF and handles 401 redirect.
+- **Forms:** `react-hook-form` + zod resolver.
+- **UI:** compose Radix-based primitives from `components/ui/*`; styling via Tailwind utility classes + `cn()` (`lib/utils.ts`, `clsx`+`tailwind-merge`); variants via `class-variance-authority`.
+- **Routing/guards:** wrap protected pages in `ProtectedRoute`/`RoleProtectedRoute`; gate UI affordances with `hasRole()` (`lib/rbac.ts`) — but treat the server as the authority.
+- **Realtime:** subscribe via the feature sync hooks (`useBoardSync`, `useScheduleSync`) rather than ad-hoc sockets.
+- **Notifications:** `sonner` `toast`.
 
-## Error Handling
-- Backend: try-catch in route handlers, global error handler in index.ts
-- Frontend: TanStack Query error states, toast notifications via Sonner
-- Sanitizer: FastAPI exception handlers, Pydantic validation errors
+## Comment style
+- Comments are used deliberately to record **why** + cross-phase rationale (frequent `Phase NN-RNN` references, "NON-NEGOTIABLE" guards, security notes like the `/uploads/board` 403 short-circuit). When touching guarded code, keep/extend these rationale comments rather than dropping them.
 
-## Environment Config
-- Backend: `.env` → `config.ts` (Zod schema, fail-fast on missing vars)
-- Frontend: `.env` → `import.meta.env` (Vite)
-- Python: `.env` → `config.py` (Pydantic Settings)
-
-## Commit Format
-- `{type}({scope}): {description}` (feat, fix, test, refactor, perf, docs, style, chore)
-- Atomic commits per task
+## Tooling
+- Lint: frontend ESLint 9 flat config (`eslint.config.js`); backend has no eslint config checked in (relies on `tsc strict`).
+- No Prettier config committed; follow surrounding formatting (2-space indent).
+- `prisma.config.ts` defines schema + migrations path + datasource from `DATABASE_URL`.

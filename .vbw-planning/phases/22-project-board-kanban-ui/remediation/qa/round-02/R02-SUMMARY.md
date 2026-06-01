@@ -8,7 +8,7 @@ completed: 2026-05-29
 tasks_completed: 4
 tasks_total: 4
 commit_hashes:
-  - __COMMIT__
+  - c518867
 files_modified:
   - .vbw-planning/phases/22-project-board-kanban-ui/22-02-PLAN.md
   - .vbw-planning/phases/22-project-board-kanban-ui/22-02-SUMMARY.md

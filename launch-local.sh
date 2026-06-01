@@ -3,7 +3,7 @@ set -euo pipefail
 
 # =============================================================================
 # Layer8 — Local development helper
-# Usage: ./launch-local.sh {start|stop|restart|status|reset-password|disable-mfa}
+# Usage: ./launch-local.sh {start|stop|restart|status|rebuild|reset-password|disable-mfa|enable-mfa|logs}
 #
 # - Backend (port 3001) and frontend (port 5173) run via npm run dev
 # - Uses Node 20 from nvm
@@ -181,7 +181,9 @@ cmd_status() {
 }
 
 # Run a one-off tsx script against the backend Prisma client.
-# Used for reset-password and disable-mfa.
+# Used for reset-password, disable-mfa and enable-mfa. Callers pass user/password
+# data via exported L8_USERS / L8_PASSWORD env vars (never interpolated into the
+# script string) so usernames and passwords can contain arbitrary characters.
 run_backend_script() {
     require_node
     local script="$1"
@@ -191,28 +193,254 @@ run_backend_script() {
     )
 }
 
+# Ensure the pinned Node version is available, installing it via nvm if missing.
+ensure_node() {
+    if [[ -x "$NODE_BIN/node" ]]; then
+        return 0
+    fi
+    c_warn "Node $NODE_VERSION not found at $NODE_BIN — attempting install via nvm..."
+    if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+        # shellcheck disable=SC1091
+        . "$HOME/.nvm/nvm.sh"
+        nvm install "${NODE_VERSION#v}" || { c_error "nvm install ${NODE_VERSION#v} failed."; exit 1; }
+    else
+        c_error "nvm not found at ~/.nvm/nvm.sh."
+        c_error "Install nvm first: https://github.com/nvm-sh/nvm#installing-and-updating"
+        exit 1
+    fi
+    if [[ ! -x "$NODE_BIN/node" ]]; then
+        c_error "Node $NODE_VERSION still not present at $NODE_BIN after install."
+        c_error "A different patch version may have been installed; update NODE_VERSION in this script."
+        exit 1
+    fi
+}
+
+# Print a 64-char random hex secret (for SESSION_SECRET).
+gen_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 32
+    else
+        od -An -tx1 -N32 /dev/urandom | tr -d ' \n'
+    fi
+}
+
+# First-time setup — install prerequisites, dependencies and the local DB.
+# Idempotent: existing node_modules / backend/.env / dev.db are left in place
+# (use `rebuild` for a destructive from-scratch reinstall).
+cmd_install() {
+    ensure_node
+
+    # Create backend/.env from the example (with a generated SESSION_SECRET) if absent.
+    if [[ ! -f "$BACKEND_DIR/.env" ]]; then
+        if [[ -f "$BACKEND_DIR/.env.example" ]]; then
+            c_info "Creating backend/.env from .env.example..."
+            local secret
+            secret=$(gen_secret)
+            sed "s|^SESSION_SECRET=.*|SESSION_SECRET=${secret}|" \
+                "$BACKEND_DIR/.env.example" > "$BACKEND_DIR/.env"
+            c_info "Wrote backend/.env (generated SESSION_SECRET)."
+        else
+            c_warn "backend/.env.example not found — skipping .env creation."
+        fi
+    else
+        c_info "backend/.env already exists — leaving it untouched."
+    fi
+
+    c_info "Installing backend dependencies..."
+    ( cd "$BACKEND_DIR" && PATH="$NODE_BIN:$PATH" npm install )
+
+    c_info "Installing frontend dependencies..."
+    ( cd "$FRONTEND_DIR" && PATH="$NODE_BIN:$PATH" npm install )
+
+    c_info "Generating Prisma client..."
+    ( cd "$BACKEND_DIR" && PATH="$NODE_BIN:$PATH" npx --yes prisma generate )
+
+    c_info "Applying database migrations..."
+    ( cd "$BACKEND_DIR" && PATH="$NODE_BIN:$PATH" npx --yes prisma migrate deploy )
+
+    c_info "Seeding admin user..."
+    ( cd "$BACKEND_DIR" && PATH="$NODE_BIN:$PATH" npm run seed )
+
+    # Redis is required at runtime but is a system service this script won't install.
+    if redis-cli ping >/dev/null 2>&1; then
+        c_info "Redis is up on localhost:6379."
+    else
+        c_warn "Redis is not responding on localhost:6379."
+        c_warn "Install + start it, e.g.: sudo apt install redis-server && sudo systemctl enable --now redis-server"
+    fi
+
+    c_info "Install complete. Start the stack with: $0 start"
+}
+
+# Full clean rebuild — wipe deps + local DB and reinstall from scratch.
+cmd_rebuild() {
+    local assume_yes=0
+    while (( $# )); do
+        case "$1" in
+            -y|--yes) assume_yes=1 ;;
+            *) c_error "Unknown rebuild option: $1"; exit 1 ;;
+        esac
+        shift
+    done
+
+    require_node
+
+    c_warn "Rebuild starts the project from scratch. It will:"
+    c_warn "  - stop running backend/frontend"
+    c_warn "  - delete backend/ and frontend/ node_modules (and dist)"
+    c_warn "  - delete the local SQLite database ($BACKEND_DIR/dev.db) — ALL local data lost"
+    c_warn "  - npm install, prisma generate, prisma migrate deploy, seed admin"
+    if (( ! assume_yes )); then
+        printf '\033[0;33m[WARN]\033[0m  Continue? [y/N] '
+        local reply=""
+        read -r reply || reply=""
+        case "$reply" in
+            y|Y|yes|YES) ;;
+            *) c_info "Aborted."; return 0 ;;
+        esac
+    fi
+
+    c_info "Stopping any running services..."
+    cmd_stop || true
+
+    c_info "Removing dependencies and build artifacts..."
+    rm -rf "$BACKEND_DIR/node_modules" "$FRONTEND_DIR/node_modules"
+    rm -rf "$BACKEND_DIR/dist" "$FRONTEND_DIR/dist"
+    rm -f "$BACKEND_DIR/dev.db" "$BACKEND_DIR/dev.db-journal" \
+          "$BACKEND_DIR/dev.db-wal" "$BACKEND_DIR/dev.db-shm"
+
+    c_info "Installing backend dependencies..."
+    ( cd "$BACKEND_DIR" && PATH="$NODE_BIN:$PATH" npm install )
+
+    c_info "Installing frontend dependencies..."
+    ( cd "$FRONTEND_DIR" && PATH="$NODE_BIN:$PATH" npm install )
+
+    c_info "Generating Prisma client..."
+    ( cd "$BACKEND_DIR" && PATH="$NODE_BIN:$PATH" npx --yes prisma generate )
+
+    c_info "Applying database migrations..."
+    ( cd "$BACKEND_DIR" && PATH="$NODE_BIN:$PATH" npx --yes prisma migrate deploy )
+
+    c_info "Seeding admin user..."
+    ( cd "$BACKEND_DIR" && PATH="$NODE_BIN:$PATH" npm run seed )
+
+    c_info "Rebuild complete. Start the stack with: $0 start"
+}
+
+# reset-password [-p|--password PASS] [username ...]
+# Defaults: password Admin123!, user 'admin'. Affected users are forced to
+# change their password on next login.
 cmd_reset_password() {
-    local new_password="${1:-Admin123!}"
-    c_info "Resetting admin password to: $new_password"
+    local password="Admin123!"
+    local users=()
+    while (( $# )); do
+        case "$1" in
+            -p|--password) shift; password="${1:-}" ;;
+            --) shift; while (( $# )); do users+=("$1"); shift; done; break ;;
+            -*) c_error "Unknown reset-password option: $1"; exit 1 ;;
+            *) users+=("$1") ;;
+        esac
+        shift
+    done
+    (( ${#users[@]} == 0 )) && users=("admin")
+    if [[ -z "$password" ]]; then
+        c_error "--password requires a value."
+        exit 1
+    fi
+    c_info "Resetting password for: ${users[*]}"
+    export L8_PASSWORD="$password"
+    export L8_USERS="${users[*]}"
     run_backend_script "
 (async () => {
   const { prisma } = await import('./src/db/prisma.js');
   const { hashPassword } = await import('./src/services/auth.js');
-  const passwordHash = await hashPassword('$new_password');
-  const u = await prisma.user.update({
-    where: { username: 'admin' },
-    data: {
-      passwordHash,
-      mustResetPassword: true,
-      failedLoginAttempts: 0,
-      lockedUntil: null,
-    },
-  });
-  console.log('Reset admin:', u.username, '| mustResetPassword:', u.mustResetPassword, '| totpEnabled:', u.totpEnabled);
+  const password = process.env.L8_PASSWORD || 'Admin123!';
+  const users = (process.env.L8_USERS || 'admin').trim().split(/[ ,]+/).filter(Boolean);
+  const passwordHash = await hashPassword(password);
+  for (const username of users) {
+    try {
+      const u = await prisma.user.update({
+        where: { username },
+        data: {
+          passwordHash,
+          mustResetPassword: true,
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        },
+      });
+      console.log('Reset:', u.username, '| mustResetPassword:', u.mustResetPassword, '| totpEnabled:', u.totpEnabled);
+    } catch (e) {
+      console.error('Failed to reset', username, '-', (e && e.message) || e);
+    }
+  }
   await prisma.\$disconnect();
 })().catch(async (e) => { console.error(e); process.exit(1); });
 "
-    c_info "Done. Login: admin / $new_password (will be forced to change)."
+    c_info "Done. New password for ${users[*]}: $password (forced to change on next login)."
+}
+
+# disable-mfa [username ...]  (defaults to 'admin')
+cmd_disable_mfa() {
+    local users=("$@")
+    (( ${#users[@]} == 0 )) && users=("admin")
+    c_info "Disabling MFA for: ${users[*]}"
+    export L8_USERS="${users[*]}"
+    run_backend_script "
+(async () => {
+  const { prisma } = await import('./src/db/prisma.js');
+  const users = (process.env.L8_USERS || 'admin').trim().split(/[ ,]+/).filter(Boolean);
+  for (const username of users) {
+    try {
+      const u = await prisma.user.update({
+        where: { username },
+        data: { totpEnabled: false, totpSecret: null },
+      });
+      console.log('MFA disabled for:', u.username, '| totpEnabled:', u.totpEnabled);
+    } catch (e) {
+      console.error('Failed to disable MFA for', username, '-', (e && e.message) || e);
+    }
+  }
+  await prisma.\$disconnect();
+})().catch(async (e) => { console.error(e); process.exit(1); });
+"
+}
+
+# enable-mfa <username> [username ...]
+# Generates a fresh TOTP secret per user, enables MFA, and prints the base32
+# secret + otpauth URI so it can be loaded into an authenticator app.
+cmd_enable_mfa() {
+    local users=("$@")
+    if (( ${#users[@]} == 0 )); then
+        c_error "enable-mfa requires at least one username."
+        c_error "Usage: $0 enable-mfa <username> [username ...]"
+        exit 1
+    fi
+    c_info "Enabling MFA for: ${users[*]}"
+    export L8_USERS="${users[*]}"
+    run_backend_script "
+(async () => {
+  const { prisma } = await import('./src/db/prisma.js');
+  const { generateSecret, generateURI } = await import('otplib');
+  const users = (process.env.L8_USERS || '').trim().split(/[ ,]+/).filter(Boolean);
+  for (const username of users) {
+    try {
+      const secret = generateSecret();
+      const uri = generateURI({ issuer: 'Layer8 - Management Platform', label: username, secret });
+      const u = await prisma.user.update({
+        where: { username },
+        data: { totpEnabled: true, totpSecret: secret },
+      });
+      console.log('MFA enabled for:', u.username);
+      console.log('  Secret (base32):', secret);
+      console.log('  otpauth URI:   ', uri);
+    } catch (e) {
+      console.error('Failed to enable MFA for', username, '-', (e && e.message) || e);
+    }
+  }
+  await prisma.\$disconnect();
+})().catch(async (e) => { console.error(e); process.exit(1); });
+"
+    c_info "Load the printed base32 secret (or otpauth URI) into an authenticator app."
 }
 
 cmd_logs() {
@@ -262,53 +490,56 @@ cmd_logs() {
     fi
 }
 
-cmd_disable_mfa() {
-    c_info "Disabling MFA for admin..."
-    run_backend_script "
-(async () => {
-  const { prisma } = await import('./src/db/prisma.js');
-  const u = await prisma.user.update({
-    where: { username: 'admin' },
-    data: { totpEnabled: false, totpSecret: null },
-  });
-  console.log('MFA disabled for:', u.username, '| totpEnabled:', u.totpEnabled);
-  await prisma.\$disconnect();
-})().catch(async (e) => { console.error(e); process.exit(1); });
-"
-}
-
 usage() {
     cat <<USAGE
 Usage: $0 <command>
 
 Commands:
-  start              Start backend + frontend dev servers
-  stop               Stop backend + frontend
-  restart            Stop then start
-  status             Show service status and health
-  reset-password     Reset admin password to Admin123! (or arg 2)
-  disable-mfa        Clear admin TOTP so login skips MFA
-  logs               Tail backend+frontend logs (args: backend|frontend, -n/--no-follow, <lines>)
+  start                       Start backend + frontend dev servers
+  stop                        Stop backend + frontend
+  restart                     Stop then start
+  status                      Show service status and health
+  install                     First-time setup: install Node/deps, create backend/.env,
+                              generate Prisma client, migrate and seed (idempotent)
+  rebuild                     Start from 0: wipe node_modules + local DB, reinstall,
+                              migrate and seed (use -y/--yes to skip confirmation)
+  reset-password              Reset password for users (default user: admin)
+                              [-p|--password PASS] [username ...]
+  disable-mfa                 Clear TOTP for users so login skips MFA
+                              [username ...]   (default user: admin)
+  enable-mfa                  Generate a TOTP secret and enable MFA for users
+                              <username> [username ...]
+  logs                        Tail backend+frontend logs
+                              (args: backend|frontend, -n/--no-follow, <lines>)
 
 Examples:
   $0 start
-  $0 reset-password
-  $0 reset-password 'MyNewPass123!'
-  $0 disable-mfa
-  $0 logs                       # follow both
-  $0 logs backend               # follow backend only
-  $0 logs --no-follow 500       # last 500 lines, no follow
+  $0 install                       # one-time setup on a fresh checkout
+  $0 rebuild                       # confirm prompt, then full clean rebuild
+  $0 rebuild --yes                 # rebuild without confirmation
+  $0 reset-password                # reset admin to Admin123!
+  $0 reset-password alice bob      # reset alice and bob to Admin123!
+  $0 reset-password -p 'S3cret!' alice
+  $0 disable-mfa                   # disable admin MFA
+  $0 disable-mfa alice bob
+  $0 enable-mfa alice              # enable MFA, print secret + otpauth URI
+  $0 logs                          # follow both
+  $0 logs backend                  # follow backend only
+  $0 logs --no-follow 500          # last 500 lines, no follow
 USAGE
 }
 
 case "${1:-}" in
     start)           cmd_start ;;
+    install)         cmd_install ;;
     stop)            cmd_stop ;;
     restart)         cmd_restart ;;
     status)          cmd_status ;;
-    reset-password)  shift; cmd_reset_password "${1:-}" ;;
+    rebuild)         shift; cmd_rebuild "$@" ;;
+    reset-password)  shift; cmd_reset_password "$@" ;;
     logs)            shift; cmd_logs "$@" ;;
-    disable-mfa)     cmd_disable_mfa ;;
+    disable-mfa)     shift; cmd_disable_mfa "$@" ;;
+    enable-mfa)      shift; cmd_enable_mfa "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 1 ;;
 esac

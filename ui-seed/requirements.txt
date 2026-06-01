@@ -1,0 +1,2 @@
+selenium>=4.40
+pyotp>=2.9
