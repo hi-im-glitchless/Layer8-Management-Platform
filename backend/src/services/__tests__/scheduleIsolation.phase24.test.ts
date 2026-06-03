@@ -44,6 +44,39 @@ function uniqueSuffix(): string {
 }
 
 /**
+ * upsertAssignment opens an interactive Prisma `$transaction` that holds a
+ * write lock. The backend runs against a single SQLite file (one writer at a
+ * time); when this suite runs concurrently with another write-heavy suite
+ * (e.g. scheduleIsolation.phase23 seeding/tearing down rows in a parallel
+ * vitest worker), SQLite can transiently bounce the transaction with a busy /
+ * "Operation has timed out" error. That is an environmental DB-locking limit,
+ * NOT a data-isolation defect — the snapshot is already scoped to this test's
+ * own rows. Retrying the call with a short backoff lets the lock clear so the
+ * two suites can run in the same vitest invocation without serialising them
+ * or touching product code.
+ */
+async function upsertAssignmentWithRetry(
+  data: Parameters<typeof upsertAssignment>[0],
+  attempts = 5,
+): Promise<Awaited<ReturnType<typeof upsertAssignment>>> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await upsertAssignment(data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isLockTimeout =
+        /timed out|database is locked|SQLITE_BUSY|Transaction (?:already closed|api error)/i.test(msg);
+      if (!isLockTimeout) throw err;
+      lastErr = err;
+      // Exponential-ish backoff with jitter so the two workers desynchronise.
+      await new Promise((r) => setTimeout(r, 50 * (i + 1) + Math.floor(Math.random() * 50)));
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Snapshot the non-Assignment schedule tables, scoped to ONLY the rows this
  * test seeded. The Assignment row is intentionally excluded from the
  * byte-equality model because the operation under test (upsertAssignment) is
@@ -174,7 +207,7 @@ describe('Phase 24 schedule isolation', () => {
     // Phase 24 schedule-integration operation: a Planner-eligible assignment
     // (name + clientId + >=1 tag) drives linkProjectsForAssignment ->
     // upsertByKey, which auto-creates the Project and its BoardCard.
-    const result = await upsertAssignment({
+    const result = await upsertAssignmentWithRetry({
       teamMemberId: ids!.teamMemberId,
       projectName: ids!.projectName,
       projectColor: '#abcdef',
@@ -200,7 +233,7 @@ describe('Phase 24 schedule isolation', () => {
 
   it('idempotent re-save (the no-op "swap" of identical key fields) leaves TeamMember / Absence / Holiday byte-identical', async () => {
     // First save materialises the Project + BoardCard.
-    const first = await upsertAssignment({
+    const first = await upsertAssignmentWithRetry({
       teamMemberId: ids!.teamMemberId,
       projectName: ids!.projectName,
       projectColor: '#abcdef',
@@ -222,7 +255,7 @@ describe('Phase 24 schedule isolation', () => {
     // schedule-side equivalent of a swap that does not change the dedupe
     // triple: it must re-link to the SAME Project (idempotent) and must not
     // disturb the surrounding schedule tables.
-    const second = await upsertAssignment({
+    const second = await upsertAssignmentWithRetry({
       teamMemberId: ids!.teamMemberId,
       projectName: ids!.projectName,
       projectColor: '#abcdef',
