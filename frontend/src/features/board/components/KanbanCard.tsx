@@ -24,12 +24,6 @@ function StatusBadge({ status }: { status: string | undefined }) {
   )
 }
 
-// ── Card lookup helper ──────────────────────────────────────────────
-
-export function findCardById(cards: BoardCard[], id: string): BoardCard | undefined {
-  return cards.find((c) => c.id === id)
-}
-
 // ── Pentester avatar helpers (Phase 04) ─────────────────────────────
 
 /**
