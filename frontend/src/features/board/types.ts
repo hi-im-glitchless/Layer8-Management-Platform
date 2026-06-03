@@ -48,7 +48,7 @@ export interface BoardCardAssignment {
   teamMember: {
     userId: string | null
     displayName: string | null
-    user: { displayName: string | null; username: string } | null
+    user: { displayName: string | null; username: string; avatarUrl: string | null } | null
   } | null
 }
 

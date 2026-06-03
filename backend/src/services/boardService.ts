@@ -51,7 +51,7 @@ function shapeAssignmentForCard(
     teamMember: {
       userId: string | null;
       displayName: string | null;
-      user: { displayName: string | null; username: string } | null;
+      user: { displayName: string | null; username: string; avatarUrl: string | null } | null;
     } | null;
   },
   projectId: string,
@@ -63,7 +63,7 @@ function shapeAssignmentForCard(
   teamMember: {
     userId: string | null;
     displayName: string | null;
-    user: { displayName: string | null; username: string } | null;
+    user: { displayName: string | null; username: string; avatarUrl: string | null } | null;
   } | null;
 } {
   const side: 'primary' | 'secondary' = a.projectId === projectId ? 'primary' : 'secondary';
@@ -80,7 +80,7 @@ const ASSIGNMENT_TEAM_MEMBER_SELECT = {
   select: {
     userId: true,
     displayName: true,
-    user: { select: { displayName: true, username: true } },
+    user: { select: { displayName: true, username: true, avatarUrl: true } },
   },
 } as const;
 
