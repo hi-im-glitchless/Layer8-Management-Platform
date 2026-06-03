@@ -864,6 +864,15 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
               const weekStr = toLocalDateString(week)
               const isMonthTransition = monthTransitions.has(colIdx)
               const isCurrentWeek = colIdx === currentWeekIdx
+              // Phase 24 UAT: a NORMAL-role user's own assignment cell that links
+              // to a Planner card is click-navigable (handleCellClick), so show
+              // the pointer cursor to signal it's clickable.
+              const isOwnNavigable = !!(
+                assignment &&
+                role === 'NORMAL' &&
+                assignment.teamMember?.userId === user?.id &&
+                assignment.projectId
+              )
               return (
                 <td
                   key={week.toISOString()}
@@ -900,7 +909,7 @@ export function ScheduleGrid({ year, quarter }: ScheduleGridProps) {
                       )}
                     </div>
                   ) : (
-                    <div className="h-full flex flex-col overflow-hidden">
+                    <div className={`h-full flex flex-col overflow-hidden${isOwnNavigable ? ' cursor-pointer' : ''}`}>
                       <div className="flex-1 min-h-0">
                         <AssignmentCell
                           assignment={assignment}
