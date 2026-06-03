@@ -142,6 +142,10 @@ export function useUpdateAssignment() {
       scheduleApi.updateAssignment(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
+      // Phase 05-01: a status (or color) edit here can change the linked
+      // Project, so the Planner board card must refetch — mirror the board
+      // invalidation already wired in useUpsertAssignment.
+      queryClient.invalidateQueries({ queryKey: ['board', 'cards'] })
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to update assignment'),
   })

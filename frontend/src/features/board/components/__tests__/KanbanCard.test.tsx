@@ -30,7 +30,10 @@ function makeAssignment(
 
 const CHECKLIST: ChecklistItem[] = []
 
-function makeCard(assignments: BoardCardAssignment[]): BoardCard {
+function makeCard(
+  assignments: BoardCardAssignment[],
+  projectOverrides: Partial<BoardCard['project']> = {},
+): BoardCard {
   return {
     id: 'card-1',
     stage: 'execution',
@@ -50,6 +53,7 @@ function makeCard(assignments: BoardCardAssignment[]): BoardCard {
       color: '#3366ff',
       status: 'confirmed',
       client: { id: 'client-1', name: 'Acme Corp', color: '#3366ff' },
+      ...projectOverrides,
     },
     assignments,
   }
@@ -141,5 +145,34 @@ describe('KanbanCard pentester avatars', () => {
     // Exactly 3 visible avatars + a "+2" overflow node.
     expect(container.querySelectorAll('[data-slot="avatar"]')).toHaveLength(3)
     expect(screen.getByText('+2')).toBeInTheDocument()
+  })
+})
+
+/**
+ * Phase 05-01: the custom memo comparator must NOT block a re-render when
+ * project.status changes (the Bug 1 status-sync path). With status added to the
+ * comparator, re-rendering the same card id with a new status updates the badge.
+ */
+describe('KanbanCard memo re-render on project change', () => {
+  it('re-renders the status badge when project.status changes', () => {
+    const { rerender } = render(
+      <DndContext>
+        <KanbanCard card={makeCard([], { status: 'confirmed' })} />
+      </DndContext>,
+    )
+
+    // StatusBadge label for 'confirmed' (status.charAt(0).toUpperCase() + ...).
+    expect(screen.getByText('Confirmed')).toBeInTheDocument()
+
+    // Same card id, new status — comparator must return false so the card
+    // re-renders. A stale comparator would keep showing "Confirmed".
+    rerender(
+      <DndContext>
+        <KanbanCard card={makeCard([], { status: 'placeholder' })} />
+      </DndContext>,
+    )
+
+    expect(screen.getByText('Placeholder')).toBeInTheDocument()
+    expect(screen.queryByText('Confirmed')).toBeNull()
   })
 })
