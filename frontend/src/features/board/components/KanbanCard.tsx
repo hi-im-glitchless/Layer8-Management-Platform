@@ -1,7 +1,8 @@
 import { memo } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { Pin } from 'lucide-react'
-import type { BoardCard } from '../types'
+import { Avatar, AvatarImage, AvatarFallback, AvatarGroup, AvatarGroupCount } from '@/components/ui/avatar'
+import type { BoardCard, BoardCardAssignment } from '../types'
 
 // ── Status badge styling ────────────────────────────────────────────
 
@@ -27,6 +28,35 @@ function StatusBadge({ status }: { status: string | undefined }) {
 
 export function findCardById(cards: BoardCard[], id: string): BoardCard | undefined {
   return cards.find((c) => c.id === id)
+}
+
+// ── Pentester avatar helpers (Phase 04) ─────────────────────────────
+
+/**
+ * Deduplicate a card's assignments by teamMemberId so a pentester with both a
+ * primary and a split assignment on the same card renders exactly one avatar.
+ * Keeps the first teamMember object seen for each id.
+ */
+function uniquePentesters(assignments: BoardCardAssignment[]): BoardCardAssignment[] {
+  const seen = new Map<string, BoardCardAssignment>()
+  for (const a of assignments) {
+    if (!seen.has(a.teamMemberId)) seen.set(a.teamMemberId, a)
+  }
+  return Array.from(seen.values())
+}
+
+/** Display name for an assignment's pentester (schedule fallback chain). */
+function pentesterName(a: BoardCardAssignment): string {
+  const tm = a.teamMember
+  return tm?.displayName || tm?.user?.displayName || tm?.user?.username || ''
+}
+
+/** Single uppercased initial — EXACT schedule fallback (never the opaque cuid). */
+function pentesterInitial(a: BoardCardAssignment): string {
+  const tm = a.teamMember
+  return (tm?.displayName || tm?.user?.displayName || tm?.user?.username || '?')
+    .charAt(0)
+    .toUpperCase()
 }
 
 // ── KanbanCard component ────────────────────────────────────────────
@@ -95,21 +125,31 @@ export const KanbanCard = memo(
             )}
           </div>
 
-          {/* Row 2: client + pentester list (Phase 24-R03) */}
+          {/* Row 2: client name (text) + pentester avatars (Phase 04) */}
           {(card.project.client?.name || card.assignments.length > 0) && (
             <div className="text-xs text-muted-foreground space-y-0.5">
               {card.project.client?.name && <p>{card.project.client.name}</p>}
-              {card.assignments.length > 0 && (
-                <p className="line-clamp-1">
-                  {Array.from(
-                    new Set(
-                      card.assignments
-                        .map((a) => a.teamMember?.displayName ?? a.teamMember?.user?.displayName ?? a.teamMember?.user?.username ?? a.teamMemberId)
-                        .filter(Boolean),
-                    ),
-                  ).join(', ')}
-                </p>
-              )}
+              {(() => {
+                const pentesters = uniquePentesters(card.assignments)
+                if (pentesters.length === 0) return null
+                return (
+                  <AvatarGroup>
+                    {pentesters.slice(0, 3).map((a) => {
+                      const name = pentesterName(a)
+                      const avatarUrl = a.teamMember?.user?.avatarUrl ?? null
+                      return (
+                        <Avatar key={a.teamMemberId} size="sm" title={name || undefined}>
+                          {avatarUrl ? <AvatarImage src={avatarUrl} alt={name || ''} /> : null}
+                          <AvatarFallback>{pentesterInitial(a)}</AvatarFallback>
+                        </Avatar>
+                      )
+                    })}
+                    {pentesters.length > 3 && (
+                      <AvatarGroupCount>+{pentesters.length - 3}</AvatarGroupCount>
+                    )}
+                  </AvatarGroup>
+                )
+              })()}
             </div>
           )}
 
@@ -136,7 +176,8 @@ export const KanbanCard = memo(
     prev.card.checklist === next.card.checklist &&
     prev.card.stageLockedBy === next.card.stageLockedBy &&
     prev.card.project.name === next.card.project.name &&
-    prev.card.assignments.length === next.card.assignments.length &&
+    prev.card.assignments.map((a) => a.teamMemberId + '|' + (a.teamMember?.user?.avatarUrl ?? '')).join() ===
+      next.card.assignments.map((a) => a.teamMemberId + '|' + (a.teamMember?.user?.avatarUrl ?? '')).join() &&
     prev.isDragOverlay === next.isDragOverlay &&
     prev.onCardClick === next.onCardClick,
 )
