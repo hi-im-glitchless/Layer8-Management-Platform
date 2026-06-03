@@ -271,6 +271,7 @@ export function Board() {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
+          autoScroll={{ threshold: { x: 0.2, y: 0 } }}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
