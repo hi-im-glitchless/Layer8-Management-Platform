@@ -122,7 +122,7 @@ export const boardApi = {
 
   // ── Admin ──────────────────────────────────────────────────────────
 
-  async archiveCard(cardId: string, confirmProjectName: string) {
+  async archiveCard(cardId: string) {
     return apiClient<{
       success: boolean
       cardId: string
@@ -131,7 +131,7 @@ export const boardApi = {
       totalBytes: number
     }>(`/api/board/cards/${cardId}/admin/archive`, {
       method: 'POST',
-      body: JSON.stringify({ confirmProjectName }),
+      body: JSON.stringify({}),
     })
   },
 

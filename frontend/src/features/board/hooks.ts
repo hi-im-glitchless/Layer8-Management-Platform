@@ -362,25 +362,12 @@ export function useArchiveCard() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({
-      cardId,
-      confirmProjectName,
-    }: {
-      cardId: string
-      confirmProjectName: string
-    }) => boardApi.archiveCard(cardId, confirmProjectName),
+    mutationFn: ({ cardId }: { cardId: string }) => boardApi.archiveCard(cardId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['board', 'cards'] })
       toast.success('Card archived')
     },
     onError: (error: Error) => {
-      if (error instanceof ApiError && error.status === 400) {
-        const code = (error.message ?? '').toUpperCase()
-        if (code.includes('PROJECT_NAME_MISMATCH')) {
-          toast.error('Project name does not match')
-          return
-        }
-      }
       handleMutationError(error, 'Failed to archive card')
     },
   })

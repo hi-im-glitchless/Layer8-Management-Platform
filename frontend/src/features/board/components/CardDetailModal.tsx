@@ -663,7 +663,6 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
       {canArchive && (
         <ArchiveCardDialog
           cardId={card.id}
-          projectName={project.name}
           fileCount={(card.files ?? []).length}
           totalBytes={filesTotalBytes}
           open={archiveOpen}
