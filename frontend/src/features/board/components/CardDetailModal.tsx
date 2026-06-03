@@ -484,7 +484,7 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
         />
 
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 pr-8">
             <span className="flex-1">
               {project.name || '(No project)'}
             </span>
