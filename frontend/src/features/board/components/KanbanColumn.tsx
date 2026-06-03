@@ -31,7 +31,7 @@ export function KanbanColumn({ stage, label, cards, cardCount, onCardClick }: Pr
       {/* Droppable body */}
       <div
         ref={setNodeRef}
-        className={`flex-1 overflow-y-auto space-y-2 p-2 rounded-lg bg-muted/30 transition-all ${
+        className={`flex-1 space-y-2 p-2 rounded-lg bg-muted/30 transition-all ${
           isOver ? 'ring-2 ring-primary/50' : ''
         }`}
       >
