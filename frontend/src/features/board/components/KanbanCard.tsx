@@ -119,20 +119,36 @@ export const KanbanCard = memo(
             )}
           </div>
 
-          {/* Row 2: client name (text) + pentester avatars (Phase 04) */}
-          {(card.project.client?.name || card.assignments.length > 0) && (
-            <div className="text-xs text-muted-foreground space-y-0.5">
-              {card.project.client?.name && <p>{card.project.client.name}</p>}
-              {(() => {
-                const pentesters = uniquePentesters(card.assignments)
-                if (pentesters.length === 0) return null
-                return (
-                  <AvatarGroup>
+          {/* Row 2: client name (text) */}
+          {card.project.client?.name && (
+            <p className="text-xs text-muted-foreground">{card.project.client.name}</p>
+          )}
+
+          {/* Row 3: status element + pentester avatars (Phase 04) share one row */}
+          {(() => {
+            const pentesters = uniquePentesters(card.assignments)
+            const hasStatusRow = totalCount > 0 || card.project.status
+            if (!hasStatusRow && pentesters.length === 0) return null
+            return (
+              <div className="flex items-center justify-between gap-2">
+                {/* Status element (checklist progress + status badge) */}
+                <div className="flex items-center gap-2 min-w-0">
+                  {totalCount > 0 && (
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {checkedCount}/{totalCount}
+                    </span>
+                  )}
+                  <StatusBadge status={card.project.status} />
+                </div>
+
+                {/* Pentester avatars — inline with the status element */}
+                {pentesters.length > 0 && (
+                  <AvatarGroup className="shrink-0">
                     {pentesters.slice(0, 3).map((a) => {
                       const name = pentesterName(a)
                       const avatarUrl = a.teamMember?.user?.avatarUrl ?? null
                       return (
-                        <Avatar key={a.teamMemberId} size="sm" title={name || undefined}>
+                        <Avatar key={a.teamMemberId} size="default" title={name || undefined}>
                           {avatarUrl ? <AvatarImage src={avatarUrl} alt={name || ''} /> : null}
                           <AvatarFallback>{pentesterInitial(a)}</AvatarFallback>
                         </Avatar>
@@ -142,24 +158,10 @@ export const KanbanCard = memo(
                       <AvatarGroupCount>+{pentesters.length - 3}</AvatarGroupCount>
                     )}
                   </AvatarGroup>
-                )
-              })()}
-            </div>
-          )}
-
-          {/* Row 3: checklist progress + status badge */}
-          {(totalCount > 0 || card.project.status) && (
-            <div className="flex items-center justify-between">
-              {totalCount > 0 ? (
-                <span className="text-xs text-muted-foreground">
-                  {checkedCount}/{totalCount}
-                </span>
-              ) : (
-                <span />
-              )}
-              <StatusBadge status={card.project.status} />
-            </div>
-          )}
+                )}
+              </div>
+            )
+          })()}
         </div>
       </div>
     )
