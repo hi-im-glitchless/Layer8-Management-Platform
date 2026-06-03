@@ -443,6 +443,49 @@ cmd_enable_mfa() {
     c_info "Load the printed base32 secret (or otpauth URI) into an authenticator app."
 }
 
+# mfa-token <username> [username ...]
+# Print the CURRENT 6-digit TOTP code for users with MFA enabled. Reads each
+# user's totpSecret from the DB and computes the code with the same TOTP instance
+# the backend verifies against (otplib Noble crypto + Scure base32, default
+# 6-digit / 30s, exact-match no skew), so the printed code is what login expects.
+cmd_mfa_token() {
+    local users=("$@")
+    if (( ${#users[@]} == 0 )); then
+        c_error "mfa-token requires at least one username."
+        c_error "Usage: $0 mfa-token <username> [username ...]"
+        exit 1
+    fi
+    export L8_USERS="${users[*]}"
+    run_backend_script "
+(async () => {
+  const { prisma } = await import('./src/db/prisma.js');
+  const { TOTP, NobleCryptoPlugin, ScureBase32Plugin } = await import('otplib');
+  const totp = new TOTP({ crypto: new NobleCryptoPlugin(), base32: new ScureBase32Plugin() });
+  const users = (process.env.L8_USERS || '').trim().split(/[ ,]+/).filter(Boolean);
+  for (const username of users) {
+    try {
+      const u = await prisma.user.findUnique({
+        where: { username },
+        select: { username: true, totpEnabled: true, totpSecret: true },
+      });
+      if (!u) { console.error('No such user:', username); continue; }
+      if (!u.totpEnabled || !u.totpSecret) {
+        console.error('MFA not enabled for:', username, '- run: enable-mfa ' + username);
+        continue;
+      }
+      const token = await totp.generate({ secret: u.totpSecret });
+      const secondsLeft = 30 - Math.floor((Date.now() / 1000) % 30);
+      const note = secondsLeft <= 5 ? '  <- expiring, re-run for a fresh code' : '';
+      console.log(username + ': ' + token + '  (valid ~' + secondsLeft + 's)' + note);
+    } catch (e) {
+      console.error('Failed for', username, '-', (e && e.message) || e);
+    }
+  }
+  await prisma.\$disconnect();
+})().catch(async (e) => { console.error(e); process.exit(1); });
+"
+}
+
 cmd_logs() {
     local target="both"
     local lines=200
@@ -509,6 +552,8 @@ Commands:
                               [username ...]   (default user: admin)
   enable-mfa                  Generate a TOTP secret and enable MFA for users
                               <username> [username ...]
+  mfa-token                   Print the current TOTP login code for users
+                              <username> [username ...]
   logs                        Tail backend+frontend logs
                               (args: backend|frontend, -n/--no-follow, <lines>)
 
@@ -523,6 +568,8 @@ Examples:
   $0 disable-mfa                   # disable admin MFA
   $0 disable-mfa alice bob
   $0 enable-mfa alice              # enable MFA, print secret + otpauth URI
+  $0 mfa-token e2e_pm              # print e2e_pm's current login TOTP code
+  $0 mfa-token e2e_admin e2e_normal  # codes for several users at once
   $0 logs                          # follow both
   $0 logs backend                  # follow backend only
   $0 logs --no-follow 500          # last 500 lines, no follow
@@ -540,6 +587,7 @@ case "${1:-}" in
     logs)            shift; cmd_logs "$@" ;;
     disable-mfa)     shift; cmd_disable_mfa "$@" ;;
     enable-mfa)      shift; cmd_enable_mfa "$@" ;;
+    mfa-token)       shift; cmd_mfa_token "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 1 ;;
 esac
