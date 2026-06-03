@@ -42,12 +42,24 @@ function uniqueSuffix(): string {
   return `iso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function snapshotScheduleTables() {
+/**
+ * Snapshot the schedule tables, scoped to ONLY the rows this test seeded.
+ *
+ * Previously this read every row in each table with an unfiltered findMany,
+ * which made the byte-equality assertion sensitive to any concurrently
+ * running suite that happened to seed its own Assignment/TeamMember/Absence/
+ * Holiday rows — causing spurious 4/6 failures when run alongside
+ * scheduleIsolation.phase24.test.ts. Filtering every read to the test's own
+ * seeded ids removes that cross-contamination while preserving the original
+ * intent: prove the Phase 23 mutations leave THIS test's schedule rows
+ * byte-identical.
+ */
+async function snapshotScheduleTables(ids: SeedIds) {
   const [assignments, teamMembers, absences, holidays] = await Promise.all([
-    prisma.assignment.findMany({ orderBy: { id: 'asc' } }),
-    prisma.teamMember.findMany({ orderBy: { id: 'asc' } }),
-    prisma.absence.findMany({ orderBy: { id: 'asc' } }),
-    prisma.holiday.findMany({ orderBy: { id: 'asc' } }),
+    prisma.assignment.findMany({ where: { id: ids.assignmentId }, orderBy: { id: 'asc' } }),
+    prisma.teamMember.findMany({ where: { id: ids.teamMemberId }, orderBy: { id: 'asc' } }),
+    prisma.absence.findMany({ where: { id: ids.absenceId }, orderBy: { id: 'asc' } }),
+    prisma.holiday.findMany({ where: { id: ids.holidayId }, orderBy: { id: 'asc' } }),
   ]);
   return {
     assignment: JSON.stringify(assignments),
@@ -193,45 +205,45 @@ describe('Phase 23 schedule isolation', () => {
   });
 
   it('updateNotes leaves Assignment / TeamMember / Absence / Holiday byte-identical', async () => {
-    const before = await snapshotScheduleTables();
+    const before = await snapshotScheduleTables(ids!);
     await updateNotes(ids!.cardId, 'updated notes content', ids!.userId);
-    const after = await snapshotScheduleTables();
+    const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
   });
 
   it('editComment leaves the schedule tables byte-identical', async () => {
-    const before = await snapshotScheduleTables();
+    const before = await snapshotScheduleTables(ids!);
     await editComment(ids!.commentId, ids!.userId, 'edited body');
-    const after = await snapshotScheduleTables();
+    const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
   });
 
   it('softDeleteComment leaves the schedule tables byte-identical', async () => {
-    const before = await snapshotScheduleTables();
+    const before = await snapshotScheduleTables(ids!);
     await softDeleteComment(ids!.commentId);
-    const after = await snapshotScheduleTables();
+    const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
   });
 
   it('createNotificationsForMentions leaves the schedule tables byte-identical', async () => {
-    const before = await snapshotScheduleTables();
+    const before = await snapshotScheduleTables(ids!);
     // Self-mention is filtered, but still exercises the User read path.
     await createNotificationsForMentions({
       cardId: ids!.cardId,
       authorUserId: ids!.userId,
       mentionedUserIds: [ids!.userId],
     });
-    const after = await snapshotScheduleTables();
+    const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
   });
 
   it('archiveCard leaves the schedule tables byte-identical', async () => {
-    const before = await snapshotScheduleTables();
+    const before = await snapshotScheduleTables(ids!);
     const beforeAssignment = await prisma.assignment.findUnique({
       where: { id: ids!.assignmentId },
     });
     await archiveCard(ids!.cardId, beforeAssignment!.projectName, ids!.userId);
-    const after = await snapshotScheduleTables();
+    const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
 
     // Defence in depth: also assert that the linked Assignment row is
@@ -244,7 +256,7 @@ describe('Phase 23 schedule isolation', () => {
   });
 
   it('full Phase 23 mutation matrix leaves the schedule tables byte-identical', async () => {
-    const before = await snapshotScheduleTables();
+    const before = await snapshotScheduleTables(ids!);
     await updateNotes(ids!.cardId, 'matrix notes', ids!.userId);
     await editComment(ids!.commentId, ids!.userId, 'matrix edit');
     await createNotificationsForMentions({
@@ -257,7 +269,7 @@ describe('Phase 23 schedule isolation', () => {
       where: { id: ids!.assignmentId },
     });
     await archiveCard(ids!.cardId, assignment!.projectName, ids!.userId);
-    const after = await snapshotScheduleTables();
+    const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
   });
 });
