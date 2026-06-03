@@ -242,7 +242,7 @@ describe('Phase 23 schedule isolation', () => {
     const beforeAssignment = await prisma.assignment.findUnique({
       where: { id: ids!.assignmentId },
     });
-    await archiveCard(ids!.cardId, beforeAssignment!.projectName, ids!.userId);
+    await archiveCard(ids!.cardId, ids!.userId);
     const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
 
@@ -265,10 +265,7 @@ describe('Phase 23 schedule isolation', () => {
       mentionedUserIds: [ids!.userId],
     });
     await softDeleteComment(ids!.commentId);
-    const assignment = await prisma.assignment.findUnique({
-      where: { id: ids!.assignmentId },
-    });
-    await archiveCard(ids!.cardId, assignment!.projectName, ids!.userId);
+    await archiveCard(ids!.cardId, ids!.userId);
     const after = await snapshotScheduleTables(ids!);
     expect(after).toEqual(before);
   });

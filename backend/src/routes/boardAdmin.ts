@@ -1,5 +1,4 @@
 import { Router, Request } from 'express';
-import { z } from 'zod';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { mutationRateLimiter } from '../middleware/rateLimit.js';
 import {
@@ -12,7 +11,7 @@ import { emitBoardInvalidate } from '../services/socketService.js';
 /**
  * Sub-router for board card admin routes. Mounted from `board.ts` at
  * `/cards/:cardId/admin` with `mergeParams: true`. Wave-2 plan 23-05 wires
- * the typed-confirmation archive endpoint here.
+ * the confirmation-free archive endpoint here.
  *
  * SCHEDULE-ISOLATION INVARIANT: this router MUST NOT write to
  * Assignment / TeamMember / Absence / Holiday tables. The archive service
@@ -37,9 +36,7 @@ function extractIp(req: Request): string {
 
 /**
  * POST /cards/:cardId/admin/archive
- * ADMIN-only typed-confirmation card archive. Body:
- *   `{confirmProjectName: string}` — must exactly match the linked
- *   Assignment.projectName (case-sensitive).
+ * ADMIN-only card archive. Body: `{}` (no confirmation required).
  *
  * Hard-deletes BoardFile rows + on-disk bytes, sets stage='archived' +
  * archivedAt=now(), preserves comments + notes + checklist. Emits
@@ -53,13 +50,10 @@ router.post(
   mutationRateLimiter,
   async (req, res) => {
     try {
-      const { confirmProjectName } = z
-        .object({ confirmProjectName: z.string().min(1) })
-        .parse(req.body);
       const cardId = (req.params.cardId ?? req.params.id) as string;
       const adminUserId = req.session.userId!;
 
-      const details = await archiveCard(cardId, confirmProjectName, adminUserId);
+      const details = await archiveCard(cardId, adminUserId);
 
       await logAuditEvent({
         userId: adminUserId,
@@ -72,12 +66,8 @@ router.post(
       emitBoardInvalidate('cards');
       emitBoardInvalidate('files');
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.issues[0].message });
-      }
       if (error instanceof ArchiveError) {
-        const status = error.code === 'NOT_FOUND' ? 404 : 400;
-        return res.status(status).json({ error: error.code });
+        return res.status(404).json({ error: error.code });
       }
       console.error('[board routes] Error archiving card:', error);
       res.status(500).json({ error: 'Failed to archive card' });
