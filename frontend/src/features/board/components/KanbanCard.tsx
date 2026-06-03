@@ -124,39 +124,44 @@ export const KanbanCard = memo(
             <p className="text-xs text-muted-foreground">{card.project.client.name}</p>
           )}
 
-          {/* Row 3: status badge + checklist progress (Phase 04) */}
-          {(totalCount > 0 || card.project.status) && (
-            <div className="flex items-center gap-2 min-w-0">
+          {/* Row 3: status badge alone, below the client name (Phase 04) */}
+          {card.project.status && (
+            <div className="flex items-center min-w-0">
               <StatusBadge status={card.project.status} />
-              {totalCount > 0 && (
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {checkedCount}/{totalCount}
-                </span>
-              )}
             </div>
           )}
 
-          {/* Row 4: pentester avatars (Phase 04) on their own row, right-aligned */}
+          {/* Row 4: checklist count (left) + pentester avatars (right) (Phase 04) */}
           {(() => {
             const pentesters = uniquePentesters(card.assignments)
-            if (pentesters.length === 0) return null
+            const hasChecklist = totalCount > 0
+            if (!hasChecklist && pentesters.length === 0) return null
             return (
-              <div className="flex justify-end">
-                <AvatarGroup className="shrink-0">
-                  {pentesters.slice(0, 3).map((a) => {
-                    const name = pentesterName(a)
-                    const avatarUrl = a.teamMember?.user?.avatarUrl ?? null
-                    return (
-                      <Avatar key={a.teamMemberId} size="default" title={name || undefined}>
-                        {avatarUrl ? <AvatarImage src={avatarUrl} alt={name || ''} /> : null}
-                        <AvatarFallback>{pentesterInitial(a)}</AvatarFallback>
-                      </Avatar>
-                    )
-                  })}
-                  {pentesters.length > 3 && (
-                    <AvatarGroupCount>+{pentesters.length - 3}</AvatarGroupCount>
-                  )}
-                </AvatarGroup>
+              <div className="flex items-center justify-between">
+                {hasChecklist ? (
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {checkedCount}/{totalCount}
+                  </span>
+                ) : (
+                  <span />
+                )}
+                {pentesters.length > 0 && (
+                  <AvatarGroup className="shrink-0">
+                    {pentesters.slice(0, 3).map((a) => {
+                      const name = pentesterName(a)
+                      const avatarUrl = a.teamMember?.user?.avatarUrl ?? null
+                      return (
+                        <Avatar key={a.teamMemberId} size="default" title={name || undefined}>
+                          {avatarUrl ? <AvatarImage src={avatarUrl} alt={name || ''} /> : null}
+                          <AvatarFallback>{pentesterInitial(a)}</AvatarFallback>
+                        </Avatar>
+                      )
+                    })}
+                    {pentesters.length > 3 && (
+                      <AvatarGroupCount>+{pentesters.length - 3}</AvatarGroupCount>
+                    )}
+                  </AvatarGroup>
+                )}
               </div>
             )
           })()}
