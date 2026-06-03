@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { requireAuth } from '../middleware/auth.js';
-import { requireCardAccess } from '../middleware/boardAuth.js';
+import { requireCardAccess, requireCardExists } from '../middleware/boardAuth.js';
 import { readRateLimiter, mutationRateLimiter } from '../middleware/rateLimit.js';
 import * as boardService from '../services/boardService.js';
 import {
@@ -150,13 +150,14 @@ function multerWithErrorMap(req: Request, res: Response, next: NextFunction): vo
 
 /**
  * GET /cards/:id/files
- * List files for a card. Gated by `requireCardAccess` so NORMAL pentesters
- * only see files for cards assigned to them. Quarantined files are hidden
- * by default; ADMINs may pass `?includeQuarantined=true` to see all rows.
- * The opaque `storedName` is stripped from every record — clients reach
+ * List files for a card. Phase 3: gated by `requireCardExists` so ANY
+ * authenticated user who can view the card may list its files (card
+ * reachability is already open to all authenticated users). Quarantined files
+ * are hidden by default; ADMINs may pass `?includeQuarantined=true` to see all
+ * rows. The opaque `storedName` is stripped from every record — clients reach
  * the bytes via `:fileId/download` exclusively.
  */
-router.get('/', requireAuth, requireCardAccess, readRateLimiter, async (req, res) => {
+router.get('/', requireAuth, requireCardExists, readRateLimiter, async (req, res) => {
   try {
     const id = (req.params.cardId ?? req.params.id) as string;
     const includeQuarantined =
@@ -297,16 +298,19 @@ router.post(
 
 /**
  * GET /cards/:cardId/files/:fileId/download
- * Session-gated, audited file download. Returns the bytes via
+ * Session-gated, audited file download. Phase 3: gated by `requireCardExists`
+ * so ANY authenticated user who can view the card may download any file
+ * attached to it (regardless of uploader). Returns the bytes via
  * `res.download(diskPath, originalFilename)` so the browser receives
  * `Content-Disposition: attachment; filename="<original>"` — the opaque
  * on-disk `storedName` is never exposed. Every successful read emits a
- * `board.file.download` audit event.
+ * `board.file.download` audit event recording the downloading userId, so
+ * traceability is preserved under the broadened access.
  */
 router.get(
   '/:fileId/download',
   requireAuth,
-  requireCardAccess,
+  requireCardExists,
   readRateLimiter,
   async (req, res) => {
     try {
