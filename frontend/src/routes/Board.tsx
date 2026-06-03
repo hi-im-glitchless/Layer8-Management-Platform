@@ -267,7 +267,7 @@ export function Board() {
       </div>
 
       {/* Board columns with DnD */}
-      <div className="-mx-6 px-6 overflow-x-auto">
+      <div className="-mx-6 px-6 overflow-x-auto overflow-y-hidden">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
