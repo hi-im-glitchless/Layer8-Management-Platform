@@ -68,7 +68,21 @@ export async function upsertByKey(opts: {
       tags: tagsJson,
     },
   });
-  if (existing) return existing;
+  if (existing) {
+    // Phase 05-01: the schedule may have edited status/color on an
+    // already-existing Project (e.g. an assignment's status changed). Keep the
+    // canonical Project row in sync so the Planner board card reflects it.
+    // Last-writer-wins — write opts.status/opts.color directly, no merge.
+    // The dedupe triple {name, clientId, tags} is unchanged; only Project is
+    // written (no Assignment/TeamMember/Absence/Holiday touch).
+    if (existing.status !== opts.status || existing.color !== opts.color) {
+      return prisma.project.update({
+        where: { id: existing.id },
+        data: { status: opts.status, color: opts.color },
+      });
+    }
+    return existing;
+  }
 
   // Create (with its BoardCard) in one round-trip.
   return prisma.project.create({
