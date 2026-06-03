@@ -175,6 +175,12 @@ export const KanbanCard = memo(
     prev.card.checklist === next.card.checklist &&
     prev.card.stageLockedBy === next.card.stageLockedBy &&
     prev.card.project.name === next.card.project.name &&
+    // Phase 05-01: the card renders project.status (badge), project.color
+    // (accent bar), and the client name — include them so a schedule status
+    // edit (or color/client change) re-renders instead of being memoized stale.
+    prev.card.project.status === next.card.project.status &&
+    prev.card.project.color === next.card.project.color &&
+    prev.card.project.client?.name === next.card.project.client?.name &&
     prev.card.assignments.map((a) => a.teamMemberId + '|' + (a.teamMember?.user?.avatarUrl ?? '')).join() ===
       next.card.assignments.map((a) => a.teamMemberId + '|' + (a.teamMember?.user?.avatarUrl ?? '')).join() &&
     prev.isDragOverlay === next.isDragOverlay &&
