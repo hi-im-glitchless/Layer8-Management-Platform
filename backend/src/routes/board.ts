@@ -13,7 +13,7 @@ import notificationsRouter from './boardNotifications.js';
 
 const router = Router();
 
-const StageEnum = z.enum(['upcoming', 'preparation', 'execution', 'closing', 'done', 'archived']);
+const StageEnum = z.enum(['stopped', 'upcoming', 'preparation', 'execution', 'closing', 'done', 'archived']);
 
 const ChecklistItemSchema = z.object({
   label: z.string(),

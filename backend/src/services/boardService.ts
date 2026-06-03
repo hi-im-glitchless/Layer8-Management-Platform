@@ -224,7 +224,7 @@ function getMondayISO(date: Date): string {
 export async function autoMoveCards(): Promise<number> {
   const cards = await prisma.boardCard.findMany({
     where: {
-      stage: { not: 'archived' },
+      stage: { notIn: ['archived', 'stopped'] },
       OR: [
         { stageLockedBy: null },
         { stageLockedBy: 'auto' },

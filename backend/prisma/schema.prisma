@@ -318,7 +318,7 @@ model BoardCard {
   /// Planner reads cards by projectId; many Assignments may link to the same
   /// Project (multi-pentester / multi-week), but they share one card.
   projectId      String    @unique
-  /// Valid values: upcoming | preparation | execution | closing | done | archived
+  /// Valid values: stopped | upcoming | preparation | execution | closing | done | archived
   stage          String    @default("upcoming")
   checklist      String    @default("[]")
   notes          String    @default("")
