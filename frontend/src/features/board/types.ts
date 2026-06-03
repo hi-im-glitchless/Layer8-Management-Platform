@@ -6,7 +6,7 @@ export interface ChecklistItem {
   order: number
 }
 
-export type BoardStage = 'upcoming' | 'preparation' | 'execution' | 'closing' | 'done' | 'archived'
+export type BoardStage = 'stopped' | 'upcoming' | 'preparation' | 'execution' | 'closing' | 'done' | 'archived'
 
 /**
  * Phase 24-R03: a BoardCard now represents a Project, not an Assignment.
@@ -108,9 +108,10 @@ export interface CardFilters {
 // ── Stage constants ─────────────────────────────────────────────────
 
 /** Display stages (excludes 'archived' — shown only via toggle) */
-export const BOARD_STAGES = ['upcoming', 'preparation', 'execution', 'closing', 'done'] as const
+export const BOARD_STAGES = ['stopped', 'upcoming', 'preparation', 'execution', 'closing', 'done'] as const
 
 export const STAGE_LABELS: Record<BoardStage, string> = {
+  stopped: 'Stopped',
   upcoming: 'Upcoming',
   preparation: 'Next Week',
   execution: 'Execution',
@@ -122,6 +123,7 @@ export const STAGE_LABELS: Record<BoardStage, string> = {
 /** Group cards by stage, sorted within each group by earliest assignment weekStart. */
 export function groupCardsByStage(cards: BoardCard[]): Record<BoardStage, BoardCard[]> {
   const grouped: Record<BoardStage, BoardCard[]> = {
+    stopped: [],
     upcoming: [],
     preparation: [],
     execution: [],
