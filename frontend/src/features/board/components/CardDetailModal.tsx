@@ -85,9 +85,12 @@ function CommentRow({
   const softDelete = useSoftDeleteComment()
 
   const isAuthor = !!currentUserId && comment.authorId === currentUserId
-  const inWindow =
-    isAuthor &&
-    !comment.isDeleted &&
+  // Render-time affordance gate stays pure (react-hooks/purity): only the
+  // author/deleted checks decide whether to show the edit control. The
+  // 10-minute window is enforced against the live clock at interaction time
+  // (handleStartEdit / handleSave) so the same edit-window rule still holds.
+  const inWindow = isAuthor && !comment.isDeleted
+  const isWithinEditWindow = () =>
     Date.now() - new Date(comment.createdAt).getTime() < EDIT_WINDOW_MS
 
   const authorName =
@@ -96,8 +99,18 @@ function CommentRow({
     comment.author?.username ??
     'Unknown'
 
+  const handleStartEdit = () => {
+    if (!isWithinEditWindow()) return
+    setDraft(comment.body ?? '')
+    setEditing(true)
+  }
+
   const handleSave = () => {
     if (!draft.trim() || draft === comment.body) {
+      setEditing(false)
+      return
+    }
+    if (!isWithinEditWindow()) {
       setEditing(false)
       return
     }
@@ -128,10 +141,7 @@ function CommentRow({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setDraft(comment.body ?? '')
-                  setEditing(true)
-                }}
+                onClick={handleStartEdit}
                 aria-label="Edit comment"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -401,7 +411,10 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
   // Stable mutate identity is captured via ref to keep the effect deps tight.
   const markReadMutate = markRead.mutate
   const markReadRef = useRef(markReadMutate)
-  markReadRef.current = markReadMutate
+  // Keep the ref pointed at the latest mutate fn without writing during render.
+  useEffect(() => {
+    markReadRef.current = markReadMutate
+  }, [markReadMutate])
   useEffect(() => {
     if (open && cardId) {
       markReadRef.current({ cardId })
