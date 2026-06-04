@@ -42,12 +42,24 @@ const validate = { keyGeneratorIpFallback: false } as const;
 const skipInTest = () => process.env.NODE_ENV === 'test';
 
 /**
- * Auth rate limiter — 5 req/min per IP
+ * Resolve the auth limiter's max requests/window.
+ *
+ * Mirrors generalRateLimiter's NODE_ENV-based relaxation: in development the
+ * multi-step MFA onboarding flow (login → password change → totp setup →
+ * verify-setup, plus retries) legitimately exceeds 5/min, so dev gets a high
+ * ceiling. Production keeps the strict 5/min auth hardening.
+ */
+export function resolveAuthRateLimitMax(env = process.env.NODE_ENV): number {
+  return env === 'development' ? 1000 : 5;
+}
+
+/**
+ * Auth rate limiter — 5 req/min per IP (relaxed to 1000 in development)
  * For login, register, password change, MFA endpoints
  */
 export const authRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5,
+  max: resolveAuthRateLimitMax(),
   message: 'Too many requests. Please try again later.',
   standardHeaders: false,
   legacyHeaders: false,
