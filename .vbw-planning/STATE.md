@@ -1,6 +1,21 @@
 # State
 
 **Project:** Template AI Engine (Layer8)
+**Milestone:** Board Refinements
+
+## Current Phase
+Phase: 6 of 6 (Auth Rate Limiter Dev Override)
+Plans: 1/1
+Progress: 100%
+Status: complete
+
+## Phase Status
+- **Phase 1 (Board Stopped Column Horizontal Drag Auto Scroll):** Complete
+- **Phase 2 (Archive Without Typed Project Name Confirmation):** Complete
+- **Phase 3 (File Download Permission Fix):** Complete
+- **Phase 4 (Board Card Pentester Avatars):** Complete
+- **Phase 5 (Board Bug Fixes Status Sync Modal Overlap):** Complete
+- **Phase 6 (Auth Rate Limiter Dev Override):** Complete
 
 ## Key Decisions
 | Decision | Date | Rationale |
@@ -24,7 +39,16 @@
 - [UAT-DEVIATION] R01: None — documentation-only plan-amendment; no product code touched. (phase 22, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-05-29) (ref:572f43e0)
 - [UAT-DEVIATION] R01: None — documentation-only plan-amendment; `git diff` of `frontend/` and `backend/` is empty. (phase 22, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-05-30) (ref:8b751374)
 - [KNOWN-ISSUE] scheduleIsolation.phase23 (concurrent run) (backend/src/services/__tests__/scheduleIsolation.phase23.test.ts): 4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts d... (phase 24, seen 1x) (see 24-VERIFICATION.md) (added 2026-06-03) (ref:77b1f849)
-
+- [KNOWN-ISSUE] pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path (backend/src/services/__tests__/pdfQueue.test.ts): expected error including 'Invalid DOCX path' but got 'Invalid source file pat... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-03) (ref:00587024)
+- [KNOWN-ISSUE] scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only) (backend/src/services/__tests__/scheduleIsolation.phase24.test.ts): SQLite single-writer 'Operation has timed out' / 'database is locked' under c... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-03) (ref:e7a9bb3e)
+- [KNOWN-ISSUE] templateAdapter > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): expected vi.fn() to be called with arguments [...] — stale mock expectation; ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-03) (ref:76aeafeb)
+- [KNOWN-ISSUE] templateMapping > queryFewShotExamples > (sorted by usageCount DESC / filters by templateType+language / respects limit) (backend/src/services/__tests__/templateMapping.test.ts): expected vi.fn() to be called with arguments [...] — stale mock expectation; ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-03) (ref:36c58190)
+- [KNOWN-ISSUE] pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path (backend/src/services/__tests__/pdfQueue.test.ts): expected error including ''Invalid DOCX path'' but got ''Invalid source file ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-03) (ref:e6d90381)
+- [KNOWN-ISSUE] scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only) (backend/src/services/__tests__/scheduleIsolation.phase24.test.ts): SQLite single-writer ''Operation has timed out'' / ''database is locked'' und... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-03) (ref:5d68e30c)
+- [KNOWN-ISSUE] archives the card with an empty body and a valid ADMIN session → 200 (backend/src/routes/__tests__/boardAdminArchive.test.ts): SQLite SocketTimeout (PrismaClientKnownRequestError: DriverAdapterError: Sock... — accepted as process-exception for this phase (phase 02, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-03) (ref:2e874278)
+- [KNOWN-ISSUE] DEVN-05: react-refresh/only-export-components on findCardById (frontend/src/features/board/components/KanbanCard.tsx): Fast refresh only works when a file only exports components. Use a new file t... (phase 04, seen 1x) (see 04-VERIFICATION.md) (added 2026-06-03) (ref:8d061d5c)
 ## Blockers
 None
 
+## Activity Log
+- 2026-06-03: Created Board Refinements milestone (3 phases)

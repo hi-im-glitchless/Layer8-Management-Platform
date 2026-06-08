@@ -10279,3 +10279,255 @@
     "other": 2302
   }
 }
+{
+  "timestamp": "2026-06-03T14:15:34Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T14:15:34Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 284
+  }
+}
+{
+  "timestamp": "2026-06-03T15:01:04Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T15:01:04Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 197
+  }
+}
+{
+  "timestamp": "2026-06-03T15:13:18Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T15:13:18Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 413
+  }
+}
+{
+  "timestamp": "2026-06-03T15:30:30Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T15:30:30Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 381
+  }
+}
+{
+  "timestamp": "2026-06-03T15:40:07Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T15:40:07Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 265
+  }
+}
+{
+  "timestamp": "2026-06-03T16:07:08Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T16:07:08Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 276
+  }
+}
+{
+  "timestamp": "2026-06-03T16:18:50Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T16:18:50Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 357,
+    "scout": 22,
+    "lead": 21
+  }
+}
+{
+  "timestamp": "2026-06-03T17:10:26Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T17:10:26Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 2606,
+    "dev": 55,
+    "qa": 58,
+    "lead": 29
+  }
+}
+{
+  "timestamp": "2026-06-03T17:23:52Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T17:23:52Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 842
+  }
+}
+{
+  "timestamp": "2026-06-03T17:51:51Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T17:51:51Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 1534,
+    "scout": 43,
+    "lead": 43,
+    "dev": 43
+  }
+}
+{
+  "timestamp": "2026-06-03T19:02:27Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T19:02:27Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 344,
+    "scout": 1546
+  }
+}
+{
+  "timestamp": "2026-06-03T19:39:11Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T19:39:11Z",
+  "type": "cost_summary",
+  "costs": {
+    "scout": 1117,
+    "other": 102
+  }
+}
+{
+  "timestamp": "2026-06-03T21:32:16Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-03T21:32:16Z",
+  "type": "cost_summary",
+  "costs": {
+    "scout": 2446,
+    "other": 398
+  }
+}
+{
+  "timestamp": "2026-06-05T08:55:58Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-05T08:55:58Z",
+  "type": "cost_summary",
+  "costs": {
+    "scout": 3817,
+    "other": 1018
+  }
+}
+{
+  "timestamp": "2026-06-05T08:57:13Z",
+  "duration_ms": 0,
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "model": "unknown",
+  "branch": "master"
+}
+{
+  "timestamp": "2026-06-05T08:57:13Z",
+  "type": "cost_summary",
+  "costs": {
+    "other": 33
+  }
+}
