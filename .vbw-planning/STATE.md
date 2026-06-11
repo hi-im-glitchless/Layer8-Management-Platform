@@ -4,7 +4,7 @@
 **Milestone:** Board Refinements
 
 ## Current Phase
-Phase: 7 of 7 (Planner Avatar Initials Color)
+Phase: 8 of 8 (Planner Avatar Name Precedence)
 Plans: 1/1
 Progress: 100%
 Status: complete
@@ -17,6 +17,7 @@ Status: complete
 - **Phase 5 (Board Bug Fixes Status Sync Modal Overlap):** Complete
 - **Phase 6 (Auth Rate Limiter Dev Override):** Complete
 - **Phase 7 (Planner Avatar Initials Color):** Complete
+- **Phase 8 (Planner Avatar Name Precedence):** Complete
 
 ## Key Decisions
 | Decision | Date | Rationale |
