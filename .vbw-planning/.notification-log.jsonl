@@ -3502,3 +3502,75 @@
   "title": "",
   "message": "Claude is waiting for your input"
 }
+{
+  "timestamp": "2026-06-08T09:19:02Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-08T09:20:20Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-08T09:22:36Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-11T09:04:58Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-11T09:15:04Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-06-11T09:22:16Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-06-11T09:31:25Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-11T10:03:22Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-11T10:23:19Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-11T10:25:27Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-11T10:26:07Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
+{
+  "timestamp": "2026-06-11T10:27:36Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}
