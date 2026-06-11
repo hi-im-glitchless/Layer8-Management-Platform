@@ -75,39 +75,96 @@ function avatarTitles(container: HTMLElement): string[] {
   )
 }
 
+/** Read the inline backgroundColor each AvatarFallback carries (Phase 07). */
+function fallbackBgColors(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll('[data-slot="avatar-fallback"]')).map(
+    (el) => (el as HTMLElement).style.backgroundColor,
+  )
+}
+
 describe('KanbanCard pentester avatars', () => {
-  it('(a) renders one avatar per distinct pentester and no comma-joined name string', () => {
+  it('(a) renders one avatar per distinct pentester with no comma-joined name and no <img> (Phase 07)', () => {
     const { container } = renderCard(
       makeCard([
-        makeAssignment('tm-alice', { name: 'Alice', avatarUrl: '/uploads/avatars/alice.png' }),
-        makeAssignment('tm-bob', { name: 'Bob', avatarUrl: '/uploads/avatars/bob.png' }),
+        // avatarUrl is set but Phase 07 drops the photo entirely.
+        makeAssignment('tm-ana', { name: 'Ana Sousa', avatarUrl: '/uploads/avatars/ana.png' }),
+        makeAssignment('tm-bob', { name: 'Bob Lee', avatarUrl: '/uploads/avatars/bob.png' }),
       ]),
     )
 
     const titles = avatarTitles(container)
     expect(titles).toHaveLength(2)
-    expect(titles).toEqual(expect.arrayContaining(['Alice', 'Bob']))
+    expect(titles).toEqual(expect.arrayContaining(['Ana Sousa', 'Bob Lee']))
 
     // The old comma-joined name text must be gone.
-    expect(screen.queryByText('Alice, Bob')).toBeNull()
-    expect(screen.queryByText('Bob, Alice')).toBeNull()
+    expect(screen.queryByText('Ana Sousa, Bob Lee')).toBeNull()
 
     // Names remain accessible via the avatar title attribute.
-    expect(container.querySelector('[data-slot="avatar"][title="Alice"]')).not.toBeNull()
-    expect(container.querySelector('[data-slot="avatar"][title="Bob"]')).not.toBeNull()
+    expect(container.querySelector('[data-slot="avatar"][title="Ana Sousa"]')).not.toBeNull()
+    expect(container.querySelector('[data-slot="avatar"][title="Bob Lee"]')).not.toBeNull()
+
+    // Phase 07: board cards never render a photo, even when avatarUrl is set.
+    expect(screen.queryAllByRole('img')).toHaveLength(0)
   })
 
-  it('(b) renders an initials fallback when avatarUrl is null (backlog member)', async () => {
+  it('(b) renders a two-initial monogram (first + last initial, uppercase)', async () => {
     const { container } = renderCard(
-      makeCard([makeAssignment('tm-futuro', { name: 'Futuro 1', backlog: true })]),
+      makeCard([makeAssignment('tm-ana', { name: 'Ana Sousa' })]),
     )
 
     // One avatar, name preserved in title.
-    expect(avatarTitles(container)).toEqual(['Futuro 1'])
+    expect(avatarTitles(container)).toEqual(['Ana Sousa'])
 
-    // Radix AvatarFallback renders the uppercased first initial. In jsdom the
-    // image never "loads", so the fallback is the rendered branch.
-    expect(await screen.findByText('F')).toBeInTheDocument()
+    // 'Ana Sousa' -> 'AS' (first initial of first + last token, uppercased).
+    expect(await screen.findByText('AS')).toBeInTheDocument()
+  })
+
+  it('(b2) renders a single initial for a mononym / username with no spaces', async () => {
+    // displayName-less backlog member falls back to lowercase username 'alice'.
+    const { container } = renderCard(
+      makeCard([
+        makeAssignment('tm-alice', { name: 'Alice' }),
+        makeAssignment('tm-mono', { name: 'asousa', backlog: false }),
+      ]),
+    )
+
+    expect(avatarTitles(container)).toHaveLength(2)
+    // 'Alice' -> 'A'; mononym 'asousa' -> 'A' (single token, uppercased).
+    expect(await screen.findAllByText('A')).toHaveLength(2)
+  })
+
+  it('(b3) degrades to "?" for a missing/whitespace-only name without crashing', async () => {
+    const blank: BoardCardAssignment = {
+      assignmentId: 'asg-blank',
+      teamMemberId: 'tm-blank',
+      weekStart: '2026-06-01',
+      side: 'primary',
+      teamMember: { userId: null, displayName: '   ', user: null },
+    }
+    renderCard(makeCard([blank]))
+
+    expect(await screen.findByText('?')).toBeInTheDocument()
+  })
+
+  it('(b4) derives the background colour deterministically from the teamMemberId', () => {
+    // Same id rendered in two separate cards -> identical backgroundColor.
+    const first = renderCard(makeCard([makeAssignment('tm-deterministic', { name: 'Dee Term' })]))
+    const colorA = fallbackBgColors(first.container)
+    expect(colorA).toHaveLength(1)
+    expect(colorA[0]).toBeTruthy()
+
+    const second = renderCard(makeCard([makeAssignment('tm-deterministic', { name: 'Dee Term' })]))
+    const colorB = fallbackBgColors(second.container)
+    expect(colorB[0]).toBe(colorA[0])
+
+    // A different id is free to differ; the SAME id is stable across renders.
+    const third = renderCard(makeCard([makeAssignment('tm-other-account', { name: 'Oth Er' })]))
+    const colorC = fallbackBgColors(third.container)
+    expect(colorC[0]).toBeTruthy()
+
+    // Re-rendering the SAME other id again still yields the same colour.
+    const fourth = renderCard(makeCard([makeAssignment('tm-other-account', { name: 'Oth Er' })]))
+    expect(fallbackBgColors(fourth.container)[0]).toBe(colorC[0])
   })
 
   it('(c) dedupes by teamMemberId — two assignments for one pentester render one avatar', () => {
