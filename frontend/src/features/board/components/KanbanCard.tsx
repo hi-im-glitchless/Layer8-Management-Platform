@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { Pin } from 'lucide-react'
-import { Avatar, AvatarImage, AvatarFallback, AvatarGroup, AvatarGroupCount } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from '@/components/ui/avatar'
 import type { BoardCard, BoardCardAssignment } from '../types'
 
 // ── Status badge styling ────────────────────────────────────────────
@@ -183,10 +183,10 @@ export const KanbanCard = memo(
                   <AvatarGroup className="shrink-0">
                     {pentesters.slice(0, 3).map((a) => {
                       const name = pentesterName(a)
-                      const avatarUrl = a.teamMember?.user?.avatarUrl ?? null
+                      // Phase 07: board cards always show the initials+colour
+                      // monogram — no avatarUrl read, no <AvatarImage>/<img>.
                       return (
                         <Avatar key={a.teamMemberId} size="default" title={name || undefined}>
-                          {avatarUrl ? <AvatarImage src={avatarUrl} alt={name || ''} /> : null}
                           <AvatarFallback style={{ backgroundColor: avatarBgColor(a.teamMemberId), color: '#fff' }}>
                             {pentesterInitials(a)}
                           </AvatarFallback>
@@ -217,8 +217,11 @@ export const KanbanCard = memo(
     prev.card.project.status === next.card.project.status &&
     prev.card.project.color === next.card.project.color &&
     prev.card.project.client?.name === next.card.project.client?.name &&
-    prev.card.assignments.map((a) => a.teamMemberId + '|' + (a.teamMember?.user?.avatarUrl ?? '')).join() ===
-      next.card.assignments.map((a) => a.teamMemberId + '|' + (a.teamMember?.user?.avatarUrl ?? '')).join() &&
+    // Phase 07: avatarUrl is no longer rendered on board cards, so the
+    // per-assignment fingerprint is keyed solely on the stable teamMemberId —
+    // the comparator still re-renders when the set of pentesters changes.
+    prev.card.assignments.map((a) => a.teamMemberId).join() ===
+      next.card.assignments.map((a) => a.teamMemberId).join() &&
     prev.isDragOverlay === next.isDragOverlay &&
     prev.onCardClick === next.onCardClick,
 )
