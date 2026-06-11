@@ -7,22 +7,27 @@ import type { BoardCard, BoardCardAssignment, ChecklistItem } from '../../types'
 /**
  * Build a single assignment. `id` is the teamMemberId (drives dedupe);
  * pass distinct ids for distinct pentesters, the same id to test dedupe.
+ *
+ * By default the TeamMember alias (teamMember.displayName) and the linked
+ * user.displayName are both `name`. To exercise the Phase-08 precedence flip,
+ * pass an explicit `alias` so the editable alias diverges from the account's
+ * full user.displayName (which stays `name`).
  */
 function makeAssignment(
   id: string,
-  opts: { name?: string; avatarUrl?: string | null; backlog?: boolean } = {},
+  opts: { name?: string; alias?: string; avatarUrl?: string | null; backlog?: boolean } = {},
 ): BoardCardAssignment {
-  const { name = id, avatarUrl = null, backlog = false } = opts
+  const { name = id, alias, avatarUrl = null, backlog = false } = opts
   return {
     assignmentId: `asg-${id}-${Math.random().toString(36).slice(2)}`,
     teamMemberId: id,
     weekStart: '2026-06-01',
     side: 'primary',
     teamMember: backlog
-      ? { userId: null, displayName: name, user: null }
+      ? { userId: null, displayName: alias ?? name, user: null }
       : {
           userId: `user-${id}`,
-          displayName: name,
+          displayName: alias ?? name,
           user: { displayName: name, username: name.toLowerCase(), avatarUrl },
         },
   }
@@ -117,6 +122,49 @@ describe('KanbanCard pentester avatars', () => {
 
     // 'Ana Sousa' -> 'AS' (first initial of first + last token, uppercased).
     expect(await screen.findByText('AS')).toBeInTheDocument()
+  })
+
+  it('(b1) Phase 08: linked user.displayName beats a single-word alias -> two initials + full-name hover', async () => {
+    // Production bug: alias holds only the first name ('Rui') while the linked
+    // account's user.displayName is the full 'Rui Marques'. The alias must NOT
+    // shadow the full name — the avatar should render 'RM', not 'R', and the
+    // hover/title must be 'Rui Marques', not 'Rui'.
+    const { container } = renderCard(
+      makeCard([makeAssignment('tm-rui', { name: 'Rui Marques', alias: 'Rui' })]),
+    )
+
+    // One avatar; full account name (not the alias) in the title.
+    expect(avatarTitles(container)).toEqual(['Rui Marques'])
+    expect(container.querySelector('[data-slot="avatar"][title="Rui"]')).toBeNull()
+
+    // Two-initial monogram from the full name, NOT the single-letter alias.
+    expect(await screen.findByText('RM')).toBeInTheDocument()
+    expect(screen.queryByText('R')).toBeNull()
+  })
+
+  it('(b1b) backlog member (no linked user) still resolves the alias -> Phase-07 monogram', async () => {
+    // No linked user -> the precedence chain falls through to the
+    // teamMember.displayName alias, so the name resolves to 'Futuro 1'
+    // (hover/title), unchanged from Phase 07: the flip must not regress
+    // backlog members. 'Futuro 1' is two whitespace tokens, so the unchanged
+    // splitter yields the two-char first+last monogram 'F1'.
+    const { container } = renderCard(
+      makeCard([makeAssignment('tm-futuro', { name: 'Futuro 1', backlog: true })]),
+    )
+
+    expect(avatarTitles(container)).toEqual(['Futuro 1'])
+    expect(await screen.findByText('F1')).toBeInTheDocument()
+  })
+
+  it('(b1c) backlog member with a true mononym alias still renders a single initial', async () => {
+    // A single-token backlog alias (e.g. 'Futuro') keeps the Phase-07
+    // single-initial behaviour: no linked user, alias 'Futuro' -> 'F'.
+    const { container } = renderCard(
+      makeCard([makeAssignment('tm-mononym', { name: 'Futuro', backlog: true })]),
+    )
+
+    expect(avatarTitles(container)).toEqual(['Futuro'])
+    expect(await screen.findByText('F')).toBeInTheDocument()
   })
 
   it('(b2) renders a single initial for a mononym / username with no spaces', async () => {
