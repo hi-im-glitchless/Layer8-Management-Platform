@@ -45,12 +45,46 @@ function pentesterName(a: BoardCardAssignment): string {
   return tm?.displayName || tm?.user?.displayName || tm?.user?.username || ''
 }
 
-/** Single uppercased initial — EXACT schedule fallback (never the opaque cuid). */
-function pentesterInitial(a: BoardCardAssignment): string {
+/**
+ * Two-letter monogram (Phase 07): first initial of the first name + first
+ * initial of the last name, uppercased. A single-token name/mononym/username
+ * yields one initial; a missing/empty/whitespace-only name degrades to '?'.
+ * Parses the schedule display-name fallback chain (no firstName/lastName field
+ * exists — User.displayName is a single string, so we split on whitespace).
+ */
+function pentesterInitials(a: BoardCardAssignment): string {
   const tm = a.teamMember
-  return (tm?.displayName || tm?.user?.displayName || tm?.user?.username || '?')
-    .charAt(0)
-    .toUpperCase()
+  const name = (tm?.displayName || tm?.user?.displayName || tm?.user?.username || '?').trim()
+  const parts = name.split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
+
+/**
+ * Fixed, white-text-legible avatar background palette (Phase 07). Mid-saturation
+ * entries drawn from the schedule COLOR_PALETTE family but DEFINED LOCALLY here —
+ * constants.ts is NOT imported or modified. Pale/pastel entries (Sky, Butter,
+ * Sand, Peach, Seafoam) are deliberately excluded so white (#fff) monogram text
+ * always has adequate contrast.
+ */
+const AVATAR_PALETTE = [
+  '#3B5998', '#E07A5F', '#4A7C59', '#9B5094', '#2E8B8B', '#A0522D',
+  '#8B7EC8', '#C76D8E', '#4DA6C9', '#B54555', '#6B8294', '#D97706',
+] as const
+
+/**
+ * Deterministic account-derived background colour (Phase 07). Hashes the STABLE
+ * teamMemberId cuid (NOT the display name) via a pure *31 + charCodeAt integer
+ * hash and indexes AVATAR_PALETTE. The same teamMemberId always yields the same
+ * colour on every render and reload; a display-name rename never changes it.
+ */
+function avatarBgColor(id: string): string {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  }
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length]
 }
 
 // ── KanbanCard component ────────────────────────────────────────────
@@ -153,7 +187,9 @@ export const KanbanCard = memo(
                       return (
                         <Avatar key={a.teamMemberId} size="default" title={name || undefined}>
                           {avatarUrl ? <AvatarImage src={avatarUrl} alt={name || ''} /> : null}
-                          <AvatarFallback>{pentesterInitial(a)}</AvatarFallback>
+                          <AvatarFallback style={{ backgroundColor: avatarBgColor(a.teamMemberId), color: '#fff' }}>
+                            {pentesterInitials(a)}
+                          </AvatarFallback>
                         </Avatar>
                       )
                     })}
