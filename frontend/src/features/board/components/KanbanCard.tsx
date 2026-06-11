@@ -39,22 +39,31 @@ function uniquePentesters(assignments: BoardCardAssignment[]): BoardCardAssignme
   return Array.from(seen.values())
 }
 
-/** Display name for an assignment's pentester (schedule fallback chain). */
+/**
+ * Display name for an assignment's pentester. Phase 08: the linked account's
+ * user.displayName (the full "First Last" name) takes precedence over the
+ * editable TeamMember alias (displayName), which in production often holds only
+ * a first name and shadowed the full name. The alias is retained as the fallback
+ * for backlog members (no linked user, e.g. "Futuro 1"), then username.
+ */
 function pentesterName(a: BoardCardAssignment): string {
   const tm = a.teamMember
-  return tm?.displayName || tm?.user?.displayName || tm?.user?.username || ''
+  return tm?.user?.displayName || tm?.displayName || tm?.user?.username || ''
 }
 
 /**
  * Two-letter monogram (Phase 07): first initial of the first name + first
  * initial of the last name, uppercased. A single-token name/mononym/username
  * yields one initial; a missing/empty/whitespace-only name degrades to '?'.
- * Parses the schedule display-name fallback chain (no firstName/lastName field
- * exists — User.displayName is a single string, so we split on whitespace).
+ * Parses the display-name chain (no firstName/lastName field exists —
+ * User.displayName is a single string, so we split on whitespace). Phase 08:
+ * the linked account's user.displayName wins over the editable TeamMember alias
+ * so a full "First Last" name yields two initials; the alias remains the
+ * backlog fallback (no linked user), then username.
  */
 function pentesterInitials(a: BoardCardAssignment): string {
   const tm = a.teamMember
-  const name = (tm?.displayName || tm?.user?.displayName || tm?.user?.username || '?').trim()
+  const name = (tm?.user?.displayName || tm?.displayName || tm?.user?.username || '?').trim()
   const parts = name.split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
