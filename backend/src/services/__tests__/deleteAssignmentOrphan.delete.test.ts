@@ -1,31 +1,33 @@
 /**
- * Last-assignment orphan guard regression — Phase 09.
+ * Last-assignment orphan guard regression — Phase 09 (UAT R01).
  *
- * deleteAssignment() must move a project's BoardCard to the existing 'stopped'
- * stage ONLY when the deleted assignment was the LAST one referencing that
- * project (count over BOTH projectId and splitProjectId === 0). It must never
- * delete a Project/BoardCard/row, and a project still referenced by another
- * assignment must be left COMPLETELY untouched (MULTI-PENTESTER SAFETY,
- * NON-NEGOTIABLE). Backlog/null-projectId deletes are a guard no-op.
+ * deleteAssignment() must FULLY DELETE a project's Project + cascaded BoardCard
+ * ONLY when the deleted assignment was the LAST one referencing that project
+ * (count over BOTH projectId and splitProjectId === 0). A project still
+ * referenced by another assignment must be left COMPLETELY untouched
+ * (MULTI-PENTESTER SAFETY, NON-NEGOTIABLE). Backlog/null-projectId deletes are
+ * a guard no-op.
  *
  * This suite proves those invariants directly:
- *  (a) ZERO -> STOPPED: a project with exactly one assignment; delete it ->
- *      its card.stage becomes 'stopped'.
+ *  (a) ZERO -> DELETED: a project with exactly one assignment; delete it ->
+ *      the Project AND its BoardCard (and the card's comments/files) are gone
+ *      from the DB via cascade.
  *  (b) MULTI-PENTESTER SAFETY: a project referenced by two assignments; delete
- *      one -> the card stage is UNCHANGED and the Project + card still exist.
+ *      one -> the Project + card are UNCHANGED and still exist.
  *  (c) SPLIT-CELL INDEPENDENCE: a split row carrying projectId=A and
  *      splitProjectId=B, where A is otherwise unreferenced but B is also held
- *      by a second assignment; delete the split row -> A's card -> 'stopped',
- *      B's card UNCHANGED.
+ *      by a second assignment; delete the split row -> A's Project + card are
+ *      DELETED, B's Project + card UNCHANGED.
  *  (d) BACKLOG / NULL no-op: an assignment with null project halves; delete it
- *      -> resolves without throwing and no card is moved to 'stopped'.
+ *      -> resolves without throwing and no project/card is deleted.
  *  (e) NON-FATAL: a delete whose project has NO BoardCard still succeeds (the
  *      board step is best-effort).
  *
  * Schedule isolation (NON-NEGOTIABLE, milestone-wide): this suite seeds only
  * the board read-fixtures + assignments it needs (Client, Project, BoardCard,
- * TeamMember, Assignment) and the subject under test (deleteAssignment) writes
- * ONLY BoardCard.stage — it never mutates TeamMember/Absence/Holiday. All
+ * BoardComment, BoardFile, TeamMember, Assignment) and the subject under test
+ * (deleteAssignment) writes ONLY board-domain rows (Project + cascaded
+ * BoardCard/comments/files) — it never mutates TeamMember/Absence/Holiday. All
  * assertions are scoped to seeded ids so the suite is parallel-safe.
  *
  * Tests run against the dev DB per the project's vitest.config.ts. Cleanup runs
@@ -82,17 +84,33 @@ interface SeedBag {
   teamMemberIds: string[];
   projectIds: string[];
   cardIds: string[];
+  commentIds: string[];
+  fileIds: string[];
   assignmentIds: string[];
 }
 
 function newBag(): SeedBag {
-  return { clientIds: [], teamMemberIds: [], projectIds: [], cardIds: [], assignmentIds: [] };
+  return {
+    clientIds: [],
+    teamMemberIds: [],
+    projectIds: [],
+    cardIds: [],
+    commentIds: [],
+    fileIds: [],
+    assignmentIds: [],
+  };
 }
 
 async function teardown(bag: SeedBag) {
-  // FK-safe order: assignments + cards before projects/clients/TMs.
+  // FK-safe order: assignments + board leaf rows before cards/projects/clients/TMs.
   await prisma.assignment
     .deleteMany({ where: { id: { in: bag.assignmentIds } } })
+    .catch(() => undefined);
+  await prisma.boardComment
+    .deleteMany({ where: { id: { in: bag.commentIds } } })
+    .catch(() => undefined);
+  await prisma.boardFile
+    .deleteMany({ where: { id: { in: bag.fileIds } } })
     .catch(() => undefined);
   await prisma.boardCard
     .deleteMany({ where: { id: { in: bag.cardIds } } })
@@ -148,6 +166,30 @@ async function seedProjectWithCard(
   return { project, card };
 }
 
+/** Seed a comment + a file on a card so we can assert the cascade reaches them. */
+async function seedCardChildren(bag: SeedBag, cardId: string) {
+  const comment = await withDbRetry(() =>
+    prisma.boardComment.create({
+      data: { cardId, body: 'DelOrphan cascade comment', authorId: null },
+    }),
+  );
+  bag.commentIds.push(comment.id);
+  const file = await withDbRetry(() =>
+    prisma.boardFile.create({
+      data: {
+        cardId,
+        filename: 'cascade.txt',
+        storedName: `cascade-${comment.id}.txt`,
+        mimeType: 'text/plain',
+        sizeBytes: 12,
+        uploadedBy: null,
+      },
+    }),
+  );
+  bag.fileIds.push(file.id);
+  return { comment, file };
+}
+
 async function seedAssignment(
   bag: SeedBag,
   data: {
@@ -177,7 +219,7 @@ async function seedAssignment(
   return assignment;
 }
 
-describe('deleteAssignment — last-assignment orphan -> stopped guard', () => {
+describe('deleteAssignment — last-assignment orphan -> full delete guard', () => {
   let bag = newBag();
 
   afterEach(async () => {
@@ -185,11 +227,12 @@ describe('deleteAssignment — last-assignment orphan -> stopped guard', () => {
     bag = newBag();
   });
 
-  it('(a) ZERO -> STOPPED: deleting the only assignment for a project moves its card to "stopped"', async () => {
+  it('(a) ZERO -> DELETED: deleting the only assignment for a project deletes the Project + cascades its BoardCard/comments/files', async () => {
     const suffix = uniqueSuffix();
     const client = await seedClient(bag, suffix);
     const tm = await seedTeamMember(bag, suffix, 'a');
     const { project, card } = await seedProjectWithCard(bag, client.id, suffix, 'a', 'upcoming');
+    const { comment, file } = await seedCardChildren(bag, card.id);
     const a = await seedAssignment(bag, {
       teamMemberId: tm.id,
       clientId: client.id,
@@ -200,11 +243,13 @@ describe('deleteAssignment — last-assignment orphan -> stopped guard', () => {
 
     await withDbRetry(() => deleteAssignment(a.id));
 
-    const after = await prisma.boardCard.findUnique({ where: { id: card.id } });
-    expect(after?.stage).toBe('stopped');
-    // The assignment row is gone; the project + card survive.
+    // The assignment row is gone AND the Project + its whole board subtree
+    // cascaded away — card, comment, and file all deleted from the DB.
     expect(await prisma.assignment.findUnique({ where: { id: a.id } })).toBeNull();
-    expect(await prisma.project.findUnique({ where: { id: project.id } })).not.toBeNull();
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).toBeNull();
+    expect(await prisma.boardCard.findUnique({ where: { id: card.id } })).toBeNull();
+    expect(await prisma.boardComment.findUnique({ where: { id: comment.id } })).toBeNull();
+    expect(await prisma.boardFile.findUnique({ where: { id: file.id } })).toBeNull();
   });
 
   it('(b) MULTI-PENTESTER SAFETY: a project with another remaining assignment is left untouched', async () => {
@@ -232,14 +277,14 @@ describe('deleteAssignment — last-assignment orphan -> stopped guard', () => {
 
     await withDbRetry(() => deleteAssignment(a1.id));
 
+    // UNCHANGED — the Project + card still exist, card stage untouched.
     const after = await prisma.boardCard.findUnique({ where: { id: card.id } });
-    // UNCHANGED — still the seeded stage, NOT 'stopped'.
+    expect(after).not.toBeNull();
     expect(after?.stage).toBe('execution');
     expect(await prisma.project.findUnique({ where: { id: project.id } })).not.toBeNull();
-    expect(after).not.toBeNull();
   });
 
-  it('(c) SPLIT-CELL INDEPENDENCE: A reaches zero -> stopped; B still referenced -> untouched', async () => {
+  it('(c) SPLIT-CELL INDEPENDENCE: A reaches zero -> deleted; B still referenced -> untouched', async () => {
     const suffix = uniqueSuffix();
     const client = await seedClient(bag, suffix);
     const tmSplit = await seedTeamMember(bag, suffix, 'c-split');
@@ -268,18 +313,22 @@ describe('deleteAssignment — last-assignment orphan -> stopped guard', () => {
 
     await withDbRetry(() => deleteAssignment(splitRow.id));
 
-    const afterA = await prisma.boardCard.findUnique({ where: { id: cardA.id } });
+    // A reached zero -> Project + card deleted.
+    expect(await prisma.project.findUnique({ where: { id: projA.id } })).toBeNull();
+    expect(await prisma.boardCard.findUnique({ where: { id: cardA.id } })).toBeNull();
+    // B still referenced -> untouched.
     const afterB = await prisma.boardCard.findUnique({ where: { id: cardB.id } });
-    expect(afterA?.stage).toBe('stopped'); // A reached zero
-    expect(afterB?.stage).toBe('execution'); // B still referenced — untouched
+    expect(afterB).not.toBeNull();
+    expect(afterB?.stage).toBe('execution');
+    expect(await prisma.project.findUnique({ where: { id: projB.id } })).not.toBeNull();
   });
 
-  it('(d) BACKLOG / NULL no-op: deleting a null-project assignment resolves and stops no card', async () => {
+  it('(d) BACKLOG / NULL no-op: deleting a null-project assignment resolves and deletes no project/card', async () => {
     const suffix = uniqueSuffix();
     const client = await seedClient(bag, suffix);
     const tm = await seedTeamMember(bag, suffix, 'd');
-    // Seed an unrelated project+card to assert nothing gets collaterally stopped.
-    const { card } = await seedProjectWithCard(bag, client.id, suffix, 'd', 'upcoming');
+    // Seed an unrelated project+card to assert nothing gets collaterally deleted.
+    const { project, card } = await seedProjectWithCard(bag, client.id, suffix, 'd', 'upcoming');
     const backlog = await seedAssignment(bag, {
       teamMemberId: tm.id,
       clientId: client.id,
@@ -291,12 +340,14 @@ describe('deleteAssignment — last-assignment orphan -> stopped guard', () => {
 
     await expect(withDbRetry(() => deleteAssignment(backlog.id))).resolves.toBeDefined();
 
+    // Unrelated project + card untouched.
     const after = await prisma.boardCard.findUnique({ where: { id: card.id } });
-    expect(after?.stage).toBe('upcoming'); // untouched
+    expect(after?.stage).toBe('upcoming');
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).not.toBeNull();
     expect(await prisma.assignment.findUnique({ where: { id: backlog.id } })).toBeNull();
   });
 
-  it('(e) NON-FATAL: deleting the last assignment of a project with NO BoardCard still succeeds', async () => {
+  it('(e) NON-FATAL: deleting the last assignment of a project with NO BoardCard still succeeds and deletes the project', async () => {
     const suffix = uniqueSuffix();
     const client = await seedClient(bag, suffix);
     const tm = await seedTeamMember(bag, suffix, 'e');
@@ -317,5 +368,7 @@ describe('deleteAssignment — last-assignment orphan -> stopped guard', () => {
 
     await expect(withDbRetry(() => deleteAssignment(a.id))).resolves.toBeDefined();
     expect(await prisma.assignment.findUnique({ where: { id: a.id } })).toBeNull();
+    // The cardless project still hits zero and is deleted.
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).toBeNull();
   });
 });
