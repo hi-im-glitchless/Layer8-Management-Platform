@@ -336,9 +336,10 @@ router.delete('/assignments/:id', requireRole('PM'), mutationRateLimiter, async 
     await assignmentService.deleteAssignment(id);
     res.json({ success: true });
     emitScheduleInvalidate('assignments');
-    // Phase 09: deleting the last assignment for a project can move its card to
-    // 'stopped' (see assignmentService.deleteAssignment); broadcast a board
-    // refresh so other connected clients' Planner reflects the change too.
+    // Phase 09 (UAT R01): deleting the last assignment for a project fully
+    // deletes that orphaned Project + its cascaded BoardCard (see
+    // assignmentService.deleteAssignment); broadcast a board refresh so other
+    // connected clients' Planner drops the now-gone card too.
     emitBoardInvalidate('cards');
   } catch (error) {
     if (error instanceof Error && error.message.includes('locked')) {

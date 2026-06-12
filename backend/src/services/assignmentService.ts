@@ -356,27 +356,33 @@ export async function deleteAssignment(id: string) {
 
   const deleted = await prisma.assignment.delete({ where: { id } });
 
-  // Phase 09: last-assignment orphan guard. When the deleted assignment was
-  // the LAST one pointing at a Planner project, the Project + its 1:1 BoardCard
-  // survive (Assignment->Project FK is onDelete: SetNull), leaving a
-  // zero-pentester card "hung up" in the board. We move that card to the
-  // existing 'stopped' stage rather than deleting anything:
-  //   - WHY 'stopped' (not delete): deleting the Project cascades to the
-  //     BoardCard and destroys its comments/files/checklist — forbidden data
-  //     loss. 'stopped' parks the card visibly so a PM can re-stage or archive.
+  // Phase 09 (UAT R01): last-assignment orphan guard. When the deleted
+  // assignment was the LAST one pointing at a Planner project, the Project +
+  // its 1:1 BoardCard survive (Assignment->Project FK is onDelete: SetNull),
+  // leaving a zero-pentester card "hung up" in the board. Per user decision we
+  // now FULLY DELETE that orphaned Project. The delete cascades the whole board
+  // subtree away (verified against schema.prisma):
+  //   Project --(BoardCard.projectId onDelete: Cascade)--> BoardCard
+  //   BoardCard --(onDelete: Cascade)--> BoardComment / BoardFile /
+  //              BoardNotification, and the card's checklist/notes columns go
+  //              with the card row. The card disappears from the board entirely.
+  //   - WHY delete (was 'stopped'): the user wants the orphaned card gone, not
+  //     parked. The cascade is intentional and complete — no FK can block the
+  //     Project delete because every inbound Assignment FK is onDelete: SetNull.
   //   - WHY zero-count-only (MULTI-PENTESTER SAFETY, NON-NEGOTIABLE): a Project
   //     shared by other pentesters must be left COMPLETELY untouched. The count
   //     spans BOTH projectId and splitProjectId (a split half references the
   //     same Project via splitProjectId) — missing either set yields a false
-  //     zero and would wrongly stop a still-active card.
+  //     zero and would wrongly delete a still-active card.
   // BEST-EFFORT / NON-FATAL: wrapped in try/catch (mirroring
   // linkProjectsForAssignment) so a board-side failure never rolls back the
   // schedule delete — deleteAssignment still returns the deleted row.
-  // SCHEDULE ISOLATION: the only write here is BoardCard.stage; no
-  // Assignment/TeamMember/Absence/Holiday write, no row deletion.
+  // SCHEDULE ISOLATION: the only writes here are to board-domain rows (Project
+  // + cascaded BoardCard/comments/files/notifications); no
+  // Assignment/TeamMember/Absence/Holiday write.
   try {
     // De-dup the projectId === splitProjectId case (same project both halves)
-    // so the count/update runs once per distinct project id.
+    // so the count/delete runs once per distinct project id.
     const linkedProjectIds = [...new Set([projectId, splitProjectId])].filter(
       (pid): pid is string => pid != null
     );
@@ -387,19 +393,17 @@ export async function deleteAssignment(id: string) {
       });
 
       if (remaining === 0) {
-        // Guard the update so a project without a BoardCard (no Planner card)
-        // is a quiet no-op rather than a throw.
-        const card = await prisma.boardCard.findUnique({ where: { projectId: pid } });
-        if (card) {
-          await prisma.boardCard.update({
-            where: { projectId: pid },
-            data: { stage: 'stopped' },
-          });
+        // Guard the delete so a project that was already removed (or never
+        // existed) is a quiet no-op rather than a throw. Deleting the Project
+        // cascades to its BoardCard + the card's comments/files/notifications.
+        const project = await prisma.project.findUnique({ where: { id: pid } });
+        if (project) {
+          await prisma.project.delete({ where: { id: pid } });
         }
       }
     }
   } catch (err) {
-    console.error('[assignmentService] Failed to stop orphaned board card after delete:', err);
+    console.error('[assignmentService] Failed to delete orphaned project after delete:', err);
   }
 
   return deleted;
