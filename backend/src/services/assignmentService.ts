@@ -349,7 +349,60 @@ export async function deleteAssignment(id: string) {
     throw new Error('Cannot delete a locked assignment. Unlock it first.');
   }
 
-  return prisma.assignment.delete({ where: { id } });
+  // Capture the linked project ids BEFORE the delete — the deleted row no
+  // longer carries them, and a backlog/pre-R03 assignment has null halves.
+  const projectId = existing.projectId;
+  const splitProjectId = existing.splitProjectId;
+
+  const deleted = await prisma.assignment.delete({ where: { id } });
+
+  // Phase 09: last-assignment orphan guard. When the deleted assignment was
+  // the LAST one pointing at a Planner project, the Project + its 1:1 BoardCard
+  // survive (Assignment->Project FK is onDelete: SetNull), leaving a
+  // zero-pentester card "hung up" in the board. We move that card to the
+  // existing 'stopped' stage rather than deleting anything:
+  //   - WHY 'stopped' (not delete): deleting the Project cascades to the
+  //     BoardCard and destroys its comments/files/checklist — forbidden data
+  //     loss. 'stopped' parks the card visibly so a PM can re-stage or archive.
+  //   - WHY zero-count-only (MULTI-PENTESTER SAFETY, NON-NEGOTIABLE): a Project
+  //     shared by other pentesters must be left COMPLETELY untouched. The count
+  //     spans BOTH projectId and splitProjectId (a split half references the
+  //     same Project via splitProjectId) — missing either set yields a false
+  //     zero and would wrongly stop a still-active card.
+  // BEST-EFFORT / NON-FATAL: wrapped in try/catch (mirroring
+  // linkProjectsForAssignment) so a board-side failure never rolls back the
+  // schedule delete — deleteAssignment still returns the deleted row.
+  // SCHEDULE ISOLATION: the only write here is BoardCard.stage; no
+  // Assignment/TeamMember/Absence/Holiday write, no row deletion.
+  try {
+    // De-dup the projectId === splitProjectId case (same project both halves)
+    // so the count/update runs once per distinct project id.
+    const linkedProjectIds = [...new Set([projectId, splitProjectId])].filter(
+      (pid): pid is string => pid != null
+    );
+
+    for (const pid of linkedProjectIds) {
+      const remaining = await prisma.assignment.count({
+        where: { OR: [{ projectId: pid }, { splitProjectId: pid }] },
+      });
+
+      if (remaining === 0) {
+        // Guard the update so a project without a BoardCard (no Planner card)
+        // is a quiet no-op rather than a throw.
+        const card = await prisma.boardCard.findUnique({ where: { projectId: pid } });
+        if (card) {
+          await prisma.boardCard.update({
+            where: { projectId: pid },
+            data: { stage: 'stopped' },
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[assignmentService] Failed to stop orphaned board card after delete:', err);
+  }
+
+  return deleted;
 }
 
 /**
