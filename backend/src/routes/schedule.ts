@@ -10,7 +10,7 @@ import * as absenceService from '../services/absenceService.js';
 import * as holidayService from '../services/holidayService.js';
 import * as clientService from '../services/clientService.js';
 import { VALID_TAGS } from '../services/assignmentService.js';
-import { emitScheduleInvalidate } from '../services/socketService.js';
+import { emitScheduleInvalidate, emitBoardInvalidate } from '../services/socketService.js';
 
 const router = Router();
 
@@ -336,6 +336,10 @@ router.delete('/assignments/:id', requireRole('PM'), mutationRateLimiter, async 
     await assignmentService.deleteAssignment(id);
     res.json({ success: true });
     emitScheduleInvalidate('assignments');
+    // Phase 09: deleting the last assignment for a project can move its card to
+    // 'stopped' (see assignmentService.deleteAssignment); broadcast a board
+    // refresh so other connected clients' Planner reflects the change too.
+    emitBoardInvalidate('cards');
   } catch (error) {
     if (error instanceof Error && error.message.includes('locked')) {
       return res.status(409).json({ error: error.message });

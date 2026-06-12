@@ -158,6 +158,10 @@ export function useDeleteAssignment() {
     mutationFn: (id: string) => scheduleApi.deleteAssignment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
+      // Phase 09: deleting the last assignment for a project moves its Planner
+      // card to 'stopped' on the backend, so the board cache must refetch —
+      // mirror the invalidation already wired in useUpsertAssignment/useUpdateAssignment.
+      queryClient.invalidateQueries({ queryKey: ['board', 'cards'] })
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to delete assignment'),
   })
