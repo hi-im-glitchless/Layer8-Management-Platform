@@ -90,7 +90,12 @@ router.get('/cards/:id', requireAuth, readRateLimiter, async (req, res) => {
 /**
  * PATCH /cards/:id
  * Update a board card.
- * - PM/ADMIN: full access (any field, any stage including archived).
+ * - ADMIN: full access (any field, any stage including archived).
+ * - PM: full access EXCEPT setting stage='archived'. Archiving is ADMIN-only
+ *   (Phase 11): PM may view/open archived cards but must not archive them,
+ *   including by dragging a card into the Archived column. NON-NEGOTIABLE —
+ *   the admin-archive route stays requireRole('ADMIN') and this stage guard
+ *   blocks the drag-to-archive path for PM (and NORMAL).
  * - NORMAL: only when the card's assignment belongs to the caller's TeamMember.
  *   Stage moves are limited to non-archived stages, and `stageLockedBy` cannot
  *   be set (the manual-pin override is reserved for PM/ADMIN).
@@ -108,6 +113,14 @@ router.patch('/cards/:id', requireAuth, mutationRateLimiter, async (req, res) =>
     const role = req.session.role;
     const isManager = role === 'PM' || role === 'ADMIN';
 
+    // Phase 11 (NON-NEGOTIABLE): archiving is ADMIN-only. Block PM and NORMAL
+    // from setting stage='archived' — this is the single source of truth for the
+    // archive-by-stage (drag-to-archive) guard and closes the PM drag hole. PM
+    // may still PATCH cards to any non-archived stage.
+    if (data.stage === 'archived' && role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Only ADMIN can archive cards' });
+    }
+
     if (!isManager) {
       const existing = await boardService.getCard(id);
       if (!existing) {
@@ -124,9 +137,8 @@ router.patch('/cards/:id', requireAuth, mutationRateLimiter, async (req, res) =>
       if (!ownerUserIds.has(req.session.userId ?? '')) {
         return res.status(403).json({ error: 'Forbidden' });
       }
-      if (data.stage === 'archived') {
-        return res.status(403).json({ error: 'Only PM or ADMIN can archive cards' });
-      }
+      // The stage='archived' guard now lives above (ADMIN-only, Phase 11) and
+      // already rejected NORMAL here, so no per-branch archive check is needed.
       if (data.stageLockedBy !== undefined) {
         return res.status(403).json({ error: 'Only PM or ADMIN can change stage lock' });
       }
