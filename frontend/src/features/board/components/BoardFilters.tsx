@@ -94,8 +94,8 @@ export function BoardFilters({
         </SelectContent>
       </Select>
 
-      {/* Show Archived toggle — ADMIN only */}
-      {hasRole('ADMIN') && (
+      {/* Show Archived toggle — PM and ADMIN (PM can view/open archived cards but not archive them) */}
+      {hasRole('PM') && (
         <div className="flex items-center gap-1.5">
           <Switch
             id="show-archived"
