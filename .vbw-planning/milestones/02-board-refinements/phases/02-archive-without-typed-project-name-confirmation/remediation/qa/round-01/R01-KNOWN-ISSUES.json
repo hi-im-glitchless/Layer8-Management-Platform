@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "phase": "02",
+  "issues": [
+    {
+      "test": "archives the card with an empty body and a valid ADMIN session → 200",
+      "file": "backend/src/routes/__tests__/boardAdminArchive.test.ts",
+      "error": "SQLite SocketTimeout (PrismaClientKnownRequestError: DriverAdapterError: SocketTimeout) when boardAdminArchive.test.ts and scheduleIsolation.phase23.test.ts run concurrently — identical to the accepted concurrent-run contention documented in STATE.md. Both suites pass in isolation.",
+      "first_seen_in": "02-VERIFICATION.md",
+      "last_seen_in": "02-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

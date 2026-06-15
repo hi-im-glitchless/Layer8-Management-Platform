@@ -1,0 +1,262 @@
+{
+  "entries": {
+    "e6e12f389208a173": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/e6e12f389208a173.md",
+      "role": "qa",
+      "phase": "22",
+      "timestamp": "2026-05-29T17:47:16Z"
+    },
+    "668e5e41e1e6b114": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/668e5e41e1e6b114.md",
+      "role": "qa",
+      "phase": "23",
+      "timestamp": "2026-06-01T12:56:46Z"
+    },
+    "d08cb2325d8e36e3": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/d08cb2325d8e36e3.md",
+      "role": "qa",
+      "phase": "24",
+      "timestamp": "2026-06-03T09:18:11Z"
+    },
+    "ae4b3bbb6ba85420": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/ae4b3bbb6ba85420.md",
+      "role": "scout",
+      "phase": "01",
+      "timestamp": "2026-06-03T16:11:23Z"
+    },
+    "af767e94ffd1a4af": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/af767e94ffd1a4af.md",
+      "role": "lead",
+      "phase": "01",
+      "timestamp": "2026-06-03T16:15:58Z"
+    },
+    "d0fcfb8c81f3c5a5": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/d0fcfb8c81f3c5a5.md",
+      "role": "dev",
+      "phase": "01",
+      "timestamp": "2026-06-03T16:25:48Z"
+    },
+    "bd94053e8d211342": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/bd94053e8d211342.md",
+      "role": "qa",
+      "phase": "01",
+      "timestamp": "2026-06-03T16:25:49Z"
+    },
+    "eca0505a5c71a800": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/eca0505a5c71a800.md",
+      "role": "scout",
+      "phase": "02",
+      "timestamp": "2026-06-03T17:54:56Z"
+    },
+    "a2ada43dd2c75fb4": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/a2ada43dd2c75fb4.md",
+      "role": "lead",
+      "phase": "2",
+      "timestamp": "2026-06-03T18:02:36Z"
+    },
+    "bf1cb57e57e86605": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/bf1cb57e57e86605.md",
+      "role": "dev",
+      "phase": "2",
+      "timestamp": "2026-06-03T18:06:12Z"
+    },
+    "94bbdc38616dc2f0": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/94bbdc38616dc2f0.md",
+      "role": "qa",
+      "phase": "2",
+      "timestamp": "2026-06-03T18:06:12Z"
+    },
+    "503399e0d9d392f8": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/503399e0d9d392f8.md",
+      "role": "qa",
+      "phase": "2",
+      "timestamp": "2026-06-03T18:16:55Z"
+    },
+    "365780ff5ea762a3": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/365780ff5ea762a3.md",
+      "role": "scout",
+      "phase": "3",
+      "timestamp": "2026-06-03T19:05:30Z"
+    },
+    "cdeab6e11d9df36a": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/cdeab6e11d9df36a.md",
+      "role": "lead",
+      "phase": "3",
+      "timestamp": "2026-06-03T19:10:05Z"
+    },
+    "4ed0f3e0bd577951": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/4ed0f3e0bd577951.md",
+      "role": "dev",
+      "phase": "3",
+      "timestamp": "2026-06-03T19:13:43Z"
+    },
+    "8f78dcbfd5561c8b": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/8f78dcbfd5561c8b.md",
+      "role": "qa",
+      "phase": "3",
+      "timestamp": "2026-06-03T19:13:44Z"
+    },
+    "d28f58f8cb526906": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/d28f58f8cb526906.md",
+      "role": "qa",
+      "phase": "3",
+      "timestamp": "2026-06-03T19:19:55Z"
+    },
+    "98a1e0c46c9a16d2": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/98a1e0c46c9a16d2.md",
+      "role": "lead",
+      "phase": "4",
+      "timestamp": "2026-06-03T20:06:04Z"
+    },
+    "4677a5f9dbf4d0ee": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/4677a5f9dbf4d0ee.md",
+      "role": "dev",
+      "phase": "4",
+      "timestamp": "2026-06-03T20:10:28Z"
+    },
+    "f2b69878abc726dd": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/f2b69878abc726dd.md",
+      "role": "qa",
+      "phase": "4",
+      "timestamp": "2026-06-03T20:10:28Z"
+    },
+    "7367a3b5d55ee2db": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/7367a3b5d55ee2db.md",
+      "role": "qa",
+      "phase": "4",
+      "timestamp": "2026-06-03T20:19:58Z"
+    },
+    "bb1cde7c3762bf1e": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/bb1cde7c3762bf1e.md",
+      "role": "lead",
+      "phase": "5",
+      "timestamp": "2026-06-03T21:49:38Z"
+    },
+    "619d7bab2dddaa29": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/619d7bab2dddaa29.md",
+      "role": "qa",
+      "phase": "5",
+      "timestamp": "2026-06-03T21:53:22Z"
+    },
+    "a16d9bde1470b2d7": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/a16d9bde1470b2d7.md",
+      "role": "dev",
+      "phase": "5",
+      "timestamp": "2026-06-03T21:53:39Z"
+    },
+    "ce8060b4ba2f9463": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/ce8060b4ba2f9463.md",
+      "role": "dev",
+      "phase": "5",
+      "timestamp": "2026-06-03T21:58:12Z"
+    },
+    "96d0a80e7e555835": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/96d0a80e7e555835.md",
+      "role": "lead",
+      "phase": "6",
+      "timestamp": "2026-06-04T09:55:18Z"
+    },
+    "f9aea7de600857bc": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/f9aea7de600857bc.md",
+      "role": "dev",
+      "phase": "6",
+      "timestamp": "2026-06-04T10:39:18Z"
+    },
+    "10fa4a9445b8235c": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/10fa4a9445b8235c.md",
+      "role": "qa",
+      "phase": "6",
+      "timestamp": "2026-06-04T10:39:18Z"
+    },
+    "6c4ac3870d9c04a0": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/6c4ac3870d9c04a0.md",
+      "role": "lead",
+      "phase": "07",
+      "timestamp": "2026-06-11T09:16:49Z"
+    },
+    "cb5aa54b2f0a4098": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/cb5aa54b2f0a4098.md",
+      "role": "dev",
+      "phase": "07",
+      "timestamp": "2026-06-11T09:32:13Z"
+    },
+    "617d44700767edcb": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/617d44700767edcb.md",
+      "role": "qa",
+      "phase": "07",
+      "timestamp": "2026-06-11T09:32:13Z"
+    },
+    "fc891c62e49739d8": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/fc891c62e49739d8.md",
+      "role": "lead",
+      "phase": "08",
+      "timestamp": "2026-06-11T15:26:26Z"
+    },
+    "f087cf13e218c73e": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/f087cf13e218c73e.md",
+      "role": "dev",
+      "phase": "08",
+      "timestamp": "2026-06-11T15:34:08Z"
+    },
+    "8b27074f763590a0": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/8b27074f763590a0.md",
+      "role": "qa",
+      "phase": "08",
+      "timestamp": "2026-06-11T15:34:09Z"
+    },
+    "6b076ece4ee6e34f": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/6b076ece4ee6e34f.md",
+      "role": "lead",
+      "phase": "09",
+      "timestamp": "2026-06-12T16:04:30Z"
+    },
+    "4f9ff22a7064da2d": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/4f9ff22a7064da2d.md",
+      "role": "dev",
+      "phase": "09",
+      "timestamp": "2026-06-12T16:10:52Z"
+    },
+    "99df50f72b5ad0a0": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/99df50f72b5ad0a0.md",
+      "role": "qa",
+      "phase": "09",
+      "timestamp": "2026-06-12T16:10:53Z"
+    },
+    "60bcf7be7a07c420": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/60bcf7be7a07c420.md",
+      "role": "lead",
+      "phase": "10",
+      "timestamp": "2026-06-15T22:14:54Z"
+    },
+    "819ab3c796191bbd": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/819ab3c796191bbd.md",
+      "role": "dev",
+      "phase": "10",
+      "timestamp": "2026-06-15T22:19:15Z"
+    },
+    "93c2cac09cde33c2": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/93c2cac09cde33c2.md",
+      "role": "qa",
+      "phase": "10",
+      "timestamp": "2026-06-15T22:19:16Z"
+    },
+    "d00b2be81ccf6cab": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/d00b2be81ccf6cab.md",
+      "role": "lead",
+      "phase": "11",
+      "timestamp": "2026-06-15T22:38:11Z"
+    },
+    "ea6d3e7d06442512": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/ea6d3e7d06442512.md",
+      "role": "dev",
+      "phase": "11",
+      "timestamp": "2026-06-15T22:42:40Z"
+    },
+    "1ce0c18736766572": {
+      "path": "/home/rm/Documents/Layer8-Management-Platform/.vbw-planning/.cache/context/1ce0c18736766572.md",
+      "role": "qa",
+      "phase": "11",
+      "timestamp": "2026-06-15T22:42:41Z"
+    }
+  }
+}

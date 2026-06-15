@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "phase": "09",
+  "issues": [
+    {
+      "test": "Audit Service (15 failing)",
+      "file": "backend/tests/services/audit.test.ts",
+      "error": "Pre-existing failure verified at parent commit e3333d2; environment-dependent (audit chain/Redis/DB availability). Does not reference assignmentService.",
+      "first_seen_in": "09-VERIFICATION.md",
+      "last_seen_in": "09-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "Session Service > isTrustedDevice (1 failing)",
+      "file": "backend/tests/services/session.test.ts",
+      "error": "Pre-existing failure verified at parent commit e3333d2; environment-dependent. Does not reference assignmentService.",
+      "first_seen_in": "09-VERIFICATION.md",
+      "last_seen_in": "09-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "boardAdminArchive > archives with empty body (1 failing)",
+      "file": "backend/src/routes/__tests__/boardAdminArchive.test.ts",
+      "error": "Pre-existing failure verified at parent commit e3333d2; env-dependent. Does not reference assignmentService.",
+      "first_seen_in": "09-VERIFICATION.md",
+      "last_seen_in": "09-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "boardFiles broadened read policy (1 failing)",
+      "file": "backend/src/routes/__tests__/boardFiles.test.ts",
+      "error": "Pre-existing failure verified at parent commit e3333d2; env-dependent. Does not reference assignmentService.",
+      "first_seen_in": "09-VERIFICATION.md",
+      "last_seen_in": "09-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "pdfQueue > addPdfConversionJob (2 failing)",
+      "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+      "error": "Pre-existing failure verified at parent commit e3333d2; queue/env-dependent. Does not reference assignmentService.",
+      "first_seen_in": "09-VERIFICATION.md",
+      "last_seen_in": "09-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "resolveAuthRateLimitMax import (TS2835)",
+      "file": "backend/src/middleware/__tests__/rateLimit.test.ts",
+      "error": "TS2835: Relative import ../rateLimit needs explicit .js extension. Introduced by prior auth commit e3333d2; confirmed pre-existing by git show e3333d2. Not in phase-09 scope.",
+      "first_seen_in": "09-VERIFICATION.md",
+      "last_seen_in": "09-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateAdapter > analyzeTemplate order (1 failing)",
+      "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+      "error": "Pre-existing failure verified at parent commit e3333d2; mock/LLM-order mismatch. Does not reference assignmentService.",
+      "first_seen_in": "09-VERIFICATION.md",
+      "last_seen_in": "09-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping > queryFewShotExamples (3 failing)",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "Pre-existing failure verified at parent commit e3333d2; test expects old orderBy shape (single object) vs current array. Does not reference assignmentService.",
+      "first_seen_in": "09-VERIFICATION.md",
+      "last_seen_in": "09-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

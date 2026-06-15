@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "phase": "05",
+  "issues": [
+    {
+      "test": "eslint src/features/board/components/CardDetailModal.tsx",
+      "file": "frontend/src/features/board/components/CardDetailModal.tsx:404",
+      "error": "react-hooks/refs — Cannot update ref (markReadRef.current) during render. Pre-existing on HEAD, unrelated to the title-row padding change.",
+      "first_seen_in": "05-02-SUMMARY.md",
+      "last_seen_in": "05-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 2,
+      "source_kind": "registry"
+    },
+    {
+      "test": "eslint src/features/board/components/CardDetailModal.tsx",
+      "file": "frontend/src/features/board/components/CardDetailModal.tsx:91",
+      "error": "react-hooks/purity — Cannot call impure function (Date.now()/new Date()) during render in editability check. Pre-existing on HEAD, unrelated to the title-row padding change.",
+      "first_seen_in": "05-02-SUMMARY.md",
+      "last_seen_in": "05-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 2,
+      "source_kind": "registry"
+    }
+  ]
+}

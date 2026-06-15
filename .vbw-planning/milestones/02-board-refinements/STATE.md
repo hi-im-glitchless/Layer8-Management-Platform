@@ -1,6 +1,26 @@
 # State
 
 **Project:** Template AI Engine (Layer8)
+**Milestone:** Board Refinements
+
+## Current Phase
+Phase: 11 of 11 (Pm View Archived Cards)
+Plans: 1/1
+Progress: 100%
+Status: complete
+
+## Phase Status
+- **Phase 1 (Board Stopped Column Horizontal Drag Auto Scroll):** Complete
+- **Phase 2 (Archive Without Typed Project Name Confirmation):** Complete
+- **Phase 3 (File Download Permission Fix):** Complete
+- **Phase 4 (Board Card Pentester Avatars):** Complete
+- **Phase 5 (Board Bug Fixes Status Sync Modal Overlap):** Complete
+- **Phase 6 (Auth Rate Limiter Dev Override):** Complete
+- **Phase 7 (Planner Avatar Initials Color):** Complete
+- **Phase 8 (Planner Avatar Name Precedence):** Complete
+- **Phase 9 (Planner Orphan On Schedule Delete):** Complete
+- **Phase 10 (Planner Client Name Style):** Complete
+- **Phase 11 (Pm View Archived Cards):** Complete
 
 ## Key Decisions
 | Decision | Date | Rationale |
@@ -41,7 +61,8 @@
 - [KNOWN-ISSUE] templateAdapter > analyzeTemplate order (1 failing) (backend/src/services/__tests__/templateAdapter.test.ts): Pre-existing failure verified at parent commit e3333d2; mock/LLM-order mismat... — accepted as process-exception for this phase (phase 09, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-12) (ref:32c56445)
 - [KNOWN-ISSUE] templateMapping > queryFewShotExamples (3 failing) (backend/src/services/__tests__/templateMapping.test.ts): Pre-existing failure verified at parent commit e3333d2; test expects old orde... — accepted as process-exception for this phase (phase 09, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-12) (ref:b1f2de98)
 - [KNOWN-ISSUE] resolveAuthRateLimitMax import (TS2835) (backend/src/middleware/__tests__/rateLimit.test.ts): TS2835: Relative import ''../rateLimit'' needs explicit .js extension. Introd... — accepted as process-exception for this phase (phase 09, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-12) (ref:e360a65f)
-
 ## Blockers
 None
 
+## Activity Log
+- 2026-06-03: Created Board Refinements milestone (3 phases)

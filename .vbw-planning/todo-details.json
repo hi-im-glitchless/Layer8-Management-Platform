@@ -1,0 +1,400 @@
+{
+  "schema_version": 1,
+  "items": {
+    "572f43e0": {
+      "summary": "[UAT-DEVIATION] R01: None — documentation-only plan-amendment; no product code touched. (phase 22, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-05-29) (ref:572f43e0)",
+      "context": "Accepted UAT summary deviation for phase 22-project-board-kanban-ui. Deviation: None — documentation-only plan-amendment; no product code touched.. Source plan: R01. Source: remediation/qa/round-01/R01-SUMMARY.md. UAT checkpoint: 22-UAT.md#D01.",
+      "files": [
+        "22-UAT.md",
+        "remediation/qa/round-01/R01-SUMMARY.md"
+      ],
+      "added": "2026-05-29",
+      "source": "uat-deviation",
+      "uat_deviation": {
+        "phase": "22-project-board-kanban-ui",
+        "checkpoint": "D01",
+        "signature": "1beb3b3a255ddf394205c76cdd91a10958a776e4fe9bf2d967d7058c6f63e1f6",
+        "source_plan": "R01",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "8b751374": {
+      "summary": "[UAT-DEVIATION] R01: None — documentation-only plan-amendment; `git diff` of `frontend/` and `backend/` is empty. (phase 22, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-05-30) (ref:8b751374)",
+      "context": "Accepted UAT summary deviation for phase 22-project-board-kanban-ui. Deviation: None — documentation-only plan-amendment; `git diff` of `frontend/` and `backend/` is empty.. Source plan: R01. Source: remediation/qa/round-01/R01-SUMMARY.md. UAT checkpoint: 22-UAT.md#D02.",
+      "files": [
+        "22-UAT.md",
+        "remediation/qa/round-01/R01-SUMMARY.md"
+      ],
+      "added": "2026-05-30",
+      "source": "uat-deviation",
+      "uat_deviation": {
+        "phase": "22-project-board-kanban-ui",
+        "checkpoint": "D02",
+        "signature": "e05407c2fc76bfc6138c23b92b34a59eb748ffd0a919df062740fa6bf8a20ff0",
+        "source_plan": "R01",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "77b1f849": {
+      "summary": "scheduleIsolation.phase23 (concurrent run) (backend/src/services/__tests__/scheduleIsolation.phase23.test.ts): 4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts d...",
+      "context": "Known issue from phase 24. Test: scheduleIsolation.phase23 (concurrent run). File: backend/src/services/__tests__/scheduleIsolation.phase23.test.ts. Error: 4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts due to global-snapshot sensitivity in Phase 23's snapshotScheduleTables — Phase 23 still passes 6/6 when run in isolation. Note: scheduleIsolation.phase24.test.ts was subsequently deleted by post-phase commit 0d9ed2b, making the concurrent-run scenario moot in the current codebase state, but the underlying Phase 23 test-design issue (unfiltered global findMany in snapshotScheduleTables) remains.. Seen 1 time(s). Source: 24-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/scheduleIsolation.phase23.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "24",
+        "phase_dir": ".vbw-planning/phases/24-project-board-schedule-integration",
+        "test": "scheduleIsolation.phase23 (concurrent run)",
+        "file": "backend/src/services/__tests__/scheduleIsolation.phase23.test.ts",
+        "error": "4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts due to global-snapshot sensitivity in Phase 23's snapshotScheduleTables — Phase 23 still passes 6/6 when run in isolation. Note: scheduleIsolation.phase24.test.ts was subsequently deleted by post-phase commit 0d9ed2b, making the concurrent-run scenario moot in the current codebase state, but the underlying Phase 23 test-design issue (unfiltered global findMany in snapshotScheduleTables) remains.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "24-VERIFICATION.md"
+      }
+    },
+    "b990eb11": {
+      "summary": "scheduleIsolation.phase23 (concurrent run) (backend/src/services/__tests__/scheduleIsolation.phase23.test.ts): 4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts d...",
+      "context": "Known issue from phase 24. Test: scheduleIsolation.phase23 (concurrent run). File: backend/src/services/__tests__/scheduleIsolation.phase23.test.ts. Error: 4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts due to global-snapshot sensitivity in Phase 23s snapshotScheduleTables — Phase 23 still passes 6/6 when run in isolation. Seen 2 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/scheduleIsolation.phase23.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "24",
+        "phase_dir": ".vbw-planning/phases/24-project-board-schedule-integration",
+        "test": "scheduleIsolation.phase23 (concurrent run)",
+        "file": "backend/src/services/__tests__/scheduleIsolation.phase23.test.ts",
+        "error": "4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts due to global-snapshot sensitivity in Phase 23s snapshotScheduleTables — Phase 23 still passes 6/6 when run in isolation",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "00587024": {
+      "summary": "pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path (backend/src/services/__tests__/pdfQueue.test.ts): expected error including 'Invalid DOCX path' but got 'Invalid source file pat...",
+      "context": "Known issue from phase 01. Test: pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path. File: backend/src/services/__tests__/pdfQueue.test.ts. Error: expected error including 'Invalid DOCX path' but got 'Invalid source file path: ...' — stale expected error-message string; reproduces in isolation; file not touched by this plan. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-board-stopped-column-horizontal-drag-auto-scroll/",
+        "test": "pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "expected error including 'Invalid DOCX path' but got 'Invalid source file path: ...' — stale expected error-message string; reproduces in isolation; file not touched by this plan",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "e7a9bb3e": {
+      "summary": "scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only) (backend/src/services/__tests__/scheduleIsolation.phase24.test.ts): SQLite single-writer 'Operation has timed out' / 'database is locked' under c...",
+      "context": "Known issue from phase 01. Test: scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only). File: backend/src/services/__tests__/scheduleIsolation.phase24.test.ts. Error: SQLite single-writer 'Operation has timed out' / 'database is locked' under concurrent vitest workers — documented known-issue, passes in isolation; not caused by this plan. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-board-stopped-column-horizontal-drag-auto-scroll/",
+        "test": "scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only)",
+        "file": "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts",
+        "error": "SQLite single-writer 'Operation has timed out' / 'database is locked' under concurrent vitest workers — documented known-issue, passes in isolation; not caused by this plan",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "76aeafeb": {
+      "summary": "templateAdapter > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): expected vi.fn() to be called with arguments [...] — stale mock expectation; ...",
+      "context": "Known issue from phase 01. Test: templateAdapter > analyzeTemplate > calls Python service and LLM in correct order. File: backend/src/services/__tests__/templateAdapter.test.ts. Error: expected vi.fn() to be called with arguments [...] — stale mock expectation; reproduces in isolation; file not touched by this plan. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-board-stopped-column-horizontal-drag-auto-scroll/",
+        "test": "templateAdapter > analyzeTemplate > calls Python service and LLM in correct order",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "expected vi.fn() to be called with arguments [...] — stale mock expectation; reproduces in isolation; file not touched by this plan",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "36c58190": {
+      "summary": "templateMapping > queryFewShotExamples > (sorted by usageCount DESC / filters by templateType+language / respects limit) (backend/src/services/__tests__/templateMapping.test.ts): expected vi.fn() to be called with arguments [...] — stale mock expectation; ...",
+      "context": "Known issue from phase 01. Test: templateMapping > queryFewShotExamples > (sorted by usageCount DESC / filters by templateType+language / respects limit). File: backend/src/services/__tests__/templateMapping.test.ts. Error: expected vi.fn() to be called with arguments [...] — stale mock expectation; reproduces in isolation; file not touched by this plan. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-board-stopped-column-horizontal-drag-auto-scroll/",
+        "test": "templateMapping > queryFewShotExamples > (sorted by usageCount DESC / filters by templateType+language / respects limit)",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "expected vi.fn() to be called with arguments [...] — stale mock expectation; reproduces in isolation; file not touched by this plan",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "e6d90381": {
+      "summary": "pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path (backend/src/services/__tests__/pdfQueue.test.ts): expected error including ''Invalid DOCX path'' but got ''Invalid source file ...",
+      "context": "Known issue from phase 01. Test: pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path. File: backend/src/services/__tests__/pdfQueue.test.ts. Error: expected error including ''Invalid DOCX path'' but got ''Invalid source file path: ...'' — stale expected error-message string; reproduces in isolation; file not touched by this plan. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-board-stopped-column-horizontal-drag-auto-scroll",
+        "test": "pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "expected error including ''Invalid DOCX path'' but got ''Invalid source file path: ...'' — stale expected error-message string; reproduces in isolation; file not touched by this plan",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "5d68e30c": {
+      "summary": "scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only) (backend/src/services/__tests__/scheduleIsolation.phase24.test.ts): SQLite single-writer ''Operation has timed out'' / ''database is locked'' und...",
+      "context": "Known issue from phase 01. Test: scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only). File: backend/src/services/__tests__/scheduleIsolation.phase24.test.ts. Error: SQLite single-writer ''Operation has timed out'' / ''database is locked'' under concurrent vitest workers — documented known-issue, passes in isolation; not caused by this plan. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-board-stopped-column-horizontal-drag-auto-scroll",
+        "test": "scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only)",
+        "file": "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts",
+        "error": "SQLite single-writer ''Operation has timed out'' / ''database is locked'' under concurrent vitest workers — documented known-issue, passes in isolation; not caused by this plan",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "2e874278": {
+      "summary": "archives the card with an empty body and a valid ADMIN session → 200 (backend/src/routes/__tests__/boardAdminArchive.test.ts): SQLite SocketTimeout (PrismaClientKnownRequestError: DriverAdapterError: Sock...",
+      "context": "Known issue from phase 02. Test: archives the card with an empty body and a valid ADMIN session → 200. File: backend/src/routes/__tests__/boardAdminArchive.test.ts. Error: SQLite SocketTimeout (PrismaClientKnownRequestError: DriverAdapterError: SocketTimeout) when boardAdminArchive.test.ts and scheduleIsolation.phase23.test.ts run concurrently — identical to the accepted concurrent-run contention documented in STATE.md. Both suites pass in isolation.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/boardAdminArchive.test.ts"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-archive-without-typed-project-name-confirmation",
+        "test": "archives the card with an empty body and a valid ADMIN session → 200",
+        "file": "backend/src/routes/__tests__/boardAdminArchive.test.ts",
+        "error": "SQLite SocketTimeout (PrismaClientKnownRequestError: DriverAdapterError: SocketTimeout) when boardAdminArchive.test.ts and scheduleIsolation.phase23.test.ts run concurrently — identical to the accepted concurrent-run contention documented in STATE.md. Both suites pass in isolation.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "8d061d5c": {
+      "summary": "DEVN-05: react-refresh/only-export-components on findCardById (frontend/src/features/board/components/KanbanCard.tsx): Fast refresh only works when a file only exports components. Use a new file t...",
+      "context": "Known issue from phase 04. Test: DEVN-05: react-refresh/only-export-components on findCardById. File: frontend/src/features/board/components/KanbanCard.tsx. Error: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components (line 29). Seen 1 time(s). Source: 04-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "frontend/src/features/board/components/KanbanCard.tsx"
+      ],
+      "added": "2026-06-03",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "04",
+        "phase_dir": ".vbw-planning/phases/04-board-card-pentester-avatars",
+        "test": "DEVN-05: react-refresh/only-export-components on findCardById",
+        "file": "frontend/src/features/board/components/KanbanCard.tsx",
+        "error": "Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components (line 29)",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "04-VERIFICATION.md"
+      }
+    },
+    "29396258": {
+      "summary": "Audit Service (15 failing) (backend/tests/services/audit.test.ts): Pre-existing failure verified at parent commit e3333d2; environment-dependent...",
+      "context": "Known issue from phase 09. Test: Audit Service (15 failing). File: backend/tests/services/audit.test.ts. Error: Pre-existing failure verified at parent commit e3333d2; environment-dependent (audit chain/Redis/DB availability). Does not reference assignmentService.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/tests/services/audit.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "Audit Service (15 failing)",
+        "file": "backend/tests/services/audit.test.ts",
+        "error": "Pre-existing failure verified at parent commit e3333d2; environment-dependent (audit chain/Redis/DB availability). Does not reference assignmentService.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "c95df50d": {
+      "summary": "Session Service > isTrustedDevice (1 failing) (backend/tests/services/session.test.ts): Pre-existing failure verified at parent commit e3333d2; environment-dependent...",
+      "context": "Known issue from phase 09. Test: Session Service > isTrustedDevice (1 failing). File: backend/tests/services/session.test.ts. Error: Pre-existing failure verified at parent commit e3333d2; environment-dependent. Does not reference assignmentService.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/tests/services/session.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "Session Service > isTrustedDevice (1 failing)",
+        "file": "backend/tests/services/session.test.ts",
+        "error": "Pre-existing failure verified at parent commit e3333d2; environment-dependent. Does not reference assignmentService.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "ca434986": {
+      "summary": "boardAdminArchive > archives with empty body (1 failing) (backend/src/routes/__tests__/boardAdminArchive.test.ts): Pre-existing failure verified at parent commit e3333d2; env-dependent. Does n...",
+      "context": "Known issue from phase 09. Test: boardAdminArchive > archives with empty body (1 failing). File: backend/src/routes/__tests__/boardAdminArchive.test.ts. Error: Pre-existing failure verified at parent commit e3333d2; env-dependent. Does not reference assignmentService.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/boardAdminArchive.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "boardAdminArchive > archives with empty body (1 failing)",
+        "file": "backend/src/routes/__tests__/boardAdminArchive.test.ts",
+        "error": "Pre-existing failure verified at parent commit e3333d2; env-dependent. Does not reference assignmentService.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "40766167": {
+      "summary": "boardFiles broadened read policy (1 failing) (backend/src/routes/__tests__/boardFiles.test.ts): Pre-existing failure verified at parent commit e3333d2; env-dependent. Does n...",
+      "context": "Known issue from phase 09. Test: boardFiles broadened read policy (1 failing). File: backend/src/routes/__tests__/boardFiles.test.ts. Error: Pre-existing failure verified at parent commit e3333d2; env-dependent. Does not reference assignmentService.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/boardFiles.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "boardFiles broadened read policy (1 failing)",
+        "file": "backend/src/routes/__tests__/boardFiles.test.ts",
+        "error": "Pre-existing failure verified at parent commit e3333d2; env-dependent. Does not reference assignmentService.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "6139e70a": {
+      "summary": "pdfQueue > addPdfConversionJob (2 failing) (backend/src/services/__tests__/pdfQueue.test.ts): Pre-existing failure verified at parent commit e3333d2; queue/env-dependent. ...",
+      "context": "Known issue from phase 09. Test: pdfQueue > addPdfConversionJob (2 failing). File: backend/src/services/__tests__/pdfQueue.test.ts. Error: Pre-existing failure verified at parent commit e3333d2; queue/env-dependent. Does not reference assignmentService.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "pdfQueue > addPdfConversionJob (2 failing)",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "Pre-existing failure verified at parent commit e3333d2; queue/env-dependent. Does not reference assignmentService.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "27bc5b53": {
+      "summary": "resolveAuthRateLimitMax import (TS2835) (backend/src/middleware/__tests__/rateLimit.test.ts): TS2835: Relative import '../rateLimit' needs explicit .js extension. Introduc...",
+      "context": "Known issue from phase 09. Test: resolveAuthRateLimitMax import (TS2835). File: backend/src/middleware/__tests__/rateLimit.test.ts. Error: TS2835: Relative import '../rateLimit' needs explicit .js extension. Introduced by prior auth commit e3333d2; confirmed pre-existing by git show e3333d2. Not in phase-09 scope.. Seen 1 time(s). Source: 09-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/middleware/__tests__/rateLimit.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "resolveAuthRateLimitMax import (TS2835)",
+        "file": "backend/src/middleware/__tests__/rateLimit.test.ts",
+        "error": "TS2835: Relative import '../rateLimit' needs explicit .js extension. Introduced by prior auth commit e3333d2; confirmed pre-existing by git show e3333d2. Not in phase-09 scope.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "09-VERIFICATION.md"
+      }
+    },
+    "32c56445": {
+      "summary": "templateAdapter > analyzeTemplate order (1 failing) (backend/src/services/__tests__/templateAdapter.test.ts): Pre-existing failure verified at parent commit e3333d2; mock/LLM-order mismat...",
+      "context": "Known issue from phase 09. Test: templateAdapter > analyzeTemplate order (1 failing). File: backend/src/services/__tests__/templateAdapter.test.ts. Error: Pre-existing failure verified at parent commit e3333d2; mock/LLM-order mismatch. Does not reference assignmentService.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "templateAdapter > analyzeTemplate order (1 failing)",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "Pre-existing failure verified at parent commit e3333d2; mock/LLM-order mismatch. Does not reference assignmentService.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "b1f2de98": {
+      "summary": "templateMapping > queryFewShotExamples (3 failing) (backend/src/services/__tests__/templateMapping.test.ts): Pre-existing failure verified at parent commit e3333d2; test expects old orde...",
+      "context": "Known issue from phase 09. Test: templateMapping > queryFewShotExamples (3 failing). File: backend/src/services/__tests__/templateMapping.test.ts. Error: Pre-existing failure verified at parent commit e3333d2; test expects old orderBy shape (single object) vs current array. Does not reference assignmentService.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "templateMapping > queryFewShotExamples (3 failing)",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "Pre-existing failure verified at parent commit e3333d2; test expects old orderBy shape (single object) vs current array. Does not reference assignmentService.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "e360a65f": {
+      "summary": "resolveAuthRateLimitMax import (TS2835) (backend/src/middleware/__tests__/rateLimit.test.ts): TS2835: Relative import ''../rateLimit'' needs explicit .js extension. Introd...",
+      "context": "Known issue from phase 09. Test: resolveAuthRateLimitMax import (TS2835). File: backend/src/middleware/__tests__/rateLimit.test.ts. Error: TS2835: Relative import ''../rateLimit'' needs explicit .js extension. Introduced by prior auth commit e3333d2; confirmed pre-existing by git show e3333d2. Not in phase-09 scope.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/middleware/__tests__/rateLimit.test.ts"
+      ],
+      "added": "2026-06-12",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "09",
+        "phase_dir": ".vbw-planning/phases/09-planner-orphan-on-schedule-delete",
+        "test": "resolveAuthRateLimitMax import (TS2835)",
+        "file": "backend/src/middleware/__tests__/rateLimit.test.ts",
+        "error": "TS2835: Relative import ''../rateLimit'' needs explicit .js extension. Introduced by prior auth commit e3333d2; confirmed pre-existing by git show e3333d2. Not in phase-09 scope.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    }
+  }
+}

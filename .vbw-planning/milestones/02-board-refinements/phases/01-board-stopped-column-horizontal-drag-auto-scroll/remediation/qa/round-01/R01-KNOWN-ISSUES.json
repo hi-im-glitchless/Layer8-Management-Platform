@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "issues": [
+    {
+      "test": "pdfQueue > addPdfConversionJob > should reject an invalid file path / should reject an empty file path",
+      "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+      "error": "expected error including 'Invalid DOCX path' but got 'Invalid source file path: ...' — stale expected error-message string; reproduces in isolation; file not touched by this plan",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "scheduleIsolation.phase23/phase24 + audit/session services (concurrent run only)",
+      "file": "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts",
+      "error": "SQLite single-writer 'Operation has timed out' / 'database is locked' under concurrent vitest workers — documented known-issue, passes in isolation; not caused by this plan",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateAdapter > analyzeTemplate > calls Python service and LLM in correct order",
+      "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+      "error": "expected vi.fn() to be called with arguments [...] — stale mock expectation; reproduces in isolation; file not touched by this plan",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping > queryFewShotExamples > (sorted by usageCount DESC / filters by templateType+language / respects limit)",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "expected vi.fn() to be called with arguments [...] — stale mock expectation; reproduces in isolation; file not touched by this plan",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

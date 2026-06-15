@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "phase": "24",
+  "issues": [
+    {
+      "test": "scheduleIsolation.phase23 (concurrent run)",
+      "file": "backend/src/services/__tests__/scheduleIsolation.phase23.test.ts",
+      "error": "4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts due to global-snapshot sensitivity in Phase 23s snapshotScheduleTables \u2014 Phase 23 still passes 6/6 when run in isolation. Note: scheduleIsolation.phase24.test.ts was subsequently deleted by post-phase commit 0d9ed2b, making the concurrent-run scenario moot in the current codebase state, but the underlying Phase 23 test-design issue (unfiltered global findMany in snapshotScheduleTables) remains.",
+      "first_seen_in": "24-VERIFICATION.md",
+      "last_seen_in": "24-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "scheduleIsolation.phase23 (concurrent run)",
+      "file": "backend/src/services/__tests__/scheduleIsolation.phase23.test.ts",
+      "error": "4/6 tests fail when run concurrently with scheduleIsolation.phase24.test.ts due to global-snapshot sensitivity in Phase 23s snapshotScheduleTables \u2014 Phase 23 still passes 6/6 when run in isolation",
+      "first_seen_in": "24-05-SUMMARY.md",
+      "last_seen_in": "24-05-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

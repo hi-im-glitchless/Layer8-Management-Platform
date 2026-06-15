@@ -1,0 +1,47 @@
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T16:12:33Z"}
+{"event":"bash_guard_block","command_preview":"grep -r \"autoScroll\" /home/rm/Documents/","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T16:12:37Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T16:12:41Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"resetAutoMove\|reset-auto-move\","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T16:13:36Z"}
+{"event":"bash_guard_block","command_preview":"grep -rn \"resetAutoMove\|reset-auto-move","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T16:13:37Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:25:31Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:25:34Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:25:35Z"}
+{"event":"bash_guard_block","command_preview":"git log --oneline e821b4f 37fd3d4 968c34","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:25:54Z"}
+{"event":"bash_guard_block","command_preview":"git show 37fd3d4 --stat 2>/dev/null","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:25:57Z"}
+{"event":"bash_guard_block","command_preview":"git -C /home/rm/Documents/Layer8-Managem","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:26:00Z"}
+{"event":"bash_guard_block","command_preview":"grep -rn \"confirmProjectName\|PROJECT_NA","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:55:39Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:55:40Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T17:55:51Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T19:06:27Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T19:06:31Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T19:06:41Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"include\|exclude\|threads\|pool","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T19:07:14Z"}
+{"event":"bash_guard_block","command_preview":"grep -r \"KanbanCard\" /home/rm/Documents/","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T20:02:01Z"}
+{"event":"bash_guard_block","command_preview":"grep -r \"KanbanCard\" /home/rm/Documents/","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T20:02:05Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T20:02:41Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-03T21:46:45Z"}
+{"event":"bash_guard_block","command_preview":"grep -rn \"stringToColor\|hashColor\|colo","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:08:33Z"}
+{"event":"bash_guard_block","command_preview":"grep -rn \"getInitials\|toInitials\|initi","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:08:34Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:08:41Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:08:42Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:08:54Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:08:55Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"firstName\|lastName\|first_name","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:09:41Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"displayName\|username\|User \" /","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:09:42Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-11T09:09:53Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-12T15:57:02Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-12T15:57:02Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"deleteProject\|pruneOrphan\|pur","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-12T15:58:00Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"board.*invalidate\|invalidate.*","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-12T15:58:09Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"useBoardSync\|schedule.*invalid","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-12T15:58:13Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"emitBoardInvalidate\" /home/rm/D","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-12T15:58:21Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:01:44Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:01:57Z"}
+{"event":"bash_guard_block","command_preview":"grep -rn \"client.*color\|color.*client\|","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:01:57Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:02:06Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:02:07Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:03:20Z"}
+{"event":"bash_guard_block","command_preview":"cd /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:04:14Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:05:15Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:05:16Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-06-15T22:06:22Z"}

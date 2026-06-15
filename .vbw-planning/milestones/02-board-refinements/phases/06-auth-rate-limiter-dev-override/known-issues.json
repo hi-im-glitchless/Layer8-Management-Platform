@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "phase": "06",
+  "issues": [
+    {
+      "test": "Audit Service (queryAuditLogs / exportAuditLogs / verifyAuditChain / concurrent writes)",
+      "file": "backend/tests/services/audit.test.ts",
+      "error": "SQLite single-writer lock/timeout under concurrent vitest workers; passes in isolation; file not touched by this plan; pre-existing at parent commit e3333d2",
+      "first_seen_in": "06-01-SUMMARY.md",
+      "last_seen_in": "06-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "Session Service > isTrustedDevice > should return true for valid trusted device",
+      "file": "backend/tests/services/session.test.ts",
+      "error": "SQLite single-writer lock/timeout under concurrent vitest workers; passes in isolation; file not touched by this plan; pre-existing at parent commit e3333d2",
+      "first_seen_in": "06-01-SUMMARY.md",
+      "last_seen_in": "06-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "boardAdminArchive > POST cards admin archive > archives with empty body and a valid ADMIN session returns 200",
+      "file": "backend/src/routes/__tests__/boardAdminArchive.test.ts",
+      "error": "SQLite single-writer lock/timeout under concurrent vitest workers; passes in isolation; file not touched by this plan; pre-existing at parent commit e3333d2",
+      "first_seen_in": "06-01-SUMMARY.md",
+      "last_seen_in": "06-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "boardAutoMove.stopped > autoMoveCards Stopped exclusion > does NOT move a stage=stopped card",
+      "file": "backend/src/services/__tests__/boardAutoMove.stopped.test.ts",
+      "error": "SQLite single-writer lock/timeout under concurrent vitest workers; passes in isolation; file not touched by this plan; pre-existing at parent commit e3333d2",
+      "first_seen_in": "06-01-SUMMARY.md",
+      "last_seen_in": "06-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "pdfQueue > addPdfConversionJob > should reject an invalid/empty file path",
+      "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+      "error": "stale expected error-message string (expected Invalid DOCX path, got Invalid source file path); file not touched by this plan; reproduces independently; pre-existing at parent commit e3333d2",
+      "first_seen_in": "06-01-SUMMARY.md",
+      "last_seen_in": "06-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateAdapter > analyzeTemplate > calls Python service and LLM in correct order",
+      "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+      "error": "stale vi.fn mock-call expectation; file not touched by this plan; reproduces independently; pre-existing at parent commit e3333d2",
+      "first_seen_in": "06-01-SUMMARY.md",
+      "last_seen_in": "06-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping > queryFewShotExamples (sorted by usageCount DESC / filters by templateType+language / respects limit)",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "stale vi.fn mock-call expectation; orderBy shape drifted to confidence+usageCount array; file not touched by this plan; pre-existing at parent commit e3333d2",
+      "first_seen_in": "06-01-SUMMARY.md",
+      "last_seen_in": "06-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}
