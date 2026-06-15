@@ -207,7 +207,7 @@ export const KanbanCard = memo(
               dark colour when the client hex is too light for the white card. */}
           {card.project.client?.name && (
             <p
-              className="text-xs font-bold leading-tight"
+              className="text-sm font-bold leading-tight"
               style={{ color: resolveClientNameColor(card.project.client.color) }}
             >
               {card.project.client.name}
