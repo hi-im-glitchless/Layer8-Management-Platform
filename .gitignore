@@ -77,3 +77,6 @@ VERIFICATION.md
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Local Claude Code config
+.claude/
