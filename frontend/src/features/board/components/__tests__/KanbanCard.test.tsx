@@ -263,46 +263,46 @@ describe('KanbanCard pentester avatars', () => {
 })
 
 /**
- * Phase 10: the Row-2 client name renders bold and in the client's own colour,
- * with a local luminance guard that substitutes a readable dark colour when the
- * client hex is too light for the white card (or missing/unparseable).
+ * The Row-2 client name renders bold in the default text colour. Client-hex
+ * colouring was tried (Phase 10) but light brand colours were illegible on the
+ * white card, so the name now uses no inline colour — just the bold weight.
  */
-describe('KanbanCard client name styling (Phase 10)', () => {
-  it('(1) renders a mid/dark client colour bold and in the client hex', () => {
+describe('KanbanCard client name styling', () => {
+  it('(1) renders the client name bold with no inline colour', () => {
     renderCard(
       makeCard([], { client: { id: 'client-1', name: 'Acme Corp', color: '#3366ff' } }),
     )
 
     const el = clientNameEl('Acme Corp')
-    // Bold weight class present (no text-muted-foreground on the coloured path).
+    // Bold weight class present; default (not muted) foreground.
     expect(el.className).toContain('font-bold')
     expect(el.className).not.toContain('text-muted-foreground')
-    // Inline colour is the client hex (jsdom normalises to rgb()).
-    expect(el.style.color).toBe('rgb(51, 102, 255)')
+    // No inline colour applied regardless of the client's stored hex.
+    expect(el.style.color).toBe('')
   })
 
-  it('(2) falls back to a readable dark colour for a pale client colour', () => {
-    // #FFFACD (lemon chiffon) is near-white — illegible on the white card.
+  it('(2) ignores a pale client colour — still bold, no inline colour', () => {
+    // #FFFACD (lemon chiffon) would be illegible on the white card; the name no
+    // longer renders in the client colour at all.
     renderCard(
       makeCard([], { client: { id: 'client-2', name: 'Pale Co', color: '#FFFACD' } }),
     )
 
     const el = clientNameEl('Pale Co')
     expect(el.className).toContain('font-bold')
-    // NOT the pale hex; the documented dark fallback (#1a1a1a) instead.
-    expect(el.style.color).not.toBe('rgb(255, 250, 205)')
-    expect(el.style.color).toBe('rgb(26, 26, 26)')
+    expect(el.style.color).toBe('')
   })
 
-  it('(3) renders the name safely with the dark fallback when colour is missing/empty', () => {
+  it('(3) renders the name safely when colour is missing/empty', () => {
     renderCard(
       makeCard([], { client: { id: 'client-3', name: 'No Colour Co', color: '' } }),
     )
 
     const el = clientNameEl('No Colour Co')
-    // No crash; name shows; safe readable dark default applied.
+    // No crash; name shows bold with no inline colour.
     expect(el).toBeInTheDocument()
-    expect(el.style.color).toBe('rgb(26, 26, 26)')
+    expect(el.className).toContain('font-bold')
+    expect(el.style.color).toBe('')
   })
 })
 

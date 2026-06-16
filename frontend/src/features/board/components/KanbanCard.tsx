@@ -98,44 +98,6 @@ function avatarBgColor(id: string): string {
 
 // ── Client-name colour helper (Phase 10) ───────────────────────────
 
-/**
- * Readable dark fallback for the client-name text when the client's own colour
- * would be illegible on the white `bg-card` (or is missing/unparseable). Mirrors
- * the schedule's dark text token (#1a1a1a) WITHOUT importing the schedule —
- * getContrastColor is un-exported and solves the inverse problem (pick fg given a
- * bg), so the small luminance check is duplicated locally to keep the board
- * decoupled from the schedule feature.
- */
-const CLIENT_NAME_DARK_FALLBACK = '#1a1a1a'
-
-/**
- * Luminance threshold above which a client hex is treated as "too light" to read
- * as text on the white card. The luminance formula
- * `(0.299*r + 0.587*g + 0.114*b) / 255` mirrors the schedule's own threshold
- * convention; mid/dark client colours render as their own hex, pale colours fall
- * back to the dark token.
- */
-const CLIENT_NAME_LIGHT_THRESHOLD = 0.7
-
-/**
- * Resolve the client-name text colour from a stored client hex (Phase 10).
- * Returns the client's own hex for mid/dark colours; returns the readable dark
- * fallback when the hex is missing/empty/unparseable OR its relative luminance is
- * above the documented light threshold (illegible on the white `bg-card`). Pure
- * and total — never throws, never returns undefined/''.
- */
-function resolveClientNameColor(hex: string | null | undefined): string {
-  if (!hex) return CLIENT_NAME_DARK_FALLBACK
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
-  if (!m) return CLIENT_NAME_DARK_FALLBACK
-  const int = parseInt(m[1], 16)
-  const r = (int >> 16) & 0xff
-  const g = (int >> 8) & 0xff
-  const b = int & 0xff
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  return luminance > CLIENT_NAME_LIGHT_THRESHOLD ? CLIENT_NAME_DARK_FALLBACK : hex
-}
-
 // ── KanbanCard component ────────────────────────────────────────────
 
 interface Props {
@@ -194,7 +156,7 @@ export const KanbanCard = memo(
         <div className="flex-1 p-3 space-y-1.5">
           {/* Row 1: project name + pin */}
           <div className="flex items-start justify-between gap-1">
-            <p className="text-sm font-semibold leading-tight line-clamp-2">
+            <p className="text-lg font-semibold leading-tight line-clamp-2">
               {card.project.name || '(No project)'}
             </p>
             {card.stageLockedBy && card.stageLockedBy !== 'auto' && (
@@ -202,14 +164,11 @@ export const KanbanCard = memo(
             )}
           </div>
 
-          {/* Row 2: client name (text) — Phase 10: bold + the client's own
-              colour, with a local luminance guard that falls back to a readable
-              dark colour when the client hex is too light for the white card. */}
+          {/* Row 2: client name (text) — bold, default text colour. (Client-hex
+              colouring was tried but light brand colours were illegible on the
+              white card, so the name renders in the standard readable foreground.) */}
           {card.project.client?.name && (
-            <p
-              className="text-sm font-bold leading-tight"
-              style={{ color: resolveClientNameColor(card.project.client.color) }}
-            >
+            <p className="text-sm font-bold leading-tight">
               {card.project.client.name}
             </p>
           )}
@@ -273,10 +232,6 @@ export const KanbanCard = memo(
     prev.card.project.status === next.card.project.status &&
     prev.card.project.color === next.card.project.color &&
     prev.card.project.client?.name === next.card.project.client?.name &&
-    // Phase 10: guard the client colour so a live client-colour edit (React
-    // Query refetch / socket invalidate) re-renders the card instead of staying
-    // memoized stale.
-    prev.card.project.client?.color === next.card.project.client?.color &&
     // Phase 07: avatarUrl is no longer rendered on board cards, so the
     // per-assignment fingerprint is keyed solely on the stable teamMemberId —
     // the comparator still re-renders when the set of pentesters changes.
