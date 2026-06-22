@@ -23,6 +23,7 @@ import {
   Pencil,
   MessageSquare,
   Archive,
+  Trash2,
 } from 'lucide-react'
 import type { BoardComment } from '../types'
 import { useAuth } from '@/features/auth/hooks'
@@ -38,6 +39,7 @@ import {
 import { NotesEditor } from './NotesEditor'
 import { FilesPanel } from './FilesPanel'
 import { ArchiveCardDialog } from './ArchiveCardDialog'
+import { DeleteCardDialog } from './DeleteCardDialog'
 
 interface Props {
   cardId: string | null
@@ -402,6 +404,7 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
   const markRead = useMarkCardNotificationsRead()
   const updateCard = useUpdateCard()
   const [archiveOpen, setArchiveOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const { data } = useBoardCard(cardId ?? '')
   const card = data?.card
   const { data: membersData } = useBoardMembers()
@@ -667,6 +670,16 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
               Archive card
             </Button>
           )}
+          {canDelete && (
+            <Button
+              variant="destructive"
+              onClick={() => setDeleteOpen(true)}
+              className={canArchive ? undefined : 'mr-auto'}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete card
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
@@ -681,6 +694,16 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
           open={archiveOpen}
           onOpenChange={setArchiveOpen}
           onArchived={() => onOpenChange(false)}
+        />
+      )}
+
+      {canDelete && (
+        <DeleteCardDialog
+          cardId={card.id}
+          projectName={project.name || '(No project)'}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onDeleted={() => onOpenChange(false)}
         />
       )}
     </Dialog>
