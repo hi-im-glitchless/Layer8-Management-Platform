@@ -1,9 +1,10 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { readRateLimiter, mutationRateLimiter } from '../middleware/rateLimit.js';
 import * as boardService from '../services/boardService.js';
+import { logAuditEvent } from '../services/audit.js';
 import { emitBoardInvalidate } from '../services/socketService.js';
 import filesRouter from './boardFiles.js';
 import commentsRouter from './boardComments.js';
@@ -12,6 +13,20 @@ import adminRouter from './boardAdmin.js';
 import notificationsRouter from './boardNotifications.js';
 
 const router = Router();
+
+/**
+ * Same x-forwarded-for / req.ip / socket.remoteAddress precedence used by
+ * `boardAdmin.ts`, `boardFiles.ts` and `audit.ts`. Co-located until a shared
+ * `lib/requestIp.ts` is introduced.
+ */
+function extractIp(req: Request): string {
+  return (
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.ip ||
+    req.socket.remoteAddress ||
+    'unknown'
+  );
+}
 
 const StageEnum = z.enum(['stopped', 'upcoming', 'preparation', 'execution', 'closing', 'done', 'archived']);
 
@@ -199,12 +214,39 @@ router.post('/cards/auto-move', requireRole('PM'), mutationRateLimiter, async (_
 
 /**
  * DELETE /cards/:id
- * Delete a board card (ADMIN only)
+ * Hard-delete a board card (= the linked project's Planner card).
+ *
+ * Phase 01-01: opened from ADMIN to PM (`requireRole('PM')` — PM and ADMIN
+ * pass via the NORMAL<PM<ADMIN hierarchy; NORMAL still gets 403). Server is
+ * authoritative; the client affordance is advisory.
+ *
+ * The card is pre-fetched so the delete can be written to the audit trail with
+ * the project name. If the card does not exist we 404 BEFORE deleting so the
+ * audit log never records a phantom delete. Cascade (comments/files/
+ * notifications) comes from the schema FKs; the linked Project row and any
+ * referencing Assignment are NOT touched (no schedule data loss).
  */
-router.delete('/cards/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+router.delete('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
+
+    // Pre-fetch to capture projectName for the audit entry and to 404 before
+    // any destructive write if the card is already gone.
+    const existing = await boardService.getCard(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    const projectName = existing.project?.name ?? null;
+
     await boardService.deleteCard(id);
+
+    await logAuditEvent({
+      userId: req.session.userId ?? null,
+      action: 'board.card.delete',
+      ipAddress: extractIp(req),
+      details: { cardId: id, projectName, userId: req.session.userId ?? null },
+    });
+
     res.json({ success: true });
     emitBoardInvalidate('cards');
   } catch (error) {
