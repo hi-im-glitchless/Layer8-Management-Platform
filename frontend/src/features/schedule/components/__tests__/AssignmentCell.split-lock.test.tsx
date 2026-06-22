@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import { DndContext } from '@dnd-kit/core'
 import { AssignmentCell } from '../AssignmentCell'
-import type { Assignment } from '../types'
+import type { Assignment } from '../../types'
 
 /**
  * Build a split (two-project) assignment. `splitProjectColor` is what flips
