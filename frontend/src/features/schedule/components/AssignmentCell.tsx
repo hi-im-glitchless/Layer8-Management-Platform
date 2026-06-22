@@ -233,6 +233,7 @@ function SplitCell({
   isLocked,
   isSelected,
   onCellClick,
+  onLockToggle,
   onStatusCycle,
   handleStatusClick,
 }: {
@@ -245,6 +246,7 @@ function SplitCell({
   isLocked: boolean
   isSelected: boolean
   onCellClick: (e?: React.MouseEvent) => void
+  onLockToggle?: (e: React.MouseEvent) => void
   onStatusCycle?: (assignmentId: string, nextStatus: AssignmentStatus) => void
   handleStatusClick: (e: React.MouseEvent, status: AssignmentStatus, assignmentId: string) => void
 }) {
@@ -258,7 +260,7 @@ function SplitCell({
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className={`h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden relative ${
+            className={`group h-full min-h-[40px] flex flex-row rounded-sm overflow-hidden relative ${
               isClickable ? 'cursor-pointer' : 'opacity-75 ring-1 ring-muted-foreground/30'
             }`}
             onClick={(e) => onCellClick(e)}
@@ -299,11 +301,32 @@ function SplitCell({
                 onStatusCycle(`split:${assignment.id}`, STATUS_CYCLE[nextIdx])
               }}
             />
-            {isLocked && (
-              <div className="absolute top-0.5 right-0.5">
+            <div className="absolute top-0.5 right-0.5">
+              {canEdit && (isLocked ? (
+                <button
+                  className="p-0.5 rounded hover:bg-black/10 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onLockToggle?.(e)
+                  }}
+                >
+                  <Lock className="w-3 h-3 text-muted-foreground" />
+                </button>
+              ) : (
+                <button
+                  className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-black/10 transition-all"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onLockToggle?.(e)
+                  }}
+                >
+                  <Lock className="w-3 h-3 text-muted-foreground" />
+                </button>
+              ))}
+              {!canEdit && isLocked && (
                 <Lock className="w-3 h-3 text-muted-foreground" />
-              </div>
-            )}
+              )}
+            </div>
             {isSelected && (
               <div className="absolute inset-0 bg-blue-500/25 ring-2 ring-blue-500 ring-inset rounded-sm pointer-events-none z-10" />
             )}
@@ -430,6 +453,7 @@ export const AssignmentCell = memo(function AssignmentCell({
         isLocked={isLocked}
         isSelected={isSelected}
         onCellClick={onCellClick}
+        onLockToggle={onLockToggle}
         onStatusCycle={onStatusCycle}
         handleStatusClick={handleStatusClick}
       />
