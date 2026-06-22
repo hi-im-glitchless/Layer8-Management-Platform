@@ -8,6 +8,7 @@ import { COLOR_PALETTE } from '../constants'
 interface ColorPaletteProps {
   selectedColor: string
   onColorSelect: (hex: string) => void
+  disabled?: boolean
 }
 
 // ── Color conversion utilities ──
@@ -164,7 +165,7 @@ function HslPicker({ color, onChange }: { color: string; onChange: (hex: string)
 
 // ── Main ColorPalette component ──
 
-export function ColorPalette({ selectedColor, onColorSelect }: ColorPaletteProps) {
+export function ColorPalette({ selectedColor, onColorSelect, disabled = false }: ColorPaletteProps) {
   const [showCustom, setShowCustom] = useState(false)
   const isPreset = COLOR_PALETTE.some((c) => c.hex === selectedColor)
 
@@ -180,11 +181,12 @@ export function ColorPalette({ selectedColor, onColorSelect }: ColorPaletteProps
                 <TooltipTrigger asChild>
                   <button
                     type="button"
+                    disabled={disabled}
                     className={`w-7 h-7 rounded-md transition-all ${
                       isSelected
                         ? 'ring-2 ring-ring ring-offset-2 ring-offset-background scale-110'
                         : 'hover:scale-105'
-                    }`}
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{ backgroundColor: color.hex }}
                     onClick={() => {
                       onColorSelect(color.hex)
@@ -203,6 +205,7 @@ export function ColorPalette({ selectedColor, onColorSelect }: ColorPaletteProps
           type="button"
           variant="ghost"
           size="sm"
+          disabled={disabled}
           className="w-full text-xs text-muted-foreground"
           onClick={() => setShowCustom(!showCustom)}
         >

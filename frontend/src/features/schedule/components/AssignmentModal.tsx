@@ -24,9 +24,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { ExternalLink, Trash2, Lock, Unlock } from 'lucide-react'
 import { ColorPalette } from './ColorPalette'
-import { useUpsertAssignment, useDeleteAssignment, useClients } from '../hooks'
+import { useUpsertAssignment, useDeleteAssignment, useClients, useToggleLock } from '../hooks'
 import { useBoardCardByProjectId } from '../../board/hooks'
 import { ASSIGNMENT_STATUSES, COLOR_PALETTE } from '../constants'
 import { CreateAssignmentSchema, PREDEFINED_TAGS } from '../types'
@@ -44,10 +44,12 @@ function ClientSelect({
   clientId,
   clients,
   onChange,
+  disabled = false,
 }: {
   clientId: string | null
   clients: Client[]
   onChange: (value: string | null, client?: Client) => void
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -60,7 +62,7 @@ function ClientSelect({
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setTimeout(() => inputRef.current?.focus(), 0) }}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full justify-start font-normal">
+        <Button variant="outline" disabled={disabled} className="w-full justify-start font-normal">
           {selected ? (
             <span className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-sm shrink-0 inline-block" style={{ backgroundColor: selected.color }} />
@@ -116,9 +118,11 @@ function ClientSelect({
 function TagSelector({
   selectedTags,
   onToggle,
+  disabled = false,
 }: {
   selectedTags: string[]
   onToggle: (tag: string) => void
+  disabled?: boolean
 }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -126,12 +130,13 @@ function TagSelector({
         <button
           key={tag}
           type="button"
+          disabled={disabled}
           onClick={() => onToggle(tag)}
           className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
             selectedTags.includes(tag)
               ? 'bg-primary text-primary-foreground border-primary'
               : 'bg-transparent text-muted-foreground border-border hover:border-primary/50'
-          }`}
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {tag}
         </button>
@@ -179,8 +184,14 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
 
   const upsertMutation = useUpsertAssignment()
   const deleteMutation = useDeleteAssignment()
+  const toggleLock = useToggleLock()
   const clientsQuery = useClients()
   const clients = clientsQuery.data?.clients ?? []
+
+  // Read lock state from the prop (server-authoritative). After unlocking,
+  // useToggleLock invalidates ['schedule','assignments'] so the parent
+  // re-passes assignment.isLocked: false — no local lock state needed.
+  const isLocked = isEdit && !!assignment?.isLocked
 
   useEffect(() => {
     if (open) {
@@ -382,7 +393,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
               {/* Client Selection */}
               <div className="space-y-2">
                 <Label>Client</Label>
-                <ClientSelect clientId={clientId} clients={clients} onChange={handleClientChange} />
+                <ClientSelect clientId={clientId} clients={clients} onChange={handleClientChange} disabled={isLocked} />
               </div>
 
               {/* Project Name */}
@@ -393,6 +404,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="Optional — leave blank for client-only"
+                  disabled={isLocked}
                 />
               </div>
 
@@ -400,7 +412,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
               {!clientId && (
                 <div className="space-y-2">
                   <Label>Color</Label>
-                  <ColorPalette selectedColor={projectColor} onColorSelect={setProjectColor} />
+                  <ColorPalette selectedColor={projectColor} onColorSelect={setProjectColor} disabled={isLocked} />
                 </div>
               )}
 
@@ -416,6 +428,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                       size="sm"
                       className="flex-1 text-xs"
                       onClick={() => setStatus(s.value)}
+                      disabled={isLocked}
                     >
                       {s.label}
                     </Button>
@@ -426,7 +439,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
               {/* Tags */}
               <div className="space-y-2">
                 <Label>Tags</Label>
-                <TagSelector selectedTags={selectedTags} onToggle={toggleTag} />
+                <TagSelector selectedTags={selectedTags} onToggle={toggleTag} disabled={isLocked} />
               </div>
             </div>
 
@@ -465,7 +478,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                 {/* Split Client */}
                 <div className="space-y-2">
                   <Label>Client</Label>
-                  <ClientSelect clientId={splitClientId} clients={clients} onChange={handleSplitClientChange} />
+                  <ClientSelect clientId={splitClientId} clients={clients} onChange={handleSplitClientChange} disabled={isLocked} />
                 </div>
 
                 {/* Split Project Name */}
@@ -476,6 +489,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                     value={splitProjectName}
                     onChange={(e) => setSplitProjectName(e.target.value)}
                     placeholder="Optional — leave blank for client-only"
+                    disabled={isLocked}
                   />
                 </div>
 
@@ -486,6 +500,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                     <ColorPalette
                       selectedColor={splitProjectColor}
                       onColorSelect={setSplitProjectColor}
+                      disabled={isLocked}
                     />
                   </div>
                 )}
@@ -502,6 +517,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                         size="sm"
                         className="flex-1 text-xs"
                         onClick={() => setSplitProjectStatus(s.value)}
+                        disabled={isLocked}
                       >
                         {s.label}
                       </Button>
@@ -512,7 +528,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                 {/* Split Tags */}
                 <div className="space-y-2">
                   <Label>Tags</Label>
-                  <TagSelector selectedTags={splitSelectedTags} onToggle={toggleSplitTag} />
+                  <TagSelector selectedTags={splitSelectedTags} onToggle={toggleSplitTag} disabled={isLocked} />
                 </div>
               </div>
             )}
@@ -524,6 +540,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
               id="splitToggle"
               checked={isSplit}
               onCheckedChange={(checked) => setIsSplit(checked === true)}
+              disabled={isLocked}
             />
             <Label htmlFor="splitToggle" className="text-sm font-normal cursor-pointer">
               Split with second project
@@ -542,11 +559,27 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
               variant="destructive"
               size="sm"
               onClick={handleDelete}
-              disabled={deleteMutation.isPending}
+              disabled={deleteMutation.isPending || isLocked}
               className="mr-auto"
             >
               <Trash2 className="w-4 h-4 mr-1" />
               Delete
+            </Button>
+          )}
+          {isEdit && assignment && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => toggleLock.mutate(assignment.id)}
+              disabled={toggleLock.isPending}
+            >
+              {assignment.isLocked ? (
+                <Unlock className="w-4 h-4 mr-1" />
+              ) : (
+                <Lock className="w-4 h-4 mr-1" />
+              )}
+              {assignment.isLocked ? 'Unlock' : 'Lock'}
             </Button>
           )}
           {isEdit && boardCard && (
@@ -566,7 +599,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
           <Button
             type="button"
             onClick={handleSave}
-            disabled={upsertMutation.isPending}
+            disabled={upsertMutation.isPending || isLocked}
           >
             {upsertMutation.isPending ? 'Saving...' : 'Save'}
           </Button>
