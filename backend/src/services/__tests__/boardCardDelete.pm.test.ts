@@ -286,4 +286,167 @@ describe('PM board-card hard-delete — cascade through assignments, audit', () 
       expect(details.userId).toBe(pm.id);
     }
   });
+
+  // (a) MULTI-ASSIGNMENT CASCADE — a card whose Project is shared by TWO
+  // pentesters (one via projectId, one via splitProjectId). The route collects
+  // BOTH linked assignment ids and calls deleteAssignment for each. Removing the
+  // last referencing assignment fires the orphan-guard, which deletes the
+  // Project and cascades the BoardCard away. After the route's loop the Project,
+  // the BoardCard, and ALL linked assignments are gone.
+  it('multi-assignment cascade: deleting all linked assignments for two different pentesters removes every assignment, the Project, and the BoardCard', async () => {
+    const suffix = uniqueSuffix();
+    const client = await seedClient(bag, suffix);
+    const tmA = await seedTeamMember(bag, suffix);
+    const tmB = await seedTeamMember(bag, `${suffix}-b`);
+    const { project, card } = await seedProjectWithCard(bag, client.id, suffix);
+
+    // Pentester A references the Project via the primary projectId.
+    const assignmentA = await withDbRetry(() =>
+      prisma.assignment.create({
+        data: {
+          teamMemberId: tmA.id,
+          projectName: project.name,
+          projectColor: '#abcdef',
+          status: 'confirmed',
+          weekStart: mondayOf(new Date()),
+          clientId: client.id,
+          projectId: project.id,
+        },
+      }),
+    );
+    bag.assignmentIds.push(assignmentA.id);
+
+    // Pentester B references the SAME Project via the split half (splitProjectId)
+    // in a different week, so the project has two distinct referencing rows.
+    const weekB = mondayOf(new Date());
+    weekB.setUTCDate(weekB.getUTCDate() + 7);
+    const assignmentB = await withDbRetry(() =>
+      prisma.assignment.create({
+        data: {
+          teamMemberId: tmB.id,
+          projectName: project.name,
+          projectColor: '#abcdef',
+          status: 'confirmed',
+          weekStart: weekB,
+          clientId: client.id,
+          splitProjectName: project.name,
+          splitProjectColor: '#abcdef',
+          splitClientId: client.id,
+          splitProjectId: project.id,
+        },
+      }),
+    );
+    bag.assignmentIds.push(assignmentB.id);
+
+    // Exercise the route's cascade mechanism: collect every linked assignment id
+    // (primary projectId + split splitProjectId) and deleteAssignment per id.
+    const linkedIds = [assignmentA.id, assignmentB.id];
+    for (const aid of linkedIds) {
+      const result = await withDbRetry(() => deleteAssignment(aid));
+      expect(result.orphanCleanupFailed).toBe(false);
+    }
+
+    // ALL linked assignments gone, Project gone (orphan-guard on the last one),
+    // and the BoardCard cascaded away with the Project.
+    expect(await prisma.assignment.findUnique({ where: { id: assignmentA.id } })).toBeNull();
+    expect(await prisma.assignment.findUnique({ where: { id: assignmentB.id } })).toBeNull();
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).toBeNull();
+    expect(await prisma.boardCard.findUnique({ where: { id: card.id } })).toBeNull();
+  });
+
+  // (b) SCOPED SINGLE-ASSIGNMENT DELETE — proves the round-01 multi-pentester
+  // safety holds. Two pentesters share a Project; deleting ONLY one assignment
+  // leaves a remaining referencing assignment, so the orphan-guard does NOT
+  // fire: the OTHER pentester's Assignment, the Project, and the BoardCard all
+  // survive.
+  it('scoped single-assignment delete: removing one pentester leaves the other pentester assignment, the Project, and the BoardCard intact (multi-pentester safety)', async () => {
+    const suffix = uniqueSuffix();
+    const client = await seedClient(bag, suffix);
+    const tmA = await seedTeamMember(bag, suffix);
+    const tmB = await seedTeamMember(bag, `${suffix}-b`);
+    const { project, card } = await seedProjectWithCard(bag, client.id, suffix);
+
+    const weekStart = mondayOf(new Date());
+    const assignmentA = await withDbRetry(() =>
+      prisma.assignment.create({
+        data: {
+          teamMemberId: tmA.id,
+          projectName: project.name,
+          projectColor: '#abcdef',
+          status: 'confirmed',
+          weekStart,
+          clientId: client.id,
+          projectId: project.id,
+        },
+      }),
+    );
+    bag.assignmentIds.push(assignmentA.id);
+
+    const weekB = mondayOf(new Date());
+    weekB.setUTCDate(weekB.getUTCDate() + 7);
+    const assignmentB = await withDbRetry(() =>
+      prisma.assignment.create({
+        data: {
+          teamMemberId: tmB.id,
+          projectName: project.name,
+          projectColor: '#abcdef',
+          status: 'confirmed',
+          weekStart: weekB,
+          clientId: client.id,
+          projectId: project.id,
+        },
+      }),
+    );
+    bag.assignmentIds.push(assignmentB.id);
+
+    // Delete ONLY pentester A's assignment. A still references the project, so
+    // the orphan-guard must NOT delete the Project or the card.
+    const result = await withDbRetry(() => deleteAssignment(assignmentA.id));
+    expect(result.orphanCleanupFailed).toBe(false);
+
+    expect(await prisma.assignment.findUnique({ where: { id: assignmentA.id } })).toBeNull();
+    // The OTHER pentester's assignment is different and still exists.
+    const survivor = await prisma.assignment.findUnique({ where: { id: assignmentB.id } });
+    expect(survivor).not.toBeNull();
+    expect(survivor?.teamMemberId).toBe(tmB.id);
+    // Project + BoardCard still exist — untouched by the scoped single delete.
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).not.toBeNull();
+    expect(await prisma.boardCard.findUnique({ where: { id: card.id } })).not.toBeNull();
+  });
+
+  // (c) LOCKED LINKED ASSIGNMENT — the route's all-or-nothing 409 pre-check.
+  // deleteAssignment on a locked id throws ("locked") and leaves the DB
+  // untouched: the Assignment, Project, and BoardCard all still exist. This
+  // mirrors the route rejecting with 409 BEFORE the first destructive write.
+  it('locked linked assignment: deleteAssignment throws "locked" and leaves the Assignment, Project, and BoardCard intact (all-or-nothing 409 pre-check)', async () => {
+    const suffix = uniqueSuffix();
+    const client = await seedClient(bag, suffix);
+    const tm = await seedTeamMember(bag, suffix);
+    const { project, card } = await seedProjectWithCard(bag, client.id, suffix);
+
+    const locked = await withDbRetry(() =>
+      prisma.assignment.create({
+        data: {
+          teamMemberId: tm.id,
+          projectName: project.name,
+          projectColor: '#abcdef',
+          status: 'confirmed',
+          weekStart: mondayOf(new Date()),
+          clientId: client.id,
+          projectId: project.id,
+          isLocked: true,
+        },
+      }),
+    );
+    bag.assignmentIds.push(locked.id);
+
+    // The lock policy holds: deleting a locked assignment throws with a message
+    // that mentions the lock.
+    await expect(withDbRetry(() => deleteAssignment(locked.id))).rejects.toThrow(/locked/i);
+
+    // NOTHING was deleted — Assignment, Project, and BoardCard all still exist.
+    expect(await prisma.assignment.findUnique({ where: { id: locked.id } })).not.toBeNull();
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).not.toBeNull();
+    expect(await prisma.boardCard.findUnique({ where: { id: card.id } })).not.toBeNull();
+  });
 });
