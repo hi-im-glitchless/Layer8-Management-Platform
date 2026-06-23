@@ -1,11 +1,13 @@
 import { Router, Request } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { prisma } from '@/db/prisma.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { readRateLimiter, mutationRateLimiter } from '../middleware/rateLimit.js';
 import * as boardService from '../services/boardService.js';
+import * as assignmentService from '../services/assignmentService.js';
 import { logAuditEvent } from '../services/audit.js';
-import { emitBoardInvalidate } from '../services/socketService.js';
+import { emitBoardInvalidate, emitScheduleInvalidate } from '../services/socketService.js';
 import filesRouter from './boardFiles.js';
 import commentsRouter from './boardComments.js';
 import notesRouter from './boardNotes.js';
@@ -222,9 +224,17 @@ router.post('/cards/auto-move', requireRole('PM'), mutationRateLimiter, async (_
  *
  * The card is pre-fetched so the delete can be written to the audit trail with
  * the project name. If the card does not exist we 404 BEFORE deleting so the
- * audit log never records a phantom delete. Cascade (comments/files/
- * notifications) comes from the schema FKs; the linked Project row and any
- * referencing Assignment are NOT touched (no schedule data loss).
+ * audit log never records a phantom delete.
+ *
+ * Phase 01 (UAT R02): the card delete now CASCADES to the schedule. It deletes
+ * EVERY Assignment row linked to the card's Project (primary + split, all
+ * pentesters) via assignmentService.deleteAssignment, which reuses the
+ * lock-check and the last-assignment orphan-guard; deleting the project's last
+ * assignment removes the orphaned Project and cascades the BoardCard away. A
+ * zero-assignment card falls back to boardService.deleteCard. The delete is
+ * all-or-nothing: if ANY linked assignment is locked we reject with 409 and
+ * delete NOTHING (no Assignment, no Project, no BoardCard). Both the board and
+ * the schedule caches are invalidated on success.
  */
 router.delete('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
@@ -238,7 +248,40 @@ router.delete('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, 
     }
     const projectName = existing.project?.name ?? null;
 
-    await boardService.deleteCard(id);
+    // Collect the distinct linked assignment ids. A split half can surface once
+    // per project view, so de-dup via a Set.
+    const assignmentIds = [
+      ...new Set(existing.assignments.map((a) => a.assignmentId)),
+    ];
+
+    // PRE-CHECK LOCKS (all-or-nothing): the shaped assignment objects do not
+    // expose isLocked, so fetch the lock state cheaply. If ANY linked
+    // assignment is locked, reject with 409 BEFORE the first destructive write.
+    if (assignmentIds.length > 0) {
+      const lockStates = await prisma.assignment.findMany({
+        where: { id: { in: assignmentIds } },
+        select: { id: true, isLocked: true },
+      });
+      if (lockStates.some((a) => a.isLocked)) {
+        return res.status(409).json({
+          error: 'Cannot delete a locked assignment. Unlock it first.',
+        });
+      }
+    }
+
+    // Delete every linked assignment. assignmentService.deleteAssignment reuses
+    // the lock-check + orphan-guard; deleting the project's last assignment
+    // removes the orphaned Project and cascades the BoardCard away.
+    for (const assignmentId of assignmentIds) {
+      await assignmentService.deleteAssignment(assignmentId);
+    }
+
+    // Fall back for a zero-assignment card (no linked assignments means the
+    // orphan-guard never ran, so the card still exists).
+    const stillExists = await boardService.getCard(id);
+    if (stillExists) {
+      await boardService.deleteCard(id);
+    }
 
     await logAuditEvent({
       userId: req.session.userId ?? null,
@@ -249,9 +292,13 @@ router.delete('/cards/:id', requireRole('PM'), mutationRateLimiter, async (req, 
 
     res.json({ success: true });
     emitBoardInvalidate('cards');
+    emitScheduleInvalidate('assignments');
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return res.status(404).json({ error: 'Card not found' });
+    }
+    if (error instanceof Error && error.message.includes('locked')) {
+      return res.status(409).json({ error: error.message });
     }
     console.error('[board routes] Error deleting card:', error);
     res.status(500).json({ error: 'Failed to delete card' });
