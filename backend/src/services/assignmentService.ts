@@ -376,10 +376,14 @@ export async function deleteAssignment(id: string) {
   //     zero and would wrongly delete a still-active card.
   // BEST-EFFORT / NON-FATAL: wrapped in try/catch (mirroring
   // linkProjectsForAssignment) so a board-side failure never rolls back the
-  // schedule delete — deleteAssignment still returns the deleted row.
+  // schedule delete — deleteAssignment still returns { deleted, orphanCleanupFailed }.
+  // The assignment row is always deleted; orphanCleanupFailed flips to true only
+  // when the best-effort orphan delete throws, so the caller can surface a
+  // warning instead of reporting a fully-successful delete (UAT R01 b3 fix).
   // SCHEDULE ISOLATION: the only writes here are to board-domain rows (Project
   // + cascaded BoardCard/comments/files/notifications); no
   // Assignment/TeamMember/Absence/Holiday write.
+  let orphanCleanupFailed = false;
   try {
     // De-dup the projectId === splitProjectId case (same project both halves)
     // so the count/delete runs once per distinct project id.
@@ -404,9 +408,10 @@ export async function deleteAssignment(id: string) {
     }
   } catch (err) {
     console.error('[assignmentService] Failed to delete orphaned project after delete:', err);
+    orphanCleanupFailed = true;
   }
 
-  return deleted;
+  return { deleted, orphanCleanupFailed };
 }
 
 /**
