@@ -65,6 +65,7 @@ export function useDeleteCard() {
     mutationFn: (id: string) => boardApi.deleteCard(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['board', 'cards'] })
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to delete card'),
   })
