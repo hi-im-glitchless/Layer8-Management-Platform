@@ -701,6 +701,7 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
         <DeleteCardDialog
           cardId={card.id}
           projectName={project.name || '(No project)'}
+          assignmentCount={assignments.length}
           open={deleteOpen}
           onOpenChange={setDeleteOpen}
           onDeleted={() => onOpenChange(false)}

@@ -16,16 +16,24 @@ interface DeleteCardDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDeleted?: () => void
+  /**
+   * Number of schedule assignments linked to this card's project. Surfaced in
+   * the warning copy so the user knows exactly how many assignments the delete
+   * will remove. Optional: when omitted the copy falls back to a count-free
+   * warning that still states all linked assignments are removed.
+   */
+  assignmentCount?: number
 }
 
 /**
  * Hard-delete confirmation for a Planner card (= the linked project).
  *
  * Distinct from ArchiveCardDialog: this PERMANENTLY removes the card and its
- * comments/notes/files (schema cascade). The linked schedule assignments are
- * left intact. Mirrors the AlertDialog pattern in ArchiveCardDialog; never uses
- * native confirm(). Server authorizes via requireRole('PM') — this affordance
- * is advisory.
+ * comments/notes/files (schema cascade) AND every schedule assignment linked to
+ * the project, for all pentesters. The warning surfaces the linked-assignment
+ * count so the user knows the scope before confirming. Mirrors the AlertDialog
+ * pattern in ArchiveCardDialog; never uses native confirm(). Server authorizes
+ * via requireRole('PM') — this affordance is advisory.
  */
 export function DeleteCardDialog({
   cardId,
@@ -33,6 +41,7 @@ export function DeleteCardDialog({
   open,
   onOpenChange,
   onDeleted,
+  assignmentCount,
 }: DeleteCardDialogProps) {
   const deleteCard = useDeleteCard()
 
@@ -55,9 +64,21 @@ export function DeleteCardDialog({
             Permanently delete &ldquo;{projectName}&rdquo;?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes the card and all attached comments, notes,
-            and files. The linked schedule assignments are not affected. This
-            cannot be undone.
+            {typeof assignmentCount === 'number' ? (
+              <>
+                This permanently deletes the card, the project, and its{' '}
+                {assignmentCount} schedule assignment
+                {assignmentCount === 1 ? '' : 's'} (for all pentesters), along
+                with all attached comments, notes, and files. This cannot be
+                undone.
+              </>
+            ) : (
+              <>
+                This permanently deletes the card, the project, and all its
+                linked schedule assignments (for all pentesters), along with all
+                attached comments, notes, and files. This cannot be undone.
+              </>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
