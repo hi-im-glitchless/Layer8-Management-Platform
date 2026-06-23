@@ -554,17 +554,34 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
 
         <DialogFooter className="gap-2">
           {isEdit && (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={handleDelete}
-              disabled={deleteMutation.isPending || isLocked}
-              className="mr-auto"
-            >
-              <Trash2 className="w-4 h-4 mr-1" />
-              Delete
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={deleteMutation.isPending || isLocked}
+                  className="mr-auto"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this assignment?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This removes the schedule entry. The project&apos;s Board card is only
+                    removed when this is the project&apos;s last assignment — if other
+                    assignments remain, the card stays on the Board.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
           {isEdit && assignment && (
             <Button
