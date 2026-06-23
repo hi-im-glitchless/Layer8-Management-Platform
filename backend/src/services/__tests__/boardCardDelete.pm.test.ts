@@ -1,26 +1,30 @@
 /**
- * PM board-card hard-delete — Phase 01-01.
+ * PM board-card hard-delete — Phase 01-01 (UAT R02: cascade to schedule).
  *
- * The DELETE /api/board/cards/:id route (now requireRole('PM')) performs a
- * bare boardService.deleteCard(id) followed by a board.card.delete audit entry.
+ * The DELETE /api/board/cards/:id route (now requireRole('PM')) no longer does a
+ * bare boardService.deleteCard. It collects the card's linked assignment ids and
+ * calls assignmentService.deleteAssignment(id) for each, reusing the lock-check +
+ * last-assignment orphan-guard. When the project's last assignment is removed the
+ * orphan-guard deletes the Project, which cascades the BoardCard (and its
+ * children) away. The route then writes a board.card.delete audit entry.
+ *
  * This suite exercises that audited delete the same way the route does
- * (deleteCard + logAuditEvent) and proves the invariants:
+ * (deleteAssignment per linked id + logAuditEvent) and proves the NEW invariants:
  *
- *  (a) CASCADE: deleting the BoardCard removes the card AND its BoardComment /
- *      BoardFile / BoardNotification children (schema onDelete: Cascade).
- *  (b) PROJECT SURVIVAL: the linked Project row is NOT deleted (the card→project
- *      FK is many-to-one; the cascade arrow points project→card, not the
- *      reverse) — no schedule data loss.
- *  (c) ASSIGNMENT SURVIVAL: an Assignment referencing the project via projectId
- *      / splitProjectId is left intact with its FKs unchanged.
- *  (d) AUDIT: a board.card.delete AuditLog row exists referencing the deleted
+ *  (a) CASCADE: deleting the project's only linked Assignment fires the
+ *      orphan-guard, which deletes the Project and cascades the BoardCard AND its
+ *      BoardComment / BoardFile / BoardNotification children (schema
+ *      onDelete: Cascade). After the delete the project, card, and children are
+ *      all gone — the schedule no longer shows the project.
+ *  (b) AUDIT: a board.card.delete AuditLog row exists referencing the deleted
  *      cardId and the acting userId.
  *
  * Schedule isolation (NON-NEGOTIABLE): this suite seeds only the rows it needs
  * (User, Client, Project, BoardCard, BoardComment, BoardFile, BoardNotification,
  * TeamMember, Assignment) and the subject under test writes ONLY board-domain
- * rows + the audit entry; it never mutates Absence/Holiday. All assertions are
- * scoped to seeded ids so the suite is parallel-safe.
+ * rows (Project + cascaded card subtree) + the audit entry; it never mutates
+ * Absence/Holiday. All assertions are scoped to seeded ids so the suite is
+ * parallel-safe.
  *
  * Tests run against the dev DB per vitest.config.ts. Cleanup runs in afterEach
  * (each delete scoped to seeded ids, wrapped in .catch) so a mid-test failure
@@ -29,7 +33,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { prisma } from '../../db/prisma.js';
-import { deleteCard } from '../boardService.js';
+import { deleteAssignment } from '../assignmentService.js';
 import { logAuditEvent } from '../audit.js';
 
 function uniqueSuffix(): string {
@@ -179,7 +183,7 @@ async function seedProjectWithCard(bag: SeedBag, clientId: string, suffix: strin
   return { project, card };
 }
 
-describe('PM board-card hard-delete — cascade, survival, audit', () => {
+describe('PM board-card hard-delete — cascade through assignments, audit', () => {
   let bag = newBag();
 
   afterEach(async () => {
@@ -187,14 +191,14 @@ describe('PM board-card hard-delete — cascade, survival, audit', () => {
     bag = newBag();
   });
 
-  it('cascades to comments/files/notifications, preserves Project + Assignment, and writes a board.card.delete audit entry', async () => {
+  it('deleting the only linked assignment cascades the Project, BoardCard, and its comments/files/notifications away, and writes a board.card.delete audit entry', async () => {
     const suffix = uniqueSuffix();
     const pm = await seedUser(bag, suffix);
     const client = await seedClient(bag, suffix);
     const tm = await seedTeamMember(bag, suffix);
     const { project, card } = await seedProjectWithCard(bag, client.id, suffix);
 
-    // Card children that must cascade away.
+    // Card children that must cascade away when the card is deleted.
     const comment = await withDbRetry(() =>
       prisma.boardComment.create({
         data: { cardId: card.id, body: 'cascade comment', authorId: null },
@@ -225,8 +229,8 @@ describe('PM board-card hard-delete — cascade, survival, audit', () => {
     );
     bag.notificationIds.push(notification.id);
 
-    // Assignment referencing the project via projectId (and splitProjectId) —
-    // must survive the card delete with its FKs intact.
+    // The project's ONLY linked assignment. Deleting it leaves the project with
+    // zero referencing assignments, firing the orphan-guard.
     const assignment = await withDbRetry(() =>
       prisma.assignment.create({
         data: {
@@ -242,9 +246,13 @@ describe('PM board-card hard-delete — cascade, survival, audit', () => {
     );
     bag.assignmentIds.push(assignment.id);
 
-    // Exercise the audited delete exactly as the route does: bare deleteCard +
-    // a board.card.delete audit entry carrying cardId + acting userId.
-    await withDbRetry(() => deleteCard(card.id));
+    // Exercise the audited delete exactly as the route does: collect the card's
+    // linked assignment ids and call deleteAssignment for each (the route's
+    // cascade mechanism), then write a board.card.delete audit entry carrying
+    // cardId + acting userId. The last-assignment orphan-guard inside
+    // deleteAssignment deletes the Project, which cascades the BoardCard away.
+    const result = await withDbRetry(() => deleteAssignment(assignment.id));
+    expect(result.orphanCleanupFailed).toBe(false);
     await withDbRetry(() =>
       logAuditEvent({
         userId: pm.id,
@@ -254,7 +262,10 @@ describe('PM board-card hard-delete — cascade, survival, audit', () => {
       }),
     );
 
-    // (a) CASCADE — card + children gone.
+    // (a) CASCADE — the linked assignment is gone, the orphan-guard deleted the
+    // Project, and the BoardCard + its comments/files/notifications cascaded away.
+    expect(await prisma.assignment.findUnique({ where: { id: assignment.id } })).toBeNull();
+    expect(await prisma.project.findUnique({ where: { id: project.id } })).toBeNull();
     expect(await prisma.boardCard.findUnique({ where: { id: card.id } })).toBeNull();
     expect(await prisma.boardComment.findUnique({ where: { id: comment.id } })).toBeNull();
     expect(await prisma.boardFile.findUnique({ where: { id: file.id } })).toBeNull();
@@ -262,17 +273,7 @@ describe('PM board-card hard-delete — cascade, survival, audit', () => {
       await prisma.boardNotification.findUnique({ where: { id: notification.id } }),
     ).toBeNull();
 
-    // (b) PROJECT SURVIVAL — linked Project row untouched.
-    expect(await prisma.project.findUnique({ where: { id: project.id } })).not.toBeNull();
-
-    // (c) ASSIGNMENT SURVIVAL — assignment + projectId FK intact.
-    const afterAssignment = await prisma.assignment.findUnique({
-      where: { id: assignment.id },
-    });
-    expect(afterAssignment).not.toBeNull();
-    expect(afterAssignment?.projectId).toBe(project.id);
-
-    // (d) AUDIT — board.card.delete entry referencing the deleted card + actor.
+    // (b) AUDIT — board.card.delete entry referencing the deleted card + actor.
     const audit = await prisma.auditLog.findFirst({
       where: { action: 'board.card.delete', userId: pm.id },
       orderBy: { createdAt: 'desc' },
