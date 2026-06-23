@@ -333,8 +333,8 @@ router.put('/assignments/:id', requireRole('PM'), mutationRateLimiter, async (re
 router.delete('/assignments/:id', requireRole('PM'), mutationRateLimiter, async (req, res) => {
   try {
     const id = req.params.id as string;
-    await assignmentService.deleteAssignment(id);
-    res.json({ success: true });
+    const { orphanCleanupFailed } = await assignmentService.deleteAssignment(id);
+    res.json({ success: true, orphanCleanupFailed });
     emitScheduleInvalidate('assignments');
     // Phase 09 (UAT R01): deleting the last assignment for a project fully
     // deletes that orphaned Project + its cascaded BoardCard (see
