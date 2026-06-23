@@ -156,12 +156,21 @@ export function useDeleteAssignment() {
 
   return useMutation({
     mutationFn: (id: string) => scheduleApi.deleteAssignment(id),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
       // Phase 09: deleting the last assignment for a project moves its Planner
       // card to 'stopped' on the backend, so the board cache must refetch —
       // mirror the invalidation already wired in useUpsertAssignment/useUpdateAssignment.
       queryClient.invalidateQueries({ queryKey: ['board', 'cards'] })
+      // UAT R01 (b3): the orphan-cleanup of a last-assignment delete is
+      // best-effort and non-fatal. When the backend reports it failed, the
+      // Project/Board card survived even though the assignment was deleted —
+      // warn the user instead of letting the failure pass silently.
+      if (data?.orphanCleanupFailed) {
+        toast.warning(
+          'Assignment deleted, but the project/board card could not be cleaned up — please retry or remove it from the Board.',
+        )
+      }
     },
     onError: (error: Error) => handleMutationError(error, 'Failed to delete assignment'),
   })

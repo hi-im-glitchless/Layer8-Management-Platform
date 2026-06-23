@@ -95,9 +95,12 @@ export const scheduleApi = {
   },
 
   async deleteAssignment(id: string) {
-    return apiClient<{ success: boolean }>(`/api/schedule/assignments/${id}`, {
-      method: 'DELETE',
-    })
+    return apiClient<{ success: boolean; orphanCleanupFailed?: boolean }>(
+      `/api/schedule/assignments/${id}`,
+      {
+        method: 'DELETE',
+      },
+    )
   },
 
   async swapAssignments(idA: string, idB: string) {
