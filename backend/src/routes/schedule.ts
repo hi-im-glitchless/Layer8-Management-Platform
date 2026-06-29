@@ -400,6 +400,38 @@ router.get('/absences', requireAuth, readRateLimiter, async (req, res) => {
 });
 
 /**
+ * GET /absences/out-today
+ * Flat, name-resolved list of who is absent on a given UTC date (defaults to
+ * today). Read access mirrors GET /absences — open to all authenticated users,
+ * no PM elevation. NOTE: this route MUST stay registered before any future
+ * GET /absences/:id so Express does not treat "out-today" as an :id param.
+ */
+router.get('/absences/out-today', requireAuth, readRateLimiter, async (req, res) => {
+  try {
+    const schema = z.object({
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    });
+    const params = schema.parse(req.query);
+
+    // If a date is provided, anchor it to UTC midnight; otherwise let the
+    // service default to today (UTC). Echo back the resolved UTC YYYY-MM-DD.
+    const targetDate = params.date
+      ? new Date(`${params.date}T00:00:00.000Z`)
+      : undefined;
+    const resolvedDate = (targetDate ?? new Date()).toISOString().slice(0, 10);
+
+    const absences = await absenceService.getAbsencesOnDate(targetDate);
+    res.json({ date: resolvedDate, absences });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    console.error('[schedule routes] Error listing out-today absences:', error);
+    res.status(500).json({ error: 'Failed to list out-today absences' });
+  }
+});
+
+/**
  * POST /absences/toggle
  * Toggle an absence (create if missing, delete if exists) (PM+)
  */
