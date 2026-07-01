@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 
-import { resolveAuthRateLimitMax } from '../rateLimit';
+import { resolveAuthRateLimitMax } from '../rateLimit.js';
 
 describe('resolveAuthRateLimitMax', () => {
   it('relaxes to a high ceiling (1000) in development so onboarding never 429s', () => {
