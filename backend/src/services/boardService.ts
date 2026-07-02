@@ -1,7 +1,7 @@
 import { prisma } from '@/db/prisma.js';
 import { parseTags } from './projectService.js';
 
-interface ChecklistItem {
+export interface ChecklistItem {
   label: string;
   checked: boolean;
   order: number;
@@ -16,6 +16,58 @@ export const DEFAULT_CHECKLIST: ChecklistItem[] = [
   { label: 'Delivery', checked: false, order: 5 },
   { label: "Report is on client's share", checked: false, order: 6 },
 ];
+
+/**
+ * Phase 03-01: label of the standard "Report is on client's share" checklist
+ * item. Defined here (not only inside DEFAULT_CHECKLIST) so the one-off backfill
+ * script and its unit test can share the exact-label idempotency key.
+ */
+export const NEW_ITEM_LABEL = "Report is on client's share";
+
+/**
+ * Pure transform for the Phase 03-01 checklist backfill (append the
+ * "Report is on client's share" item to an existing card's checklist).
+ *
+ * Lives in the service layer — not inside the `backend/scripts/*` one-off —
+ * because the repo's tsconfig `rootDir` is `src`, so a `src/**` test may not
+ * import a file under `scripts/` (TS6059). The backfill script imports and
+ * re-exports this function and drives it over every BoardCard in its `main()`;
+ * the unit test imports it directly (no DB, no `main()` side effects).
+ *
+ * - Parses `rawChecklistJson`; if the parse throws or the result is not an
+ *   array, the checklist is treated as `[]`.
+ * - If an item with `label === NEW_ITEM_LABEL` already exists, returns the
+ *   parsed items unchanged with `changed: false` (idempotent, exact-label
+ *   match, case- and whitespace-sensitive).
+ * - Otherwise appends the item at `max(order) + 1` (or `0` for an empty list)
+ *   and returns `changed: true`.
+ */
+export function backfillChecklist(rawChecklistJson: string): {
+  checklist: ChecklistItem[];
+  changed: boolean;
+} {
+  let items: ChecklistItem[];
+  try {
+    const parsed = JSON.parse(rawChecklistJson) as unknown;
+    items = Array.isArray(parsed) ? (parsed as ChecklistItem[]) : [];
+  } catch {
+    // Malformed JSON-in-TEXT — treat as empty rather than crash the run.
+    items = [];
+  }
+
+  if (items.some((i) => i.label === NEW_ITEM_LABEL)) {
+    return { checklist: items, changed: false };
+  }
+
+  const nextOrder = items.length
+    ? Math.max(...items.map((i) => i.order)) + 1
+    : 0;
+  const next = [
+    ...items,
+    { label: NEW_ITEM_LABEL, checked: false, order: nextOrder },
+  ];
+  return { checklist: next, changed: true };
+}
 
 /**
  * Parse JSON-stringified checklist back to array for API responses.
