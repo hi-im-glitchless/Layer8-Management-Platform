@@ -3,6 +3,7 @@ import type {
   TeamMember,
   Assignment,
   Absence,
+  AbsencesOutTodayResponse,
   Holiday,
   ProjectColor,
   Client,
@@ -127,6 +128,15 @@ export const scheduleApi = {
     const qs = searchParams.toString()
     return apiClient<{ absences: Absence[] }>(
       `/api/schedule/absences${qs ? `?${qs}` : ''}`
+    )
+  },
+
+  async getAbsencesOutToday(params?: { date?: string }) {
+    const searchParams = new URLSearchParams()
+    if (params?.date) searchParams.set('date', params.date)
+    const qs = searchParams.toString()
+    return apiClient<AbsencesOutTodayResponse>(
+      `/api/schedule/absences/out-today${qs ? `?${qs}` : ''}`
     )
   },
 
