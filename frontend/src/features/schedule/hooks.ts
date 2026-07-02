@@ -210,6 +210,13 @@ export function useAbsences(params: { teamMemberId?: string; dateStart?: string;
   })
 }
 
+export function useAbsencesOutToday(date?: string) {
+  return useQuery({
+    queryKey: ['schedule', 'absences', 'out-today', date],
+    queryFn: () => scheduleApi.getAbsencesOutToday(date ? { date } : undefined),
+  })
+}
+
 export function useToggleAbsence() {
   const queryClient = useQueryClient()
 
