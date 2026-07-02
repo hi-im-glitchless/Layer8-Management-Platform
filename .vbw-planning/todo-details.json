@@ -395,6 +395,367 @@
         "disposition": "accepted-process-exception",
         "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
       }
+    },
+    "7d845210": {
+      "summary": "eslint prefer-const (frontend/src/features/schedule/components/ColorPalette.tsx:31-33): 'r'/'g'/'b' are never reassigned, use const — pre-existing in hexToHsl (autho...",
+      "context": "Known issue from phase 01. Test: eslint prefer-const. File: frontend/src/features/schedule/components/ColorPalette.tsx:31-33. Error: 'r'/'g'/'b' are never reassigned, use const — pre-existing in hexToHsl (authored 2026-03-25, commit 16b0c336); unrelated to the disabled prop added in plan 01-02. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "frontend/src/features/schedule/components/ColorPalette.tsx:31-33"
+      ],
+      "added": "2026-06-23",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-pm-project-delete-and-lock",
+        "test": "eslint prefer-const",
+        "file": "frontend/src/features/schedule/components/ColorPalette.tsx:31-33",
+        "error": "'r'/'g'/'b' are never reassigned, use const — pre-existing in hexToHsl (authored 2026-03-25, commit 16b0c336); unrelated to the disabled prop added in plan 01-02",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    },
+    "c3c63987": {
+      "summary": "eslint react-hooks/set-state-in-effect (frontend/src/features/schedule/components/AssignmentModal.tsx:199): Avoid calling setState() directly within an effect — pre-existing open-reset ...",
+      "context": "Known issue from phase 01. Test: eslint react-hooks/set-state-in-effect. File: frontend/src/features/schedule/components/AssignmentModal.tsx:199. Error: Avoid calling setState() directly within an effect — pre-existing open-reset useEffect (authored 2026-03-18, commit 6d0b71ff); not in any line changed in plan 01-02. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/features/schedule/components/AssignmentModal.tsx:199"
+      ],
+      "added": "2026-06-23",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-pm-project-delete-and-lock",
+        "test": "eslint react-hooks/set-state-in-effect",
+        "file": "frontend/src/features/schedule/components/AssignmentModal.tsx:199",
+        "error": "Avoid calling setState() directly within an effect — pre-existing open-reset useEffect (authored 2026-03-18, commit 6d0b71ff); not in any line changed in plan 01-02",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "31a14629": {
+      "summary": "eslint prefer-const (frontend/src/features/schedule/components/ColorPalette.tsx:31-33): 'r'/'g'/'b' are never reassigned, use const — pre-existing in hexToHsl author...",
+      "context": "Known issue from phase 01. Test: eslint prefer-const. File: frontend/src/features/schedule/components/ColorPalette.tsx:31-33. Error: 'r'/'g'/'b' are never reassigned, use const — pre-existing in hexToHsl authored 2026-03-25 (commit 16b0c336); unrelated to the disabled prop added in plan 01-02. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "frontend/src/features/schedule/components/ColorPalette.tsx:31-33"
+      ],
+      "added": "2026-06-23",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-pm-project-delete-and-lock",
+        "test": "eslint prefer-const",
+        "file": "frontend/src/features/schedule/components/ColorPalette.tsx:31-33",
+        "error": "'r'/'g'/'b' are never reassigned, use const — pre-existing in hexToHsl authored 2026-03-25 (commit 16b0c336); unrelated to the disabled prop added in plan 01-02",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    },
+    "ae4b2d6a": {
+      "summary": "eslint react-hooks/set-state-in-effect (frontend/src/features/schedule/components/AssignmentModal.tsx:199): Avoid calling setState() directly within an effect — pre-existing open-reset ...",
+      "context": "Known issue from phase 01. Test: eslint react-hooks/set-state-in-effect. File: frontend/src/features/schedule/components/AssignmentModal.tsx:199. Error: Avoid calling setState() directly within an effect — pre-existing open-reset useEffect authored 2026-03-18 (commit 6d0b71ff); not in any line changed in plan 01-02. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/features/schedule/components/AssignmentModal.tsx:199"
+      ],
+      "added": "2026-06-23",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-pm-project-delete-and-lock",
+        "test": "eslint react-hooks/set-state-in-effect",
+        "file": "frontend/src/features/schedule/components/AssignmentModal.tsx:199",
+        "error": "Avoid calling setState() directly within an effect — pre-existing open-reset useEffect authored 2026-03-18 (commit 6d0b71ff); not in any line changed in plan 01-02",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "2a104aa4": {
+      "summary": "eslint prefer-const (frontend/src/features/schedule/components/ColorPalette.tsx:31-33): ''r''/''g''/''b'' are never reassigned, use const — pre-existing in hexToHsl ...",
+      "context": "Known issue from phase 01. Test: eslint prefer-const. File: frontend/src/features/schedule/components/ColorPalette.tsx:31-33. Error: ''r''/''g''/''b'' are never reassigned, use const — pre-existing in hexToHsl (authored 2026-03-25, commit 16b0c336); unrelated to the disabled prop added in plan 01-02. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/features/schedule/components/ColorPalette.tsx:31-33"
+      ],
+      "added": "2026-06-23",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-pm-project-delete-and-lock",
+        "test": "eslint prefer-const",
+        "file": "frontend/src/features/schedule/components/ColorPalette.tsx:31-33",
+        "error": "''r''/''g''/''b'' are never reassigned, use const — pre-existing in hexToHsl (authored 2026-03-25, commit 16b0c336); unrelated to the disabled prop added in plan 01-02",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "62821002": {
+      "summary": "eslint prefer-const (frontend/src/features/schedule/components/ColorPalette.tsx:31-33): ''r''/''g''/''b'' are never reassigned, use const — pre-existing in hexToHsl ...",
+      "context": "Known issue from phase 01. Test: eslint prefer-const. File: frontend/src/features/schedule/components/ColorPalette.tsx:31-33. Error: ''r''/''g''/''b'' are never reassigned, use const — pre-existing in hexToHsl authored 2026-03-25 (commit 16b0c336); unrelated to the disabled prop added in plan 01-02. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/features/schedule/components/ColorPalette.tsx:31-33"
+      ],
+      "added": "2026-06-23",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-pm-project-delete-and-lock",
+        "test": "eslint prefer-const",
+        "file": "frontend/src/features/schedule/components/ColorPalette.tsx:31-33",
+        "error": "''r''/''g''/''b'' are never reassigned, use const — pre-existing in hexToHsl authored 2026-03-25 (commit 16b0c336); unrelated to the disabled prop added in plan 01-02",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "7aa7eeb0": {
+      "summary": "tsc --noEmit (typecheck) (backend/src/middleware/__tests__/rateLimit.test.ts): TS2835: Relative import paths need explicit file extensions in ECMAScript imp...",
+      "context": "Known issue from phase 01. Test: tsc --noEmit (typecheck). File: backend/src/middleware/__tests__/rateLimit.test.ts. Error: TS2835: Relative import paths need explicit file extensions in ECMAScript imports when moduleResolution is node16/nodenext (line 15) — pre-existing in an unmodified file, unrelated to this plan. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/middleware/__tests__/rateLimit.test.ts"
+      ],
+      "added": "2026-07-01",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-out-today-absence-api",
+        "test": "tsc --noEmit (typecheck)",
+        "file": "backend/src/middleware/__tests__/rateLimit.test.ts",
+        "error": "TS2835: Relative import paths need explicit file extensions in ECMAScript imports when moduleResolution is node16/nodenext (line 15) — pre-existing in an unmodified file, unrelated to this plan",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    },
+    "8946b6aa": {
+      "summary": "tsc --noEmit (typecheck) (backend/src/middleware/__tests__/rateLimit.test.ts): TS2835: Relative import paths need explicit file extensions in ECMAScript imp...",
+      "context": "Known issue from phase 01. Test: tsc --noEmit (typecheck). File: backend/src/middleware/__tests__/rateLimit.test.ts. Error: TS2835: Relative import paths need explicit file extensions in ECMAScript imports when moduleResolution is node16/nodenext (line 15) — pre-existing in an unmodified file, unrelated to this plan; not fixed. Seen 1 time(s). Source: 01-01-SUMMARY.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/middleware/__tests__/rateLimit.test.ts"
+      ],
+      "added": "2026-07-01",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-out-today-absence-api",
+        "test": "tsc --noEmit (typecheck)",
+        "file": "backend/src/middleware/__tests__/rateLimit.test.ts",
+        "error": "TS2835: Relative import paths need explicit file extensions in ECMAScript imports when moduleResolution is node16/nodenext (line 15) — pre-existing in an unmodified file, unrelated to this plan; not fixed",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-01-SUMMARY.md"
+      }
+    },
+    "2a2d3630": {
+      "summary": "Phase 24 schedule isolation > auto-create-board-card-on-assignment leaves TeamMember / Absence / Holiday byte-identical (backend/src/services/__tests__/scheduleIsolation.phase24.test.ts): Failed only in one full-suite parallel run; passed cleanly in isolation. Same...",
+      "context": "Known issue from phase 03. Test: Phase 24 schedule isolation > auto-create-board-card-on-assignment leaves TeamMember / Absence / Holiday byte-identical. File: backend/src/services/__tests__/scheduleIsolation.phase24.test.ts. Error: Failed only in one full-suite parallel run; passed cleanly in isolation. Same parallel-contention class, unrelated to this plan's changed files.. Seen 1 time(s). Source: 03-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "Phase 24 schedule isolation > auto-create-board-card-on-assignment leaves TeamMember / Absence / Holiday byte-identical",
+        "file": "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts",
+        "error": "Failed only in one full-suite parallel run; passed cleanly in isolation. Same parallel-contention class, unrelated to this plan's changed files.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "03-VERIFICATION.md"
+      }
+    },
+    "077c9e8f": {
+      "summary": "boardAdminArchive.test.ts > archives the card with an empty body and a valid ADMIN session → 200 (backend/src/routes/__tests__/boardAdminArchive.test.ts): Failed (500 instead of 200) only in one full-suite parallel run; passed clean...",
+      "context": "Known issue from phase 03. Test: boardAdminArchive.test.ts > archives the card with an empty body and a valid ADMIN session → 200. File: backend/src/routes/__tests__/boardAdminArchive.test.ts. Error: Failed (500 instead of 200) only in one full-suite parallel run; passed cleanly when re-run in isolation. Same SQLite parallel-contention class as boardFiles flake; board.ts's archive guard code path is unchanged by this plan.. Seen 1 time(s). Source: 03-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/routes/__tests__/boardAdminArchive.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "boardAdminArchive.test.ts > archives the card with an empty body and a valid ADMIN session → 200",
+        "file": "backend/src/routes/__tests__/boardAdminArchive.test.ts",
+        "error": "Failed (500 instead of 200) only in one full-suite parallel run; passed cleanly when re-run in isolation. Same SQLite parallel-contention class as boardFiles flake; board.ts's archive guard code path is unchanged by this plan.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "03-VERIFICATION.md"
+      }
+    },
+    "51a72302": {
+      "summary": "boardFiles routes — Phase 3 broadened read policy > (b) lets a non-assigned NORMAL user download a file → 200 (backend/src/routes/__tests__/boardFiles.test.ts): Fails intermittently only under combined parallel-worker run (SQLite single-w...",
+      "context": "Known issue from phase 03. Test: boardFiles routes — Phase 3 broadened read policy > (b) lets a non-assigned NORMAL user download a file → 200. File: backend/src/routes/__tests__/boardFiles.test.ts. Error: Fails intermittently only under combined parallel-worker run (SQLite single-writer + filesystem contention, 500 instead of 200); passes cleanly in isolation (8/8). filesRouter is untouched by this plan.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/boardFiles.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "boardFiles routes — Phase 3 broadened read policy > (b) lets a non-assigned NORMAL user download a file → 200",
+        "file": "backend/src/routes/__tests__/boardFiles.test.ts",
+        "error": "Fails intermittently only under combined parallel-worker run (SQLite single-writer + filesystem contention, 500 instead of 200); passes cleanly in isolation (8/8). filesRouter is untouched by this plan.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "7df0c371": {
+      "summary": "pdfQueue > addPdfConversionJob > should reject an empty file path (backend/src/services/__tests__/pdfQueue.test.ts): Env-dependent PDF-queue suite (external/Redis-backed); unrelated to board che...",
+      "context": "Known issue from phase 03. Test: pdfQueue > addPdfConversionJob > should reject an empty file path. File: backend/src/services/__tests__/pdfQueue.test.ts. Error: Env-dependent PDF-queue suite (external/Redis-backed); unrelated to board checklist changes.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "pdfQueue > addPdfConversionJob > should reject an empty file path",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "Env-dependent PDF-queue suite (external/Redis-backed); unrelated to board checklist changes.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "3a2318b7": {
+      "summary": "pdfQueue > addPdfConversionJob > should reject an invalid file path (backend/src/services/__tests__/pdfQueue.test.ts): Env-dependent PDF-queue suite (external/Redis-backed); unrelated to board che...",
+      "context": "Known issue from phase 03. Test: pdfQueue > addPdfConversionJob > should reject an invalid file path. File: backend/src/services/__tests__/pdfQueue.test.ts. Error: Env-dependent PDF-queue suite (external/Redis-backed); unrelated to board checklist changes.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "pdfQueue > addPdfConversionJob > should reject an invalid file path",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "Env-dependent PDF-queue suite (external/Redis-backed); unrelated to board checklist changes.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "c88126f1": {
+      "summary": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): Env-dependent template-AI suite (needs Python sanitization service / LLM); un...",
+      "context": "Known issue from phase 03. Test: templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order. File: backend/src/services/__tests__/templateAdapter.test.ts. Error: Env-dependent template-AI suite (needs Python sanitization service / LLM); unrelated to board checklist changes.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "Env-dependent template-AI suite (needs Python sanitization service / LLM); unrelated to board checklist changes.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "3ed05977": {
+      "summary": "templateMapping service > queryFewShotExamples > filters by templateType and language correctly (backend/src/services/__tests__/templateMapping.test.ts): Env-dependent template-mapping suite; unrelated to board checklist changes.",
+      "context": "Known issue from phase 03. Test: templateMapping service > queryFewShotExamples > filters by templateType and language correctly. File: backend/src/services/__tests__/templateMapping.test.ts. Error: Env-dependent template-mapping suite; unrelated to board checklist changes.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "templateMapping service > queryFewShotExamples > filters by templateType and language correctly",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "Env-dependent template-mapping suite; unrelated to board checklist changes.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "b0cb22ca": {
+      "summary": "templateMapping service > queryFewShotExamples > respects limit parameter (backend/src/services/__tests__/templateMapping.test.ts): Env-dependent template-mapping suite; unrelated to board checklist changes.",
+      "context": "Known issue from phase 03. Test: templateMapping service > queryFewShotExamples > respects limit parameter. File: backend/src/services/__tests__/templateMapping.test.ts. Error: Env-dependent template-mapping suite; unrelated to board checklist changes.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "templateMapping service > queryFewShotExamples > respects limit parameter",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "Env-dependent template-mapping suite; unrelated to board checklist changes.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "459bbc72": {
+      "summary": "templateMapping service > queryFewShotExamples > returns entries sorted by usageCount DESC (backend/src/services/__tests__/templateMapping.test.ts): Env-dependent template-mapping suite; unrelated to board checklist changes.",
+      "context": "Known issue from phase 03. Test: templateMapping service > queryFewShotExamples > returns entries sorted by usageCount DESC. File: backend/src/services/__tests__/templateMapping.test.ts. Error: Env-dependent template-mapping suite; unrelated to board checklist changes.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "templateMapping service > queryFewShotExamples > returns entries sorted by usageCount DESC",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "Env-dependent template-mapping suite; unrelated to board checklist changes.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "b0c2aebf": {
+      "summary": "Phase 24 schedule isolation > auto-create-board-card-on-assignment leaves TeamMember / Absence / Holiday byte-identical (backend/src/services/__tests__/scheduleIsolation.phase24.test.ts): Failed only in one full-suite parallel run; passed cleanly in isolation. Same...",
+      "context": "Known issue from phase 03. Test: Phase 24 schedule isolation > auto-create-board-card-on-assignment leaves TeamMember / Absence / Holiday byte-identical. File: backend/src/services/__tests__/scheduleIsolation.phase24.test.ts. Error: Failed only in one full-suite parallel run; passed cleanly in isolation. Same parallel-contention class, unrelated to this plan''s changed files.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "Phase 24 schedule isolation > auto-create-board-card-on-assignment leaves TeamMember / Absence / Holiday byte-identical",
+        "file": "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts",
+        "error": "Failed only in one full-suite parallel run; passed cleanly in isolation. Same parallel-contention class, unrelated to this plan''s changed files.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "06612046": {
+      "summary": "boardAdminArchive.test.ts > archives the card with an empty body and a valid ADMIN session → 200 (backend/src/routes/__tests__/boardAdminArchive.test.ts): Failed (500 instead of 200) only in one full-suite parallel run; passed clean...",
+      "context": "Known issue from phase 03. Test: boardAdminArchive.test.ts > archives the card with an empty body and a valid ADMIN session → 200. File: backend/src/routes/__tests__/boardAdminArchive.test.ts. Error: Failed (500 instead of 200) only in one full-suite parallel run; passed cleanly when re-run in isolation. Same SQLite parallel-contention class as boardFiles flake; board.ts''s archive guard code path is unchanged by this plan.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/boardAdminArchive.test.ts"
+      ],
+      "added": "2026-07-02",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-board-checklist-open-access-report-item",
+        "test": "boardAdminArchive.test.ts > archives the card with an empty body and a valid ADMIN session → 200",
+        "file": "backend/src/routes/__tests__/boardAdminArchive.test.ts",
+        "error": "Failed (500 instead of 200) only in one full-suite parallel run; passed cleanly when re-run in isolation. Same SQLite parallel-contention class as boardFiles flake; board.ts''s archive guard code path is unchanged by this plan.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
     }
   }
 }

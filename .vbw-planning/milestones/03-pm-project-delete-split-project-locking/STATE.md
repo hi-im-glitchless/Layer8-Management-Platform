@@ -1,6 +1,16 @@
 # State
 
 **Project:** Template AI Engine (Layer8)
+**Milestone:** PM Project Controls
+
+## Current Phase
+Phase: 1 of 1 (Pm Project Delete And Lock)
+Plans: 2/2
+Progress: 100%
+Status: complete
+
+## Phase Status
+- **Phase 1 (Pm Project Delete And Lock):** Complete
 
 ## Key Decisions
 | Decision | Date | Rationale |
@@ -41,7 +51,14 @@
 - [KNOWN-ISSUE] templateAdapter > analyzeTemplate order (1 failing) (backend/src/services/__tests__/templateAdapter.test.ts): Pre-existing failure verified at parent commit e3333d2; mock/LLM-order mismat... — accepted as process-exception for this phase (phase 09, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-12) (ref:32c56445)
 - [KNOWN-ISSUE] templateMapping > queryFewShotExamples (3 failing) (backend/src/services/__tests__/templateMapping.test.ts): Pre-existing failure verified at parent commit e3333d2; test expects old orde... — accepted as process-exception for this phase (phase 09, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-12) (ref:b1f2de98)
 - [KNOWN-ISSUE] resolveAuthRateLimitMax import (TS2835) (backend/src/middleware/__tests__/rateLimit.test.ts): TS2835: Relative import ''../rateLimit'' needs explicit .js extension. Introd... — accepted as process-exception for this phase (phase 09, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-12) (ref:e360a65f)
-
+- [KNOWN-ISSUE] eslint prefer-const (frontend/src/features/schedule/components/ColorPalette.tsx:31-33): 'r'/'g'/'b' are never reassigned, use const — pre-existing in hexToHsl (autho... (phase 01, seen 1x) (see 01-VERIFICATION.md) (added 2026-06-23) (ref:7d845210)
+- [KNOWN-ISSUE] eslint react-hooks/set-state-in-effect (frontend/src/features/schedule/components/AssignmentModal.tsx:199): Avoid calling setState() directly within an effect — pre-existing open-reset ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-23) (ref:c3c63987)
+- [KNOWN-ISSUE] eslint prefer-const (frontend/src/features/schedule/components/ColorPalette.tsx:31-33): 'r'/'g'/'b' are never reassigned, use const — pre-existing in hexToHsl author... (phase 01, seen 1x) (see 01-VERIFICATION.md) (added 2026-06-23) (ref:31a14629)
+- [KNOWN-ISSUE] eslint react-hooks/set-state-in-effect (frontend/src/features/schedule/components/AssignmentModal.tsx:199): Avoid calling setState() directly within an effect — pre-existing open-reset ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-23) (ref:ae4b2d6a)
+- [KNOWN-ISSUE] eslint prefer-const (frontend/src/features/schedule/components/ColorPalette.tsx:31-33): ''r''/''g''/''b'' are never reassigned, use const — pre-existing in hexToHsl ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-23) (ref:2a104aa4)
+- [KNOWN-ISSUE] eslint prefer-const (frontend/src/features/schedule/components/ColorPalette.tsx:31-33): ''r''/''g''/''b'' are never reassigned, use const — pre-existing in hexToHsl ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-06-23) (ref:62821002)
 ## Blockers
 None
 
+## Activity Log
+- 2026-06-22: Created PM Project Controls milestone (1 phases)

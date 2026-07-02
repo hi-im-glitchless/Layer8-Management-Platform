@@ -982,6 +982,34 @@
       "question": "Admin archive flow",
       "answer": "Typed-confirmation (type project name) + immediate hard-delete of files; preserve comments/notes/checklist on hidden card with admin-only Archived view; audit log entry on archive",
       "date": "2026-04-30"
+    },
+    {
+      "category": "authz",
+      "phase": 1,
+      "question": "Which delete-project surface should PM gain?",
+      "answer": "Board card hard-delete (DELETE /board/cards/:id), currently ADMIN-only — open to PM",
+      "date": "2026-06-22"
+    },
+    {
+      "category": "ux",
+      "phase": 1,
+      "question": "Delete confirmation implementation",
+      "answer": "shadcn AlertDialog (matches ArchiveCardDialog)",
+      "date": "2026-06-22"
+    },
+    {
+      "category": "technical",
+      "phase": 1,
+      "question": "Split-cell lock model",
+      "answer": "Lock whole assignment (both halves); add lock/unlock affordance to split cell",
+      "date": "2026-06-22"
+    },
+    {
+      "category": "ux",
+      "phase": 1,
+      "question": "Assignment-modal lock behavior",
+      "answer": "Lock toggle in modal; disable editing while locked; unlock to edit",
+      "date": "2026-06-22"
     }
   ],
   "inferred": [
