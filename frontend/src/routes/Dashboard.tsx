@@ -6,6 +6,7 @@ import { useMyAssignments } from '@/features/schedule/hooks'
 import { buildProjectTimeline, getCurrentProjects, getNextProjects } from '@/features/dashboard/utils'
 import { ProjectCard } from '@/features/dashboard/components/ProjectCard'
 import { NoScheduleState } from '@/features/dashboard/components/NoScheduleState'
+import { OutTodayWidget } from '@/features/dashboard/components/OutTodayWidget'
 import { ApiError } from '@/lib/api'
 
 function getGreeting(): string {
@@ -153,6 +154,10 @@ export function Dashboard() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="space-y-4">
+        <OutTodayWidget />
       </div>
 
       {/* Recent Activity — hidden for now
