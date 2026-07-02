@@ -14,6 +14,7 @@ export const DEFAULT_CHECKLIST: ChecklistItem[] = [
   { label: 'Report', checked: false, order: 3 },
   { label: 'Review', checked: false, order: 4 },
   { label: 'Delivery', checked: false, order: 5 },
+  { label: "Report is on client's share", checked: false, order: 6 },
 ];
 
 /**
