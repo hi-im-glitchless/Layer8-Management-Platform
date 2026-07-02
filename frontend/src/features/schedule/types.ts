@@ -83,6 +83,24 @@ export interface Absence {
   updatedAt: string
 }
 
+/**
+ * Flat projection of a team member absent on a given day, as returned by
+ * GET /api/schedule/absences/out-today. `displayName` is pre-resolved by the
+ * backend (falls back to 'Unknown'), and `type` is a plain string
+ * ('holiday' | 'sick' | 'vacation' | 'other') rather than the AbsenceType union.
+ */
+export interface AbsenceOutEntry {
+  teamMemberId: string
+  displayName: string
+  type: string
+  reason: string | null
+}
+
+export interface AbsencesOutTodayResponse {
+  date: string
+  absences: AbsenceOutEntry[]
+}
+
 export interface Holiday {
   id: string
   name: string
