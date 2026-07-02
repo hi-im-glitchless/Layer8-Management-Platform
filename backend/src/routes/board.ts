@@ -139,26 +139,43 @@ router.patch('/cards/:id', requireAuth, mutationRateLimiter, async (req, res) =>
     }
 
     if (!isManager) {
-      const existing = await boardService.getCard(id);
-      if (!existing) {
-        return res.status(404).json({ error: 'Card not found' });
+      // Phase 03: any authenticated user may check/uncheck checklist items on
+      // ANY project's card. A request that touches ONLY `checklist` skips the
+      // ownership check entirely; any other field (stage, notes, stageLockedBy)
+      // — alone OR combined with checklist — still requires ownership so the
+      // existing PM/ADMIN-only stage-lock and ADMIN-only archive guards stay
+      // untouched (a mixed checklist+other-field body is rejected wholesale and
+      // never partially applied). The `sentFields.length > 0` guard keeps an
+      // empty body on the ownership-gated path (no new hole).
+      const sentFields = Object.keys(data);
+      const checklistOnly =
+        sentFields.length > 0 && sentFields.every((f) => f === 'checklist');
+
+      if (!checklistOnly) {
+        const existing = await boardService.getCard(id);
+        if (!existing) {
+          return res.status(404).json({ error: 'Card not found' });
+        }
+        // Phase 24-R03: card.assignments is now a list (one Project can have
+        // multiple Assignments). User has ownership if their userId matches any
+        // assigned team member.
+        const ownerUserIds = new Set(
+          existing.assignments
+            .map((a) => a.teamMember?.userId)
+            .filter((u): u is string => !!u),
+        );
+        if (!ownerUserIds.has(req.session.userId ?? '')) {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
+        // The stage='archived' guard now lives above (ADMIN-only, Phase 11) and
+        // already rejected NORMAL here, so no per-branch archive check is needed.
+        if (data.stageLockedBy !== undefined) {
+          return res.status(403).json({ error: 'Only PM or ADMIN can change stage lock' });
+        }
       }
-      // Phase 24-R03: card.assignments is now a list (one Project can have
-      // multiple Assignments). User has ownership if their userId matches any
-      // assigned team member.
-      const ownerUserIds = new Set(
-        existing.assignments
-          .map((a) => a.teamMember?.userId)
-          .filter((u): u is string => !!u),
-      );
-      if (!ownerUserIds.has(req.session.userId ?? '')) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-      // The stage='archived' guard now lives above (ADMIN-only, Phase 11) and
-      // already rejected NORMAL here, so no per-branch archive check is needed.
-      if (data.stageLockedBy !== undefined) {
-        return res.status(403).json({ error: 'Only PM or ADMIN can change stage lock' });
-      }
+      // checklistOnly === true: any authenticated user proceeds. A missing card
+      // still 404s downstream via boardService.updateCard's Prisma P2025 catch,
+      // so no separate existence check is needed on this path.
     }
 
     const updateData: {
