@@ -105,7 +105,7 @@ export function ClientCombobox({
               {selected.name}
             </span>
           ) : (
-            <span className="text-muted-foreground">{sentinelLabel}</span>
+            <span>{sentinelLabel}</span>
           )}
           <ChevronDown className="ml-auto h-4 w-4 opacity-50 shrink-0" />
         </Button>
