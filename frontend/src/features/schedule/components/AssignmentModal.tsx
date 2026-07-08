@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Dialog,
@@ -20,8 +20,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
+import { ClientCombobox } from '@/components/client-combobox'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ExternalLink, Trash2, Lock, Unlock } from 'lucide-react'
@@ -30,7 +30,7 @@ import { useUpsertAssignment, useDeleteAssignment, useClients, useToggleLock } f
 import { useBoardCardByProjectId } from '../../board/hooks'
 import { ASSIGNMENT_STATUSES, COLOR_PALETTE } from '../constants'
 import { CreateAssignmentSchema, PREDEFINED_TAGS } from '../types'
-import type { Assignment, AssignmentStatus, Client } from '../types'
+import type { Assignment, AssignmentStatus } from '../types'
 
 interface AssignmentModalProps {
   open: boolean
@@ -38,81 +38,6 @@ interface AssignmentModalProps {
   teamMemberId: string
   weekStart: string
   assignment: Assignment | undefined
-}
-
-function ClientSelect({
-  clientId,
-  clients,
-  onChange,
-  disabled = false,
-}: {
-  clientId: string | null
-  clients: Client[]
-  onChange: (value: string | null, client?: Client) => void
-  disabled?: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const selected = clients.find((c) => c.id === clientId)
-  const filtered = search
-    ? clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
-    : clients
-
-  return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setTimeout(() => inputRef.current?.focus(), 0) }}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" disabled={disabled} className="w-full justify-start font-normal">
-          {selected ? (
-            <span className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-sm shrink-0 inline-block" style={{ backgroundColor: selected.color }} />
-              {selected.name}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">No client</span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-        align="start"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onWheel={(e) => e.stopPropagation()}
-      >
-        <div className="p-2 border-b">
-          <Input
-            ref={inputRef}
-            placeholder="Search clients..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-8"
-            autoFocus
-          />
-        </div>
-        <div className="max-h-48 overflow-y-auto overscroll-contain p-1" onWheel={(e) => e.stopPropagation()}>
-          <button
-            className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${!clientId ? 'bg-accent' : ''}`}
-            onClick={() => { onChange(null); setOpen(false); setSearch('') }}
-          >
-            No client
-          </button>
-          {filtered.map((c) => (
-            <button
-              key={c.id}
-              className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent flex items-center gap-2 ${clientId === c.id ? 'bg-accent' : ''}`}
-              onClick={() => { onChange(c.id, c); setOpen(false); setSearch('') }}
-            >
-              <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: c.color }} />
-              {c.name}
-            </button>
-          ))}
-          {filtered.length === 0 && (
-            <div className="px-2 py-1.5 text-sm text-muted-foreground">No clients found</div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
 }
 
 function TagSelector({
@@ -224,15 +149,19 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
     }
   }, [open, assignment])
 
-  const handleClientChange = (value: string | null, client?: Client) => {
+  // ClientCombobox reports only the selected id; look the client up in the
+  // same clients array to preserve the "adopt the client's color" behavior.
+  const handleClientChange = (value: string | null) => {
     setClientId(value)
+    const client = value ? clients.find((c) => c.id === value) : undefined
     if (client) {
       setProjectColor(client.color)
     }
   }
 
-  const handleSplitClientChange = (value: string | null, client?: Client) => {
+  const handleSplitClientChange = (value: string | null) => {
     setSplitClientId(value)
+    const client = value ? clients.find((c) => c.id === value) : undefined
     if (client) {
       setSplitProjectColor(client.color)
     }
@@ -393,7 +322,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
               {/* Client Selection */}
               <div className="space-y-2">
                 <Label>Client</Label>
-                <ClientSelect clientId={clientId} clients={clients} onChange={handleClientChange} disabled={isLocked} />
+                <ClientCombobox clients={clients} value={clientId} onChange={handleClientChange} sentinelLabel="No client" disabled={isLocked} />
               </div>
 
               {/* Project Name */}
@@ -478,7 +407,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                 {/* Split Client */}
                 <div className="space-y-2">
                   <Label>Client</Label>
-                  <ClientSelect clientId={splitClientId} clients={clients} onChange={handleSplitClientChange} disabled={isLocked} />
+                  <ClientCombobox clients={clients} value={splitClientId} onChange={handleSplitClientChange} sentinelLabel="No client" disabled={isLocked} />
                 </div>
 
                 {/* Split Project Name */}
