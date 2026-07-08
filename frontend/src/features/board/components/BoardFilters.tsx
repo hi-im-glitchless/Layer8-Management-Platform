@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { ClientCombobox } from '@/components/client-combobox'
 import { useAuth } from '@/features/auth/hooks'
 
 interface Props {
@@ -58,23 +59,16 @@ export function BoardFilters({
         </Button>
       </div>
 
-      {/* Client filter */}
-      <Select
-        value={filterClientId ?? '__all__'}
-        onValueChange={(v) => setFilterClientId(v === '__all__' ? null : v)}
-      >
-        <SelectTrigger className="w-[160px] h-8 text-xs">
-          <SelectValue placeholder="All clients" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__all__">All clients</SelectItem>
-          {clients.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Client filter — searchable + pt-PT sorted; "All clients" pinned.
+          The clients prop is a colorless {id,name} subset (from Board.tsx), so
+          ClientCombobox renders no swatch here. */}
+      <ClientCombobox
+        clients={clients}
+        value={filterClientId}
+        onChange={setFilterClientId}
+        sentinelLabel="All clients"
+        triggerClassName="w-[160px] h-8 text-xs"
+      />
 
       {/* Pentester filter */}
       <Select
