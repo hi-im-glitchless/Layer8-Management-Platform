@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
@@ -106,6 +107,7 @@ export function ClientCombobox({
           ) : (
             <span className="text-muted-foreground">{sentinelLabel}</span>
           )}
+          <ChevronDown className="ml-auto h-4 w-4 opacity-50 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
