@@ -141,7 +141,7 @@ export function ClientCombobox({
           {showSentinel && (
             <button
               type="button"
-              className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${!value ? 'bg-accent' : ''}`}
+              className={`w-full text-left px-2 py-1.5 text-sm rounded-sm cursor-default select-none outline-none focus:bg-accent focus:text-accent-foreground ${!value ? 'bg-accent text-accent-foreground' : ''}`}
               onClick={() => {
                 onChange(null)
                 setOpen(false)
@@ -155,7 +155,7 @@ export function ClientCombobox({
             <button
               type="button"
               key={c.id}
-              className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent flex items-center gap-2 ${value === c.id ? 'bg-accent' : ''}`}
+              className={`w-full text-left px-2 py-1.5 text-sm rounded-sm cursor-default select-none outline-none focus:bg-accent focus:text-accent-foreground flex items-center gap-2 ${value === c.id ? 'bg-accent text-accent-foreground' : ''}`}
               onClick={() => {
                 onChange(c.id)
                 setOpen(false)
