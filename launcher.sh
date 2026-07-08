@@ -245,6 +245,11 @@ server {
     server_name DOMAIN_PLACEHOLDER;
     server_tokens off;
 
+    # Board file uploads allow up to 500MB per file; permit bodies of that size.
+    # Note: Cloudflare's edge upload cap (100MB on Free/Pro) is a platform limit
+    # outside this repo — raise the Cloudflare plan if it caps below 500MB.
+    client_max_body_size 500M;
+
     ssl_certificate     /etc/ssl/layer8/origin.pem;
     ssl_certificate_key /etc/ssl/layer8/origin-key.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
