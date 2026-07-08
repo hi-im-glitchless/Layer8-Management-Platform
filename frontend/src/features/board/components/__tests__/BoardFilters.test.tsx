@@ -95,4 +95,17 @@ describe('BoardFilters client filter', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bravo' }))
     expect(setFilterClientId).toHaveBeenCalledWith('b')
   })
+
+  it('(e) hides the "All clients" sentinel row while search text is present', () => {
+    renderFilters()
+    openClientCombobox()
+
+    // Empty search: trigger + pinned sentinel row both carry the label.
+    expect(screen.getAllByRole('button', { name: 'All clients' })).toHaveLength(2)
+
+    // Typing search text drops the pinned sentinel row (only the trigger remains).
+    const input = screen.getByPlaceholderText('Search clients...') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'br' } })
+    expect(screen.getAllByRole('button', { name: 'All clients' })).toHaveLength(1)
+  })
 })

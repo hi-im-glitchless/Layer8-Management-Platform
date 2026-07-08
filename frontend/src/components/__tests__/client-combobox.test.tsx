@@ -88,13 +88,13 @@ describe('ClientCombobox', () => {
     expect(clientRowNames()).toEqual([])
   })
 
-  it('(e) sentinel stays pinned at top and visible regardless of search text', () => {
+  it('(e) sentinel pinned at top when search empty; hidden once search text is typed', () => {
     render(
       <ClientCombobox clients={CLIENTS_WITH_COLOR} value={null} onChange={vi.fn()} sentinelLabel={SENTINEL} />,
     )
     openPopover()
 
-    // Two matches for the sentinel label: the trigger + the pinned list button.
+    // Search empty: two matches for the sentinel label (trigger + pinned list button).
     expect(screen.getAllByRole('button', { name: SENTINEL })).toHaveLength(2)
 
     // The pinned sentinel is the first button inside the list (before any client).
@@ -105,8 +105,12 @@ describe('ClientCombobox', () => {
     expect(sentinelIdx).toBeGreaterThan(0)
     expect(sentinelIdx).toBeLessThan(firstClientIdx)
 
-    // Even a query that matches no client keeps the sentinel visible.
-    fireEvent.change(getSearchInput(), { target: { value: 'zzz-nope' } })
+    // Typing search text hides the pinned sentinel row (only the trigger remains).
+    fireEvent.change(getSearchInput(), { target: { value: 'br' } })
+    expect(screen.getAllByRole('button', { name: SENTINEL })).toHaveLength(1)
+
+    // Clearing the search restores the pinned sentinel.
+    fireEvent.change(getSearchInput(), { target: { value: '' } })
     expect(screen.getAllByRole('button', { name: SENTINEL })).toHaveLength(2)
   })
 
@@ -127,34 +131,37 @@ describe('ClientCombobox', () => {
     expect(onChange).toHaveBeenCalledWith(null)
   })
 
-  it('(h) sentinelMode="always" (default) shows the sentinel even with no selection', () => {
+  it('(h) default shows the sentinel when the search box is empty (no selection)', () => {
     render(
-      <ClientCombobox clients={CLIENTS_WITH_COLOR} value={null} onChange={vi.fn()} sentinelLabel={SENTINEL} sentinelMode="always" />,
+      <ClientCombobox clients={CLIENTS_WITH_COLOR} value={null} onChange={vi.fn()} sentinelLabel={SENTINEL} />,
     )
     openPopover()
     // Trigger + pinned list sentinel = 2 matches.
     expect(screen.getAllByRole('button', { name: SENTINEL })).toHaveLength(2)
   })
 
-  it('(i) sentinelMode="clear" hides the sentinel row when nothing is selected', () => {
+  it('(i) sentinel hidden while search has text regardless of selection', () => {
     render(
-      <ClientCombobox clients={CLIENTS_WITH_COLOR} value={null} onChange={vi.fn()} sentinelLabel={SENTINEL} sentinelMode="clear" />,
-    )
-    openPopover()
-    // Only the trigger carries the sentinel label — no pinned clear row in the list.
-    expect(screen.getAllByRole('button', { name: SENTINEL })).toHaveLength(1)
-    // The client list still renders normally, and the first list button is a client.
-    expect(clientRowNames()).toEqual(['Ácido', 'acme', 'Bravo', 'Zeta'])
-  })
-
-  it('(j) sentinelMode="clear" shows the sentinel as a clear option once a client is selected', () => {
-    const onChange = vi.fn()
-    render(
-      <ClientCombobox clients={CLIENTS_WITH_COLOR} value="b" onChange={onChange} sentinelLabel={SENTINEL} sentinelMode="clear" />,
+      <ClientCombobox clients={CLIENTS_WITH_COLOR} value="b" onChange={vi.fn()} sentinelLabel={SENTINEL} />,
     )
     // With a value set the trigger shows the selected client name; open via it.
     fireEvent.click(screen.getByRole('button', { name: 'Bravo' }))
-    // The pinned clear sentinel now renders in the list (trigger shows 'Bravo').
+    // Empty search: pinned sentinel present in the list.
+    expect(screen.getByRole('button', { name: SENTINEL })).toBeInTheDocument()
+
+    // Typing search text hides the sentinel even though a client is selected.
+    fireEvent.change(getSearchInput(), { target: { value: 'br' } })
+    expect(screen.queryByRole('button', { name: SENTINEL })).toBeNull()
+  })
+
+  it('(j) sentinel shown regardless of value while search empty; clears the selection', () => {
+    const onChange = vi.fn()
+    render(
+      <ClientCombobox clients={CLIENTS_WITH_COLOR} value="b" onChange={onChange} sentinelLabel={SENTINEL} />,
+    )
+    // With a value set the trigger shows the selected client name; open via it.
+    fireEvent.click(screen.getByRole('button', { name: 'Bravo' }))
+    // The pinned sentinel renders in the list (trigger shows 'Bravo') because search is empty.
     const clearRow = screen.getByRole('button', { name: SENTINEL })
     expect(clearRow).toBeInTheDocument()
     // Choosing it clears the selection.
