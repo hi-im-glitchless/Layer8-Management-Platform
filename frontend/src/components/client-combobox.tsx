@@ -23,8 +23,16 @@ interface ClientComboboxProps {
   value: string | null
   /** Called with the client id, or null when the pinned sentinel is chosen. */
   onChange: (id: string | null) => void
-  /** Pinned, always-visible top option (e.g. "No client" / "All clients"). */
+  /** Pinned top option label (e.g. "No client" / "All clients"). */
   sentinelLabel: string
+  /**
+   * Controls when the pinned sentinel row is shown:
+   *  - 'always' (default): a standing "no filter" default (board's "All clients")
+   *    — always visible, even when nothing is selected.
+   *  - 'clear': a pure clear action (assignment picker's "No client") — hidden
+   *    unless a value is currently selected, so it only appears to clear it.
+   */
+  sentinelMode?: 'always' | 'clear'
   /** Search input placeholder. */
   placeholder?: string
   /** Extra classes for the trigger Button (preserve each site's footprint). */
@@ -42,7 +50,9 @@ interface ClientComboboxProps {
  *    case- & accent-insensitive)
  *  - case-insensitive substring search on name; clearing restores full list
  *  - the sentinel renders as a static pinned button ABOVE the list; it is never
- *    sorted among clients and never filtered away by search text
+ *    sorted among clients and never filtered away by search text. In 'clear'
+ *    mode it only appears while a value is selected (pure clear action); in
+ *    'always' mode it is always visible (a standing "no filter" default)
  *  - "No clients found" empty state when the filtered client list is empty
  *  - color swatch rendered only when the option has a `color`
  *  - search resets on selection and on close
@@ -52,6 +62,7 @@ export function ClientCombobox({
   value,
   onChange,
   sentinelLabel,
+  sentinelMode = 'always',
   placeholder = 'Search clients...',
   triggerClassName,
   disabled = false,
@@ -61,6 +72,10 @@ export function ClientCombobox({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const selected = clients.find((c) => c.id === value)
+
+  // 'always': standing default, always shown. 'clear': only shown to clear an
+  // existing selection, so hidden while nothing is selected.
+  const showSentinel = sentinelMode === 'always' || value !== null
 
   // Sort first, then filter — so the visible order is always alphabetical and
   // the search operates over the sorted list.
@@ -121,18 +136,21 @@ export function ClientCombobox({
           className="max-h-48 overflow-y-auto overscroll-contain p-1"
           onWheel={(e) => e.stopPropagation()}
         >
-          {/* Pinned sentinel — always visible, never sorted or filtered. */}
-          <button
-            type="button"
-            className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${!value ? 'bg-accent' : ''}`}
-            onClick={() => {
-              onChange(null)
-              setOpen(false)
-              setSearch('')
-            }}
-          >
-            {sentinelLabel}
-          </button>
+          {/* Pinned sentinel — never sorted or filtered. Visibility depends on
+              sentinelMode (see showSentinel). */}
+          {showSentinel && (
+            <button
+              type="button"
+              className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${!value ? 'bg-accent' : ''}`}
+              onClick={() => {
+                onChange(null)
+                setOpen(false)
+                setSearch('')
+              }}
+            >
+              {sentinelLabel}
+            </button>
+          )}
           {filtered.map((c) => (
             <button
               type="button"

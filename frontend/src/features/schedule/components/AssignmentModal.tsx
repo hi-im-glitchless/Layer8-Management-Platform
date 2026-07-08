@@ -322,7 +322,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
               {/* Client Selection */}
               <div className="space-y-2">
                 <Label>Client</Label>
-                <ClientCombobox clients={clients} value={clientId} onChange={handleClientChange} sentinelLabel="No client" disabled={isLocked} />
+                <ClientCombobox clients={clients} value={clientId} onChange={handleClientChange} sentinelLabel="No client" sentinelMode="clear" disabled={isLocked} />
               </div>
 
               {/* Project Name */}
@@ -407,7 +407,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
                 {/* Split Client */}
                 <div className="space-y-2">
                   <Label>Client</Label>
-                  <ClientCombobox clients={clients} value={splitClientId} onChange={handleSplitClientChange} sentinelLabel="No client" disabled={isLocked} />
+                  <ClientCombobox clients={clients} value={splitClientId} onChange={handleSplitClientChange} sentinelLabel="No client" sentinelMode="clear" disabled={isLocked} />
                 </div>
 
                 {/* Split Project Name */}

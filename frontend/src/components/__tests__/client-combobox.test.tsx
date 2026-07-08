@@ -127,6 +127,41 @@ describe('ClientCombobox', () => {
     expect(onChange).toHaveBeenCalledWith(null)
   })
 
+  it('(h) sentinelMode="always" (default) shows the sentinel even with no selection', () => {
+    render(
+      <ClientCombobox clients={CLIENTS_WITH_COLOR} value={null} onChange={vi.fn()} sentinelLabel={SENTINEL} sentinelMode="always" />,
+    )
+    openPopover()
+    // Trigger + pinned list sentinel = 2 matches.
+    expect(screen.getAllByRole('button', { name: SENTINEL })).toHaveLength(2)
+  })
+
+  it('(i) sentinelMode="clear" hides the sentinel row when nothing is selected', () => {
+    render(
+      <ClientCombobox clients={CLIENTS_WITH_COLOR} value={null} onChange={vi.fn()} sentinelLabel={SENTINEL} sentinelMode="clear" />,
+    )
+    openPopover()
+    // Only the trigger carries the sentinel label — no pinned clear row in the list.
+    expect(screen.getAllByRole('button', { name: SENTINEL })).toHaveLength(1)
+    // The client list still renders normally, and the first list button is a client.
+    expect(clientRowNames()).toEqual(['Ácido', 'acme', 'Bravo', 'Zeta'])
+  })
+
+  it('(j) sentinelMode="clear" shows the sentinel as a clear option once a client is selected', () => {
+    const onChange = vi.fn()
+    render(
+      <ClientCombobox clients={CLIENTS_WITH_COLOR} value="b" onChange={onChange} sentinelLabel={SENTINEL} sentinelMode="clear" />,
+    )
+    // With a value set the trigger shows the selected client name; open via it.
+    fireEvent.click(screen.getByRole('button', { name: 'Bravo' }))
+    // The pinned clear sentinel now renders in the list (trigger shows 'Bravo').
+    const clearRow = screen.getByRole('button', { name: SENTINEL })
+    expect(clearRow).toBeInTheDocument()
+    // Choosing it clears the selection.
+    fireEvent.click(clearRow)
+    expect(onChange).toHaveBeenCalledWith(null)
+  })
+
   it('(g) renders a swatch only when the option has a color', () => {
     // With color -> swatch present on each row.
     const { unmount } = render(
