@@ -35,6 +35,16 @@ function formatDate(iso: string): string {
 function uploadErrorToast(err: unknown) {
   if (err instanceof ApiError) {
     if (err.status === 413) {
+      // The backend tags its two board-file 413s so we can show the right
+      // message: a single over-500MB file vs the per-card 500 MB quota.
+      const reason =
+        err.data && typeof err.data === 'object' && 'reason' in err.data
+          ? (err.data as { reason?: unknown }).reason
+          : undefined
+      if (reason === 'FILE_TOO_LARGE') {
+        toast.error('File too large — maximum is 500MB.')
+        return true
+      }
       toast.error('Quota exceeded — this card already holds close to 500 MB.')
       return true
     }
