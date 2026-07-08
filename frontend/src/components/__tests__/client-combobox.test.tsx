@@ -169,6 +169,24 @@ describe('ClientCombobox', () => {
     expect(onChange).toHaveBeenCalledWith(null)
   })
 
+  it('(k) UAT-4: the trigger renders a chevron affordance (svg)', () => {
+    render(
+      <ClientCombobox clients={CLIENTS_WITH_COLOR} value={null} onChange={vi.fn()} sentinelLabel={SENTINEL} />,
+    )
+    // Trigger is the first (and only, popover closed) button showing the sentinel.
+    const trigger = screen.getByRole('button', { name: SENTINEL })
+    expect(trigger.querySelector('svg')).not.toBeNull()
+  })
+
+  it('(l) UAT-5: the no-selection sentinel label is not muted', () => {
+    render(
+      <ClientCombobox clients={CLIENTS_WITH_COLOR} value={null} onChange={vi.fn()} sentinelLabel={SENTINEL} />,
+    )
+    const trigger = screen.getByRole('button', { name: SENTINEL })
+    const label = within(trigger).getByText(SENTINEL)
+    expect(label).not.toHaveClass('text-muted-foreground')
+  })
+
   it('(g) renders a swatch only when the option has a color', () => {
     // With color -> swatch present on each row.
     const { unmount } = render(
