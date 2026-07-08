@@ -756,6 +756,63 @@
         "disposition": "accepted-process-exception",
         "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
       }
+    },
+    "a3355aa4": {
+      "summary": "eslint react-hooks/set-state-in-effect (frontend/src/features/schedule/components/AssignmentModal.tsx): Calling setState synchronously within an effect (form-reset useEffect, line 1...",
+      "context": "Known issue from phase 01. Test: eslint react-hooks/set-state-in-effect. File: frontend/src/features/schedule/components/AssignmentModal.tsx. Error: Calling setState synchronously within an effect (form-reset useEffect, line 124 post-change / 202 on HEAD) — pre-existing on the committed version, in code not touched by this plan. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/features/schedule/components/AssignmentModal.tsx"
+      ],
+      "added": "2026-07-08",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-dropdown-order-search",
+        "test": "eslint react-hooks/set-state-in-effect",
+        "file": "frontend/src/features/schedule/components/AssignmentModal.tsx",
+        "error": "Calling setState synchronously within an effect (form-reset useEffect, line 124 post-change / 202 on HEAD) — pre-existing on the committed version, in code not touched by this plan",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "1cc1cbb5": {
+      "summary": "eslint react-hooks/set-state-in-effect (frontend/src/features/schedule/components/AssignmentModal.tsx): Calling setState synchronously within an effect (form-reset useEffect, line 1...",
+      "context": "Known issue from phase 01. Test: eslint react-hooks/set-state-in-effect. File: frontend/src/features/schedule/components/AssignmentModal.tsx. Error: Calling setState synchronously within an effect (form-reset useEffect, line 124) — reproduced on HEAD via `npx eslint AssignmentModal.tsx`; pre-existing, in code this plan did not touch (touched lines are the ClientCombobox call sites, not the effect body).. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/features/schedule/components/AssignmentModal.tsx"
+      ],
+      "added": "2026-07-08",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-dropdown-order-search",
+        "test": "eslint react-hooks/set-state-in-effect",
+        "file": "frontend/src/features/schedule/components/AssignmentModal.tsx",
+        "error": "Calling setState synchronously within an effect (form-reset useEffect, line 124) — reproduced on HEAD via `npx eslint AssignmentModal.tsx`; pre-existing, in code this plan did not touch (touched lines are the ClientCombobox call sites, not the effect body).",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "fd6bbb57": {
+      "summary": "DeleteCardDialog.test.tsx (unnamed 'shows destructive delete warning' test) (frontend/src/features/board/components/__tests__/DeleteCardDialog.test.tsx:46): TestingLibraryElementError: Unable to find element with text matching /perman...",
+      "context": "Known issue from phase 02. Test: DeleteCardDialog.test.tsx (unnamed 'shows destructive delete warning' test). File: frontend/src/features/board/components/__tests__/DeleteCardDialog.test.tsx:46. Error: TestingLibraryElementError: Unable to find element with text matching /permanently deletes the card and all attached.../i - actual rendered text is 'This permanently deletes the card, the project, and all its linked schedule assignments (for all pentesters), along with all attached comments, notes, and files.' Text/copy drifted from what the test expects. Predates Phase 2 (component/test last touched in commits 41e08eb/687a82c/195840b, none of which are part of this phase's b764f97/4a48358/735a581/b6cc33c, and DeleteCardDialog.tsx/test.tsx are not in files_modified for 02-01).. Seen 1 time(s). Source: 02-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "frontend/src/features/board/components/__tests__/DeleteCardDialog.test.tsx:46"
+      ],
+      "added": "2026-07-08",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-fix-upload-size-limit",
+        "test": "DeleteCardDialog.test.tsx (unnamed 'shows destructive delete warning' test)",
+        "file": "frontend/src/features/board/components/__tests__/DeleteCardDialog.test.tsx:46",
+        "error": "TestingLibraryElementError: Unable to find element with text matching /permanently deletes the card and all attached.../i - actual rendered text is 'This permanently deletes the card, the project, and all its linked schedule assignments (for all pentesters), along with all attached comments, notes, and files.' Text/copy drifted from what the test expects. Predates Phase 2 (component/test last touched in commits 41e08eb/687a82c/195840b, none of which are part of this phase's b764f97/4a48358/735a581/b6cc33c, and DeleteCardDialog.tsx/test.tsx are not in files_modified for 02-01).",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "02-VERIFICATION.md"
+      }
     }
   }
 }

@@ -53,3 +53,5 @@
 {"event":"bash_guard_block","command_preview":"ls .vbw-planning/codebase/ 2>/dev/null; ","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-02T16:18:49Z"}
 {"event":"bash_guard_block","command_preview":"ls .vbw-planning/codebase/ 2>/dev/null &","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-02T16:41:36Z"}
 {"event":"bash_guard_block","command_preview":"find backend/src/routes -iname \"*board*\"","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-02T16:41:37Z"}
+{"event":"bash_guard_block","command_preview":"cat /home/rm/Documents/Layer8-Management","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-08T20:24:32Z"}
+{"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-08T20:24:32Z"}
