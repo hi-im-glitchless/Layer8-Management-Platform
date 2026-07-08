@@ -43,6 +43,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { prisma } from '../../db/prisma.js';
 import filesRouter from '../boardFiles.js';
+import { MAX_FILE_BYTES } from '../../services/boardFileService.js';
+import { config } from '../../config.js';
 
 interface SeedIds {
   assignedUserId: string;
@@ -456,5 +458,135 @@ describe('boardFiles routes — Phase 3 broadened read policy', () => {
 
     expect(tmAfter).toEqual(tmBefore);
     expect(asgAfter).toEqual(asgBefore);
+  });
+});
+
+/**
+ * Phase 2 — 500MB upload-limit regression.
+ *
+ * Locks in the fix that raised the board per-file cap from 50MB to 500MB and
+ * split the two board-file 413s into distinguishable `reason` codes:
+ *
+ *   (i)  MAX_FILE_BYTES is exactly 500MB (hard guard against the constant
+ *        drifting back to 50MB).
+ *   (j)  the multer over-limit 413 is wired to `reason: 'FILE_TOO_LARGE'` with a
+ *        500MB message (asserted at the source level — allocating a real >500MB
+ *        buffer in CI is impractical; the byte cap itself is guarded by (i)).
+ *   (k)  a real multipart upload of a small allowed file still succeeds (201)
+ *        and creates a BoardFile row — proves the happy path survives the change.
+ *   (l)  a card already at the 500MB card quota rejects a further upload with
+ *        413 + `reason: 'QUOTA_EXCEEDED'` (the pre-write quota guard, unchanged
+ *        in behaviour but now carrying the distinguishing reason code).
+ *
+ * The per-file >500MB (FILE_TOO_LARGE) functional path is intentionally NOT
+ * exercised with a real oversize body — see (j). The virus scan is disabled for
+ * the happy-path upload so the test does not require a running ClamAV daemon.
+ */
+describe('boardFiles routes — Phase 2 500MB upload limit', () => {
+  // (i) constant regression guard — no server/seed needed.
+  it('(i) MAX_FILE_BYTES equals 500MB (524288000)', () => {
+    expect(MAX_FILE_BYTES).toBe(500 * 1024 * 1024);
+    expect(MAX_FILE_BYTES).toBe(524288000);
+  });
+
+  // (j) source-level wiring guard for the multer over-limit 413.
+  it('(j) maps multer LIMIT_FILE_SIZE to reason FILE_TOO_LARGE with a 500MB message', () => {
+    const routeSrc = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'routes', 'boardFiles.ts'),
+      'utf8',
+    );
+    expect(routeSrc).toContain("reason: 'FILE_TOO_LARGE'");
+    // Message is derived from MAX_FILE_BYTES; the current value renders "500MB".
+    expect(routeSrc).toContain('500MB');
+    expect(routeSrc).not.toContain('50MB.');
+  });
+
+  describe('functional upload paths', () => {
+    let ids: SeedIds | null = null;
+    let server: Server | null = null;
+    let baseUrl = '';
+    let scanWasDisabled = false;
+
+    beforeEach(async () => {
+      ids = await seedDataset();
+      const sessions = {
+        assigned: { userId: ids.assignedUserId, role: 'NORMAL' },
+        unassigned: { userId: ids.unassignedUserId, role: 'NORMAL' },
+      };
+      const started = await startServer(buildApp(sessions));
+      server = started.server;
+      baseUrl = started.baseUrl;
+      // Bypass ClamAV for the happy-path upload; restored in afterEach.
+      scanWasDisabled = config.DISABLE_VIRUS_SCAN;
+      config.DISABLE_VIRUS_SCAN = true;
+    });
+
+    afterEach(async () => {
+      config.DISABLE_VIRUS_SCAN = scanWasDisabled;
+      await new Promise<void>((resolve) => {
+        if (!server) return resolve();
+        server.close(() => resolve());
+      });
+      server = null;
+      await teardownDataset(ids);
+      ids = null;
+    });
+
+    // (k) a real multipart upload of a small allowed file succeeds → 201.
+    it('(k) accepts a small multipart upload from an assigned user → 201', async () => {
+      const form = new FormData();
+      form.append(
+        'file',
+        new Blob([new Uint8Array(1024)], { type: 'application/pdf' }),
+        'small.pdf',
+      );
+      const res = await fetch(`${baseUrl}/cards/${ids!.cardId}/files`, {
+        method: 'POST',
+        headers: { 'x-test-user': 'assigned' },
+        body: form,
+      });
+      expect(res.status).toBe(201);
+      const json = (await res.json()) as { file: { id: string; filename: string } };
+      expect(json.file.filename).toBe('small.pdf');
+      // The BoardFile row exists in the DB.
+      const row = await prisma.boardFile.findUnique({ where: { id: json.file.id } });
+      expect(row).not.toBeNull();
+      expect(row!.cardId).toBe(ids!.cardId);
+    });
+
+    // (l) a card already at the 500MB quota rejects a further upload → 413 QUOTA_EXCEEDED.
+    it('(l) rejects an upload that busts the per-card 500MB quota → 413 QUOTA_EXCEEDED', async () => {
+      // Seed a clean file that fills the entire card quota (no real bytes needed:
+      // the guard reads the DB size aggregate, not the disk).
+      await withDbRetry(() =>
+        prisma.boardFile.create({
+          data: {
+            cardId: ids!.cardId,
+            filename: 'huge.bin',
+            storedName: `${ids!.cardId}-huge.bin`,
+            mimeType: 'application/octet-stream',
+            sizeBytes: 500 * 1024 * 1024,
+            uploadedBy: ids!.assignedUserId,
+            isQuarantined: false,
+            scanStatus: 'clean',
+          },
+        }),
+      );
+
+      const form = new FormData();
+      form.append(
+        'file',
+        new Blob([new Uint8Array(1024)], { type: 'application/pdf' }),
+        'overflow.pdf',
+      );
+      const res = await fetch(`${baseUrl}/cards/${ids!.cardId}/files`, {
+        method: 'POST',
+        headers: { 'x-test-user': 'assigned' },
+        body: form,
+      });
+      expect(res.status).toBe(413);
+      const json = (await res.json()) as { reason?: string };
+      expect(json.reason).toBe('QUOTA_EXCEEDED');
+    });
   });
 });
