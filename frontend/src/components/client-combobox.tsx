@@ -99,7 +99,10 @@ export function ClientCombobox({
         <Button
           variant="outline"
           disabled={disabled}
-          className={cn('w-full justify-start font-normal', triggerClassName)}
+          className={cn(
+            'w-full justify-start font-normal hover:bg-transparent hover:text-foreground',
+            triggerClassName,
+          )}
         >
           {selected ? (
             <span className="flex items-center gap-2">
