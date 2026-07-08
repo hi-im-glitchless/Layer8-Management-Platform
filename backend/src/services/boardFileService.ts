@@ -12,8 +12,12 @@ import { prisma } from '@/db/prisma.js';
 /** Per-card storage cap from CONTEXT.md ("Per-card quota: 500 MB hard cap"). */
 export const MAX_CARD_BYTES = 500 * 1024 * 1024;
 
-/** Per-file size cap (mirrored from multer `limits.fileSize`). */
-export const MAX_FILE_BYTES = 50 * 1024 * 1024;
+/**
+ * Per-file size cap consumed by multer `limits.fileSize`. Matches the 500 MB
+ * per-card quota (`MAX_CARD_BYTES`) so a single file up to the full card quota
+ * is accepted — only files larger than the card can ever hold are rejected.
+ */
+export const MAX_FILE_BYTES = 500 * 1024 * 1024;
 
 /**
  * Whitelist of MIME types accepted for board uploads. Drawn from

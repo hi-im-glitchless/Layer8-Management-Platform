@@ -109,6 +109,7 @@ async function quotaGuard(req: Request, res: Response, next: NextFunction): Prom
     if (usedBytes + declaredLength > MAX_CARD_BYTES) {
       res.status(413).json({
         error: 'Per-card 500 MB quota exceeded',
+        reason: 'QUOTA_EXCEEDED',
         usedBytes,
         maxBytes: MAX_CARD_BYTES,
       });
@@ -130,7 +131,13 @@ function multerWithErrorMap(req: Request, res: Response, next: NextFunction): vo
   upload.single('file')(req, res, (err: unknown) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        res.status(413).json({ error: 'File too large. Maximum size is 50MB.' });
+        // Derive the advertised cap from MAX_FILE_BYTES so the message can never
+        // drift from the multer limit (currently 500MB = MAX_FILE_BYTES).
+        const maxFileMb = Math.floor(MAX_FILE_BYTES / (1024 * 1024));
+        res.status(413).json({
+          error: `File too large. Maximum size is ${maxFileMb}MB.`,
+          reason: 'FILE_TOO_LARGE',
+        });
         return;
       }
       res.status(400).json({ error: err.message });
@@ -178,7 +185,7 @@ router.get('/', requireAuth, requireCardExists, readRateLimiter, async (req, res
  *   1. requireAuth + requireCardAccess (session + ACL)
  *   2. mutationRateLimiter
  *   3. quotaGuard (pre-write, rejects 413 if Content-Length would bust quota)
- *   4. multer fileFilter (rejects 415 on MIME outside allowlist; 413 on >50 MB)
+ *   4. multer fileFilter (rejects 415 on MIME outside allowlist; 413 on >500 MB)
  *   5. ClamAV scan of the now-on-disk temp file:
  *        - infected → unlink + audit `board.file.quarantine` + 422
  *        - CLAMAV_UNREACHABLE → unlink + 503 (fail-closed)
