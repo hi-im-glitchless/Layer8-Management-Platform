@@ -43,7 +43,7 @@ describe('DeleteCardDialog', () => {
     expect(screen.getByText(/Acme Pentest/)).toBeInTheDocument()
     // Warning makes clear this is a permanent, irreversible delete (not archive).
     expect(
-      screen.getByText(/permanently deletes the card and all attached comments/i),
+      screen.getByText(/permanently deletes the card, the project/i),
     ).toBeInTheDocument()
     expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument()
   })
