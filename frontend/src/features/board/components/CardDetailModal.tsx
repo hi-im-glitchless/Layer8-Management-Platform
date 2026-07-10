@@ -37,7 +37,7 @@ import {
   useUpdateCard,
   useUpdateNotes,
 } from '../hooks'
-import { NotesEditor } from '@/components/NotesEditor'
+import { NotesEditor, NotesPreview } from '@/components/NotesEditor'
 import { FilesPanel } from './FilesPanel'
 import { ArchiveCardDialog } from './ArchiveCardDialog'
 import { DeleteCardDialog } from './DeleteCardDialog'
@@ -626,6 +626,23 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
                     </li>
                   ))}
               </ul>
+            </div>
+          )}
+
+          {/* Client Notes (read-only) — Phase 03-01. Surfaced from the widened
+              card->project->client select, rendered through the single shared
+              NotesPreview markdown path. Read-only for every role including
+              ADMIN: no editor, no tabs, no save. The single guard covers both
+              the null-client case (project.client?.notes short-circuits) and
+              the empty/whitespace-notes case (''.trim() is falsy) — nothing,
+              not even the heading, renders in either case. */}
+          {project.client?.notes?.trim() && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span>Client Notes</span>
+              </div>
+              <NotesPreview content={project.client.notes} />
             </div>
           )}
 
