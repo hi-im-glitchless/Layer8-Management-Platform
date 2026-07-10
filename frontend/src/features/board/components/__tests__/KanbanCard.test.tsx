@@ -57,7 +57,14 @@ function makeCard(
       tags: [],
       color: '#3366ff',
       status: 'confirmed',
-      client: { id: 'client-1', name: 'Acme Corp', color: '#3366ff' },
+      client: {
+        id: 'client-1',
+        name: 'Acme Corp',
+        color: '#3366ff',
+        notes: '',
+        notesUpdatedAt: null,
+        notesUpdatedBy: null,
+      },
       ...projectOverrides,
     },
     assignments,
@@ -270,7 +277,16 @@ describe('KanbanCard pentester avatars', () => {
 describe('KanbanCard client name styling', () => {
   it('(1) renders the client name bold with no inline colour', () => {
     renderCard(
-      makeCard([], { client: { id: 'client-1', name: 'Acme Corp', color: '#3366ff' } }),
+      makeCard([], {
+        client: {
+          id: 'client-1',
+          name: 'Acme Corp',
+          color: '#3366ff',
+          notes: '',
+          notesUpdatedAt: null,
+          notesUpdatedBy: null,
+        },
+      }),
     )
 
     const el = clientNameEl('Acme Corp')
@@ -285,7 +301,16 @@ describe('KanbanCard client name styling', () => {
     // #FFFACD (lemon chiffon) would be illegible on the white card; the name no
     // longer renders in the client colour at all.
     renderCard(
-      makeCard([], { client: { id: 'client-2', name: 'Pale Co', color: '#FFFACD' } }),
+      makeCard([], {
+        client: {
+          id: 'client-2',
+          name: 'Pale Co',
+          color: '#FFFACD',
+          notes: '',
+          notesUpdatedAt: null,
+          notesUpdatedBy: null,
+        },
+      }),
     )
 
     const el = clientNameEl('Pale Co')
@@ -295,7 +320,16 @@ describe('KanbanCard client name styling', () => {
 
   it('(3) renders the name safely when colour is missing/empty', () => {
     renderCard(
-      makeCard([], { client: { id: 'client-3', name: 'No Colour Co', color: '' } }),
+      makeCard([], {
+        client: {
+          id: 'client-3',
+          name: 'No Colour Co',
+          color: '',
+          notes: '',
+          notesUpdatedAt: null,
+          notesUpdatedBy: null,
+        },
+      }),
     )
 
     const el = clientNameEl('No Colour Co')
@@ -332,5 +366,54 @@ describe('KanbanCard memo re-render on project change', () => {
 
     expect(screen.getByText('Placeholder')).toBeInTheDocument()
     expect(screen.queryByText('Confirmed')).toBeNull()
+  })
+})
+
+/**
+ * Phase 03-01: widening the card->project->client payload with the notes
+ * columns must NOT alter the Kanban tile — KanbanCard never reads client.notes.
+ * Rendering the same card with and without client notes must produce identical
+ * DOM, proving the "Kanban tile visually unchanged" success criterion at the
+ * test level (not just by code inspection). No assignments -> no Math.random
+ * ids, so the markup is deterministic and directly comparable.
+ */
+describe('KanbanCard is unaffected by client.notes (Phase 03-01)', () => {
+  // DndContext stamps monotonic ids (DndDescribedBy-N / DndLiveRegion-N) that
+  // increment per render and are unrelated to the card content — normalise them
+  // so the comparison isolates the actual KanbanCard tile markup.
+  const normaliseDnd = (html: string) =>
+    html.replace(/Dnd(?:DescribedBy|LiveRegion)-\d+/g, 'Dnd-X')
+
+  it('renders identical DOM whether or not client.notes is present', () => {
+    const withoutNotes = renderCard(
+      makeCard([], {
+        client: {
+          id: 'client-1',
+          name: 'Acme Corp',
+          color: '#3366ff',
+          notes: '',
+          notesUpdatedAt: null,
+          notesUpdatedBy: null,
+        },
+      }),
+    )
+    const htmlWithoutNotes = normaliseDnd(withoutNotes.container.innerHTML)
+    withoutNotes.unmount()
+
+    const withNotes = renderCard(
+      makeCard([], {
+        client: {
+          id: 'client-1',
+          name: 'Acme Corp',
+          color: '#3366ff',
+          notes: '**Important** — handle with care',
+          notesUpdatedAt: '2026-07-10T00:00:00.000Z',
+          notesUpdatedBy: 'user-1',
+        },
+      }),
+    )
+
+    // The tile markup is byte-identical: the notes never reach the render.
+    expect(normaliseDnd(withNotes.container.innerHTML)).toBe(htmlWithoutNotes)
   })
 })

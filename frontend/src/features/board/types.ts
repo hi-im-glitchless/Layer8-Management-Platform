@@ -32,7 +32,14 @@ export interface BoardCard {
     tags: string[]
     color: string
     status: string
-    client?: { id: string; name: string; color: string } | null
+    client?: {
+      id: string
+      name: string
+      color: string
+      notes: string
+      notesUpdatedAt: string | null
+      notesUpdatedBy: string | null
+    } | null
   }
   assignments: BoardCardAssignment[]
   comments?: BoardComment[]
