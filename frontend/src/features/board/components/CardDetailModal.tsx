@@ -35,8 +35,9 @@ import {
   useMarkCardNotificationsRead,
   useSoftDeleteComment,
   useUpdateCard,
+  useUpdateNotes,
 } from '../hooks'
-import { NotesEditor } from './NotesEditor'
+import { NotesEditor } from '@/components/NotesEditor'
 import { FilesPanel } from './FilesPanel'
 import { ArchiveCardDialog } from './ArchiveCardDialog'
 import { DeleteCardDialog } from './DeleteCardDialog'
@@ -403,6 +404,7 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
   const { user, role } = useAuth()
   const markRead = useMarkCardNotificationsRead()
   const updateCard = useUpdateCard()
+  const updateNotes = useUpdateNotes()
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const { data } = useBoardCard(cardId ?? '')
@@ -634,10 +636,12 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
               <span>Notes</span>
             </div>
             <NotesEditor
-              cardId={card.id}
               initialNotes={card.notes ?? ''}
               notesUpdatedAt={card.notesUpdatedAt}
               notesUpdatedBy={notesUpdatedByName}
+              resetKey={card.id}
+              isSaving={updateNotes.isPending}
+              onSave={(notes) => updateNotes.mutateAsync({ cardId: card.id, notes })}
             />
           </div>
 
