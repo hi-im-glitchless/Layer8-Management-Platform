@@ -278,6 +278,16 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Notes columns appended after the existing scalar fields (not mid-table) so
+  // the SQLite migration is a pure additive `ALTER TABLE ... ADD COLUMN` and
+  // never triggers a table-redefinition/rebuild on the populated DB.
+  notes          String    @default("")
+  /// Timestamp of the most recent notes edit; drives "last edited by ... at ..." UI
+  notesUpdatedAt DateTime?
+  /// Free-form user ID of the last notes editor — intentionally not a relation to keep
+  /// migrations trivial and avoid cascade noise when users are removed
+  notesUpdatedBy String?
+
   assignments      Assignment[] @relation("AssignmentClient")
   splitAssignments Assignment[] @relation("AssignmentSplitClient")
   projects         Project[]    @relation("ProjectClient")
