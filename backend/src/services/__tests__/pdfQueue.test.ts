@@ -80,7 +80,7 @@ describe('pdfQueue', () => {
 
       await expect(
         addPdfConversionJob('/nonexistent/file.docx', 'report.docx'),
-      ).rejects.toThrow('Invalid DOCX path');
+      ).rejects.toThrow('Invalid source file path');
     });
 
     it('should reject an empty file path', async () => {
@@ -89,7 +89,7 @@ describe('pdfQueue', () => {
 
       await expect(
         addPdfConversionJob('', 'report.docx'),
-      ).rejects.toThrow('Invalid DOCX path');
+      ).rejects.toThrow('Invalid source file path');
     });
   });
 
