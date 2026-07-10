@@ -298,7 +298,7 @@ describe('templateMapping service', () => {
       // Verify correct query parameters
       expect(mockFindMany).toHaveBeenCalledWith({
         where: { templateType: 'web', language: 'en' },
-        orderBy: { usageCount: 'desc' },
+        orderBy: [{ confidence: 'desc' }, { usageCount: 'desc' }],
         take: 5,
       });
     });
@@ -310,7 +310,7 @@ describe('templateMapping service', () => {
 
       expect(mockFindMany).toHaveBeenCalledWith({
         where: { templateType: 'internal', language: 'pt-pt' },
-        orderBy: { usageCount: 'desc' },
+        orderBy: [{ confidence: 'desc' }, { usageCount: 'desc' }],
         take: 5,
       });
     });
@@ -322,7 +322,7 @@ describe('templateMapping service', () => {
 
       expect(mockFindMany).toHaveBeenCalledWith({
         where: { templateType: 'web', language: 'en' },
-        orderBy: { usageCount: 'desc' },
+        orderBy: [{ confidence: 'desc' }, { usageCount: 'desc' }],
         take: 3,
       });
     });
