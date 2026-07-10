@@ -210,6 +210,27 @@ export const scheduleApi = {
     })
   },
 
+  // ── Client Notes (Phase 02) ──────────────────────────────────────
+  // NOTE: the Phase-01 backend has a deliberate GET/PUT response-shape
+  // asymmetry — GET returns the notes object UNWRAPPED, PUT returns it
+  // WRAPPED in { client }. Both shapes are typed as-is here; Phase 02 has
+  // no mandate to touch the Phase-01 backend, so this is accommodated, not
+  // "fixed". See useUpdateClientNotes for the .client unwrap.
+
+  async getClientNotes(id: string) {
+    return apiClient<{ notes: string; notesUpdatedAt: string | null; notesUpdatedBy: string | null }>(
+      `/api/schedule/clients/${id}/notes`,
+    )
+  },
+
+  // Returns the WRAPPED { client: {...} } shape (Phase-01 backend fact — not a bug to fix here).
+  async updateClientNotes(id: string, notes: string) {
+    return apiClient<{ client: { notes: string; notesUpdatedAt: string | null; notesUpdatedBy: string | null } }>(
+      `/api/schedule/clients/${id}/notes`,
+      { method: 'PUT', body: JSON.stringify({ notes }) },
+    )
+  },
+
   // ── Project Tags ────────────────────────────────────────────────
 
   async getProjectTags() {
