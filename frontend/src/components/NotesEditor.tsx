@@ -4,6 +4,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import type { Options as Schema } from 'rehype-sanitize'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface NotesEditorProps {
   initialNotes: string
@@ -27,6 +28,35 @@ const SANITIZE_SCHEMA: Schema = {
   tagNames: (defaultSchema.tagNames ?? []).filter(
     (tag) => tag !== 'script' && tag !== 'iframe' && tag !== 'object' && tag !== 'embed',
   ),
+}
+
+/**
+ * The single read-only markdown render path (Phase 03-01). Owns the hardened
+ * `rehypeSanitize`/`SANITIZE_SCHEMA` plumbing so there is exactly one place
+ * markdown is rendered — the NotesEditor's own Preview tab delegates here, and
+ * the planner card's read-only "Client Notes" section reuses it. `SANITIZE_SCHEMA`
+ * stays module-private; only this component is exported.
+ *
+ * `className` layers extra chrome onto the base prose wrapper: the editor's
+ * Preview tab passes the bordered field styling so its DOM stays byte-identical
+ * to the pre-extraction markup; read-only callers omit it for a lighter look.
+ */
+export function NotesPreview({
+  content,
+  className,
+}: {
+  content: string
+  className?: string
+}) {
+  const rehypePlugins = useMemo(() => [[rehypeSanitize, SANITIZE_SCHEMA]] as const, [])
+  return (
+    <div className={cn('prose prose-sm dark:prose-invert max-w-none', className)}>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <ReactMarkdown rehypePlugins={rehypePlugins as any}>
+        {content || '*No notes yet.*'}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 function relativeTime(iso: string): string {
@@ -62,7 +92,6 @@ export function NotesEditor({
   }, [resetKey, initialNotes])
 
   const dirty = draft !== initialNotes
-  const rehypePlugins = useMemo(() => [[rehypeSanitize, SANITIZE_SCHEMA]] as const, [])
 
   const handleSave = async () => {
     if (!dirty || isSaving) return
@@ -90,12 +119,10 @@ export function NotesEditor({
           />
         </TabsContent>
         <TabsContent value="preview">
-          <div className="prose prose-sm dark:prose-invert max-w-none rounded-md border border-input bg-background p-3 min-h-[24rem]">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <ReactMarkdown rehypePlugins={rehypePlugins as any}>
-              {draft || '*No notes yet.*'}
-            </ReactMarkdown>
-          </div>
+          <NotesPreview
+            content={draft}
+            className="rounded-md border border-input bg-background p-3 min-h-[24rem]"
+          />
         </TabsContent>
       </Tabs>
 
