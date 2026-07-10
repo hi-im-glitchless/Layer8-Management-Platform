@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma.js';
@@ -10,9 +10,24 @@ import * as absenceService from '../services/absenceService.js';
 import * as holidayService from '../services/holidayService.js';
 import * as clientService from '../services/clientService.js';
 import { VALID_TAGS } from '../services/assignmentService.js';
+import { logAuditEvent } from '../services/audit.js';
 import { emitScheduleInvalidate, emitBoardInvalidate } from '../services/socketService.js';
 
 const router = Router();
+
+/**
+ * Same x-forwarded-for / req.ip / socket.remoteAddress precedence used by
+ * `boardAdmin.ts`, `boardFiles.ts` and `auth.ts`. Co-located until a shared
+ * `lib/requestIp.ts` is introduced.
+ */
+function extractIp(req: Request): string {
+  return (
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.ip ||
+    req.socket.remoteAddress ||
+    'unknown'
+  );
+}
 
 // ── Team Members ──────────────────────────────────────────────────
 
@@ -641,6 +656,67 @@ router.delete('/clients/:id', requireRole('PM'), mutationRateLimiter, async (req
   } catch (error) {
     console.error('[schedule routes] Error deleting client:', error);
     res.status(500).json({ error: 'Failed to delete client' });
+  }
+});
+
+/**
+ * GET /clients/:id/notes
+ * Read a client's notes + attribution. Reachable by ALL authenticated roles
+ * (requireAuth only — NORMAL included) so client-level commentary is visible to
+ * everyone. Returns the thin { notes, notesUpdatedAt, notesUpdatedBy } shape;
+ * 404 when the client id does not exist.
+ */
+router.get('/clients/:id/notes', requireAuth, readRateLimiter, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const notes = await clientService.getClientNotes(id);
+    if (!notes) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    res.json(notes);
+  } catch (error) {
+    console.error('[schedule routes] Error reading client notes:', error);
+    res.status(500).json({ error: 'Failed to read client notes' });
+  }
+});
+
+/**
+ * PUT /clients/:id/notes
+ * Write a client's notes. Gated by requireRole('PM') — admits PM and ADMIN,
+ * rejects NORMAL with 403. Stamps attribution and writes exactly one AuditLog
+ * entry (action 'client.notes.update'). Ordering matches boardAdmin.ts archive:
+ * write → audit → respond (the audit is NOT wrapped in the update transaction).
+ * No socket invalidation is emitted (follows the existing /clients CRUD
+ * convention in this router, not team-members').
+ */
+router.put('/clients/:id/notes', requireRole('PM'), mutationRateLimiter, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const { notes } = z.object({ notes: z.string() }).parse(req.body);
+
+    // Confirm the client exists first, so the audit entry only fires for a real
+    // client and details.clientName is available.
+    const client = await clientService.getClientById(id);
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    const updated = await clientService.updateClientNotes(id, notes, req.session.userId!);
+
+    await logAuditEvent({
+      userId: req.session.userId!,
+      action: 'client.notes.update',
+      ipAddress: extractIp(req),
+      details: { clientId: id, clientName: client.name },
+    });
+
+    res.json({ client: updated });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
+    console.error('[schedule routes] Error updating client notes:', error);
+    res.status(500).json({ error: 'Failed to update client notes' });
   }
 });
 
