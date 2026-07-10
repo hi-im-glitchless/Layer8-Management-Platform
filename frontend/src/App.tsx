@@ -9,6 +9,7 @@ import { Admin } from '@/routes/Admin'
 import { Profile } from '@/routes/Profile'
 import { Schedule } from '@/routes/Schedule'
 import { Board } from '@/routes/Board'
+import { ClientNotes } from '@/routes/ClientNotes'
 import { Login } from '@/routes/Login'
 import { NotFound } from '@/routes/NotFound'
 import { useAuth } from '@/features/auth/hooks'
@@ -99,6 +100,11 @@ function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/schedule" element={<Schedule />} />
               <Route path="/board" element={<Board />} />
+
+              {/* PM-gated tools — reuses the existing RoleProtectedRoute guard */}
+              <Route element={<RoleProtectedRoute minRole="PM" />}>
+                <Route path="/client-notes" element={<ClientNotes />} />
+              </Route>
 
               {/* Admin-only routes */}
               <Route element={<RoleProtectedRoute minRole="ADMIN" />}>

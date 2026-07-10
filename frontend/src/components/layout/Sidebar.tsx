@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Calendar,
   KanbanSquare,
+  NotebookPen,
   ScrollText,
   User,
   Shield,
@@ -48,6 +49,7 @@ const navigationGroups: NavGroup[] = [
       // { to: '/documents', icon: FileUp, label: 'Documents' },
       { to: '/schedule', icon: Calendar, label: 'Schedule' },
       { to: '/board', icon: KanbanSquare, label: 'Planner' },
+      { to: '/client-notes', icon: NotebookPen, label: 'Client Notes', minRole: 'PM' },
     ],
   },
   {
