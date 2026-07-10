@@ -322,6 +322,30 @@ export function useDeleteClient() {
   })
 }
 
+// ── Client Notes (Phase 02) ────────────────────────────────────────
+
+export function useClientNotes(id: string | null) {
+  return useQuery({
+    queryKey: ['schedule', 'client-notes', id],
+    queryFn: () => scheduleApi.getClientNotes(id as string),
+    enabled: !!id, // only fetch once a client is selected
+  })
+}
+
+export function useUpdateClientNotes() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      // unwrap the Phase-01 { client } envelope so consumers see one clean shape
+      scheduleApi.updateClientNotes(id, notes).then((r) => r.client),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'client-notes', id] })
+    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to save client notes'),
+  })
+}
+
 // ── Purge Schedule ───────────────────────────────────────────────
 
 export function usePurgeSchedule() {
