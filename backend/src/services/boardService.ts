@@ -138,6 +138,24 @@ const ASSIGNMENT_TEAM_MEMBER_SELECT = {
 } as const;
 
 /**
+ * Phase 03-01: field set for the card->project->client join. Shared by both
+ * listCards and getCard so the two selects cannot drift. Widened beyond the
+ * original {id,name,color} to carry the Phase-01 notes columns, which the
+ * planner card detail modal renders read-only above the project notes.
+ * These reach every authenticated role (the board read routes are
+ * requireAuth-only) — that is the intended "client notes visible to all"
+ * behaviour, not a new exposure surface.
+ */
+const PROJECT_CLIENT_SELECT = {
+  id: true,
+  name: true,
+  color: true,
+  notes: true,
+  notesUpdatedAt: true,
+  notesUpdatedBy: true,
+} as const;
+
+/**
  * List board cards (one per Project) with their project metadata and the
  * full set of pentester assignments that reference each Project.
  */
@@ -151,7 +169,7 @@ export async function listCards(filters: { stage?: string; projectId?: string })
     include: {
       project: {
         include: {
-          client: { select: { id: true, name: true, color: true } },
+          client: { select: PROJECT_CLIENT_SELECT },
           primaryAssignments: {
             include: { teamMember: ASSIGNMENT_TEAM_MEMBER_SELECT },
           },
@@ -190,7 +208,7 @@ export async function getCard(id: string) {
     include: {
       project: {
         include: {
-          client: { select: { id: true, name: true, color: true } },
+          client: { select: PROJECT_CLIENT_SELECT },
           primaryAssignments: {
             include: { teamMember: ASSIGNMENT_TEAM_MEMBER_SELECT },
           },
