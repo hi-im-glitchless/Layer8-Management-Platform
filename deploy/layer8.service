@@ -8,6 +8,9 @@ Type=simple
 User=layer8
 Group=layer8
 WorkingDirectory=/opt/layer8/backend
+# Applies pending migrations before the server boots. A failure here aborts the
+# start rather than serving a schema the Prisma client does not match.
+ExecStartPre=/usr/bin/npx prisma migrate deploy
 ExecStart=/usr/bin/npx tsx src/index.ts
 Restart=on-failure
 RestartSec=5
