@@ -481,7 +481,7 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="min-w-0 gap-2 sm:flex-wrap sm:space-x-0">
           {isEdit && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
