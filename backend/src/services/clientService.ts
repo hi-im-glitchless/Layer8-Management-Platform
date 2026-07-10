@@ -1,3 +1,13 @@
+/**
+ * clientService — thin wrappers around prisma.client.
+ *
+ * SCHEDULE-ISOLATION INVARIANT: the client-notes functions below are scoped to
+ * the Client row's `notes` / `notesUpdatedAt` / `notesUpdatedBy` columns only and
+ * MUST NEVER read or write Assignment / TeamMember / Absence / Holiday. Client
+ * carries only inbound schedule relations (Assignment.clientId → Client), so a
+ * plain `prisma.client.update` scoped to the notes columns cannot cascade into
+ * the schedule domain. Keep it that way.
+ */
 import { prisma } from '@/db/prisma.js';
 import { Prisma } from '@prisma/client';
 
@@ -65,4 +75,38 @@ export async function updateClient(
  */
 export async function deleteClient(id: string) {
   return prisma.client.delete({ where: { id } });
+}
+
+/**
+ * Read a client's notes blob plus attribution. Returns the thin shape
+ * `{ notes, notesUpdatedAt, notesUpdatedBy }`, or `null` when the client does
+ * not exist (the route maps null → 404). Scoped to the notes columns only.
+ */
+export async function getClientNotes(id: string) {
+  return prisma.client.findUnique({
+    where: { id },
+    select: { notes: true, notesUpdatedAt: true, notesUpdatedBy: true },
+  });
+}
+
+/**
+ * Last-write-wins update of a client's notes blob. Stamps `notesUpdatedAt` to
+ * `now()` and `notesUpdatedBy` to the editing user's raw id. Mirrors
+ * boardNotesService.updateNotes. References no other Prisma model; audit logging
+ * and IP extraction are the route's responsibility, not this service's.
+ */
+export async function updateClientNotes(
+  id: string,
+  notes: string,
+  editorUserId: string
+) {
+  return prisma.client.update({
+    where: { id },
+    data: {
+      notes,
+      notesUpdatedAt: new Date(),
+      notesUpdatedBy: editorUserId,
+    },
+    select: { notes: true, notesUpdatedAt: true, notesUpdatedBy: true },
+  });
 }
