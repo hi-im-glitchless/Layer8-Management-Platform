@@ -90,22 +90,22 @@ export function ClientCombobox({
           variant="outline"
           disabled={disabled}
           className={cn(
-            'w-full justify-start font-normal hover:bg-transparent hover:text-foreground',
+            'w-full min-w-0 justify-start font-normal hover:bg-transparent hover:text-foreground',
             triggerClassName,
           )}
         >
           {selected ? (
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 min-w-0">
               {selected.color && (
                 <span
                   className="w-3 h-3 rounded-sm shrink-0 inline-block"
                   style={{ backgroundColor: selected.color }}
                 />
               )}
-              {selected.name}
+              <span className="truncate">{selected.name}</span>
             </span>
           ) : (
-            <span>{sentinelLabel}</span>
+            <span className="truncate">{sentinelLabel}</span>
           )}
           <ChevronDown className="ml-auto h-4 w-4 opacity-50 shrink-0" />
         </Button>

@@ -284,8 +284,8 @@ export function AssignmentModal({ open, onClose, teamMemberId, weekStart, assign
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[calc(85vh-10rem)] overflow-y-auto py-2">
-          <div className={isSplit ? 'grid grid-cols-2 gap-6' : ''}>
+        <div className="min-w-0 max-h-[calc(85vh-10rem)] overflow-y-auto py-2">
+          <div className={isSplit ? 'grid grid-cols-2 gap-6 [&>*]:min-w-0' : 'min-w-0'}>
             {/* Primary Project Column */}
             <div className="space-y-4">
               {isSplit && (
