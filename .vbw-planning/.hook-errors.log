@@ -1,24 +1,3 @@
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 8 has no matching 8-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 9 has no matching 9-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 10 has no matching 10-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 11 has no matching 11-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 12 has no matching 12-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 13 has no matching 13-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 14 has no matching 14-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 15 has no matching 15-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 16 has no matching 16-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 17 has no matching 17-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 18 has no matching 18-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 19 has no matching 19-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 20 has no matching 20-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:31:57Z] state-numbering-warning: ROADMAP phase 21 has no matching 21-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 1 has no matching 1-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 2 has no matching 2-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 3 has no matching 3-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 4 has no matching 4-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 5 has no matching 5-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 6 has no matching 6-* phase directory; using prefix numbering and preserving missing phase slot
-[2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 7 has no matching 7-* phase directory; using prefix numbering and preserving missing phase slot
 [2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 8 has no matching 8-* phase directory; using prefix numbering and preserving missing phase slot
 [2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 9 has no matching 9-* phase directory; using prefix numbering and preserving missing phase slot
 [2026-06-03T10:32:07Z] state-numbering-warning: ROADMAP phase 10 has no matching 10-* phase directory; using prefix numbering and preserving missing phase slot
@@ -46,3 +25,6 @@
 2026-06-29T20:43:56Z map-staleness.sh exit=1
 2026-07-02T16:01:01Z map-staleness.sh exit=1
 2026-07-08T16:33:46Z map-staleness.sh exit=1
+2026-07-09T21:06:41Z map-staleness.sh exit=1
+2026-07-10T10:02:29Z map-staleness.sh exit=1
+2026-07-10T10:04:16Z map-staleness.sh exit=1
