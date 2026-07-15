@@ -13,6 +13,12 @@ interface NotesEditorProps {
   onSave: (notes: string) => Promise<unknown> | void
   isSaving: boolean
   resetKey?: string
+  /**
+   * When true, the TabsList renders the Preview trigger before Edit and the
+   * editor opens on the Preview tab. Default `false` preserves today's
+   * Edit-first / Edit-default behavior (used by the client-notes editor).
+   */
+  previewFirst?: boolean
 }
 
 /**
@@ -82,8 +88,9 @@ export function NotesEditor({
   onSave,
   isSaving,
   resetKey,
+  previewFirst = false,
 }: NotesEditorProps) {
-  const [tab, setTab] = useState<'edit' | 'preview'>('edit')
+  const [tab, setTab] = useState<'edit' | 'preview'>(previewFirst ? 'preview' : 'edit')
   const [draft, setDraft] = useState(initialNotes)
 
   // Reset the draft whenever the entity identity or persisted notes shift.
@@ -107,8 +114,17 @@ export function NotesEditor({
     <div className="space-y-2">
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'edit' | 'preview')}>
         <TabsList>
-          <TabsTrigger value="edit">Edit</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
+          {previewFirst ? (
+            <>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+            </>
+          ) : (
+            <>
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </>
+          )}
         </TabsList>
         <TabsContent value="edit">
           <textarea
