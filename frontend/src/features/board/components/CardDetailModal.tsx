@@ -659,6 +659,7 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
               resetKey={card.id}
               isSaving={updateNotes.isPending}
               onSave={(notes) => updateNotes.mutateAsync({ cardId: card.id, notes })}
+              previewFirst
             />
           </div>
 
