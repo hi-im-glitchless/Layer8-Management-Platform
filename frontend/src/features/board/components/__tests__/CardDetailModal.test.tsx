@@ -126,8 +126,10 @@ describe('CardDetailModal — read-only client notes (Phase 03-01)', () => {
 
     // The client notes markdown text renders.
     expect(screen.getByText('Client is VIP, handle with care')).toBeInTheDocument()
-    // The card's own notes still render in the editor textarea.
-    expect(screen.getByDisplayValue('Project note body')).toBeInTheDocument()
+    // The card's own notes still render. The project editor now opens
+    // Preview-first, so the notes render as markdown in the Preview tab (the
+    // Edit textarea is unmounted until Edit is activated).
+    expect(screen.getByText('Project note body')).toBeInTheDocument()
 
     // The Client Notes section precedes the project "Notes" heading in the DOM.
     const clientHeading = screen.getByText('Client Notes')
@@ -143,8 +145,9 @@ describe('CardDetailModal — read-only client notes (Phase 03-01)', () => {
     renderModal()
 
     expect(screen.queryByText(/client notes/i)).toBeNull()
-    // The project notes editor still renders.
-    expect(screen.getByDisplayValue('Project note body')).toBeInTheDocument()
+    // The project notes editor still renders; Preview-first shows the card
+    // notes as markdown (the Edit textarea is unmounted until Edit is active).
+    expect(screen.getByText('Project note body')).toBeInTheDocument()
   })
 
   it('(c) renders no client-notes section when the client notes are empty', () => {
@@ -173,5 +176,32 @@ describe('CardDetailModal — read-only client notes (Phase 03-01)', () => {
     expect(section.querySelector('[role="tab"]')).toBeNull()
     // Sanity: the markdown emphasis did render (proving the section is present).
     expect(section.querySelector('strong')?.textContent).toBe('Important')
+  })
+
+  it('(e) opens the project-notes editor Preview-first (Preview tab selected on mount)', () => {
+    h.card = makeCard({
+      clientNotes: 'Client note body',
+      cardNotes: 'Project note body',
+    })
+    renderModal()
+
+    // Scope to the project "Notes" section (the editable editor subtree), not
+    // the read-only "Client Notes" section — getByText is exact so 'Notes'
+    // never matches 'Client Notes'.
+    const projectHeading = screen.getByText('Notes')
+    const section = projectHeading.closest('.space-y-2') as HTMLElement
+    expect(section).not.toBeNull()
+
+    // The editable editor is the only Notes subtree with tabs (the read-only
+    // client-notes section is tab-less), so its presence identifies it.
+    const tabs = Array.from(
+      section.querySelectorAll<HTMLElement>('[role="tab"]'),
+    )
+    expect(tabs).toHaveLength(2)
+    // Preview trigger renders first and is selected on mount.
+    expect(tabs[0]).toHaveTextContent('Preview')
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(tabs[1]).toHaveTextContent('Edit')
+    expect(tabs[1]).toHaveAttribute('aria-selected', 'false')
   })
 })

@@ -33,6 +33,34 @@ describe('NotesEditor', () => {
     expect(getTextarea().value).toBe('# Hello')
   })
 
+  it('defaults to Edit-first: renders Edit trigger before Preview and opens on Edit (client-notes regression guard)', () => {
+    render(
+      <NotesEditor
+        initialNotes="# Hello"
+        notesUpdatedAt={null}
+        notesUpdatedBy={null}
+        onSave={vi.fn()}
+        isSaving={false}
+      />,
+    )
+
+    // DOM order: Edit before Preview.
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(2)
+    expect(tabs[0]).toHaveAccessibleName('Edit')
+    expect(tabs[1]).toHaveAccessibleName('Preview')
+
+    // Opens on Edit by default.
+    expect(screen.getByRole('tab', { name: 'Edit' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByRole('tab', { name: 'Preview' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    )
+  })
+
   it('calls onSave exactly once with the edited draft when Save is clicked', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined)
     render(
@@ -169,5 +197,75 @@ describe('NotesEditor', () => {
     for (const a of anchors) {
       expect(a.getAttribute('href') ?? '').not.toMatch(/^javascript:/i)
     }
+  })
+
+  describe('previewFirst', () => {
+    it('renders the Preview trigger before the Edit trigger in DOM order', () => {
+      render(
+        <NotesEditor
+          initialNotes="# Hello"
+          notesUpdatedAt={null}
+          notesUpdatedBy={null}
+          onSave={vi.fn()}
+          isSaving={false}
+          previewFirst
+        />,
+      )
+
+      const tabs = screen.getAllByRole('tab')
+      expect(tabs).toHaveLength(2)
+      expect(tabs[0]).toHaveAccessibleName('Preview')
+      expect(tabs[1]).toHaveAccessibleName('Edit')
+    })
+
+    it('opens on the Preview tab (Preview selected, Edit not)', () => {
+      render(
+        <NotesEditor
+          initialNotes="# Hello"
+          notesUpdatedAt={null}
+          notesUpdatedBy={null}
+          onSave={vi.fn()}
+          isSaving={false}
+          previewFirst
+        />,
+      )
+
+      expect(screen.getByRole('tab', { name: 'Preview' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      expect(screen.getByRole('tab', { name: 'Edit' })).toHaveAttribute(
+        'aria-selected',
+        'false',
+      )
+    })
+
+    it('keeps Edit fully functional: clicking Edit reveals the editable textarea', () => {
+      render(
+        <NotesEditor
+          initialNotes="original body"
+          notesUpdatedAt={null}
+          notesUpdatedBy={null}
+          onSave={vi.fn()}
+          isSaving={false}
+          previewFirst
+        />,
+      )
+
+      // Activate the Edit tab. Radix Tabs triggers activate on mousedown
+      // (left button), not on a bare click event.
+      fireEvent.mouseDown(screen.getByRole('tab', { name: 'Edit' }))
+      expect(screen.getByRole('tab', { name: 'Edit' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+
+      // The textarea is visible and editable.
+      const textarea = getTextarea()
+      expect(textarea).toBeVisible()
+      expect(textarea.value).toBe('original body')
+      fireEvent.change(textarea, { target: { value: 'edited under previewFirst' } })
+      expect(getTextarea().value).toBe('edited under previewFirst')
+    })
   })
 })
