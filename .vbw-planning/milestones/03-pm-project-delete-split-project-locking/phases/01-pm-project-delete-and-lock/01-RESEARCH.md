@@ -1,0 +1,501 @@
+---
+phase: "01"
+title: "PM Project Delete & Split-Project Locking"
+type: research
+confidence: high
+date: 2026-06-22
+---
+
+## A. Board Card Delete Path
+
+### Current route guard
+`backend/src/routes/board.ts` lines 203-217:
+```ts
+router.delete('/cards/:id', requireRole('ADMIN'), mutationRateLimiter, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    await boardService.deleteCard(id);
+    res.json({ success: true });
+    emitBoardInvalidate('cards');
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    ...
+  }
+});
+```
+The only change needed for the authz part is `requireRole('ADMIN')` → `requireRole('PM')`. The `ROLE_HIERARCHY` in `backend/src/middleware/auth.ts` is `{ NORMAL:1, PM:2, ADMIN:3 }` so `requireRole('PM')` means PM and ADMIN both pass.
+
+### What `boardService.deleteCard` does
+`backend/src/services/boardService.ts` line 283-285:
+```ts
+export async function deleteCard(id: string) {
+  return prisma.boardCard.delete({ where: { id } });
+}
+```
+This is a **bare Prisma delete with no cascade logic in application code**. Cascade behaviour comes from the schema:
+- `BoardCard.project` relation: `onDelete: Cascade` on `BoardCard` side (`project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)`) — deleting the BoardCard does NOT delete the Project; the cascade arrow goes the other direction. Deleting the **Project** cascades to **BoardCard**.
+- Deleting the **BoardCard** row does cascade (via schema `onDelete: Cascade`) to:
+  - `BoardComment` rows (cardId FK, `onDelete: Cascade`)
+  - `BoardFile` rows (cardId FK, `onDelete: Cascade`)
+  - `BoardNotification` rows (cardId FK, `onDelete: Cascade`)
+- The **Project** row linked via `boardCard.projectId` is **NOT deleted** — the FK goes card→project (many-to-one), so deleting the card leaves the project orphaned (no board card).
+- The **Assignment** rows referencing that project via `projectId` or `splitProjectId` are also untouched (those are `onDelete: SetNull` on the assignment).
+
+**Important consequence:** Unlike `assignmentService.deleteAssignment` (which explicitly deletes the orphaned Project when the last assignment is removed), `boardService.deleteCard` does NOT clean up the linked Project. After a PM card-delete, the Project row persists, which means:
+- The assignment still shows in the schedule grid (expected — board delete should not remove the schedule entry).
+- No BoardCard will be recreated for that project unless `assignmentService.upsertAssignment` / `linkProjectsForAssignment` is called again for that assignment.
+- This is actually the correct intent: the board card is gone, but the pentest engagement remains in the planner until the PM also removes the schedule assignment.
+
+### On-disk files
+`boardService.deleteCard` does NOT delete on-disk files in `uploads/board/`. The archive flow (`boardArchiveService.archiveCard`) does (via `fs.unlinkSync`). A direct card delete via `boardService.deleteCard` will leave orphaned bytes on disk. This is acceptable (matches ADMIN behaviour today — the ADMIN delete route also does not clean up disk bytes). Document as a known edge case; the plan could optionally add file cleanup to `deleteCard`, but it is out of scope per 01-CONTEXT.md.
+
+### Audit trail — CRITICAL GAP
+The `POST /cards/:cardId/admin/archive` route calls `logAuditEvent({ action: 'board.card.archive', ... })` explicitly (`boardAdmin.ts` lines 57-64).
+
+The `DELETE /cards/:id` route does **not** call `logAuditEvent`. This means deleting a card today is **not written to the audit trail**.
+
+01-CONTEXT.md states: "Delete action should be written to the audit trail as a PM action (the app audits user actions via `services/audit.ts`); confirm the existing `deleteCard` path already audits, otherwise add it."
+
+**It does not audit.** The plan must add `logAuditEvent` to the delete route handler, mirroring the pattern in `boardAdmin.ts`. The audit details should include `{ cardId, projectName, pmId }`. To get `projectName`, either fetch the card before deleting (like `archiveCard` does) or pass it as part of the delete response.
+
+The `extractIp` helper in `boardAdmin.ts` is a copy-paste (same logic as `boardFiles.ts` and `audit.ts`) — the delete route handler should include the same pattern.
+
+### Archive vs Delete distinction
+- **Archive** (`POST /cards/:cardId/admin/archive`, ADMIN-only): sets `stage='archived'`, `archivedAt=now()`, hard-deletes `BoardFile` rows + on-disk bytes, preserves `BoardComment` + notes + checklist. The card stays in the DB.
+- **Delete** (`DELETE /cards/:id`, currently ADMIN → will become PM): hard-deletes the `BoardCard` row entirely, cascading to all child comments/files/notifications. The card is gone from the DB. On-disk files are NOT cleaned up.
+
+The confirmation dialog wording must make clear this is a hard delete (not archive) and that comments/notes/files are permanently lost.
+
+### Socket broadcast
+The delete route already calls `emitBoardInvalidate('cards')` (line 209), which broadcasts to all connected clients via `socketService`. No change needed.
+
+---
+
+## B. Board Card Delete UI
+
+### Current admin affordance in the UI
+`frontend/src/features/board/components/CardDetailModal.tsx` lines 483-484:
+```ts
+const canDelete = role === 'ADMIN' || role === 'PM'
+const canArchive = role === 'ADMIN' && !card.archivedAt
+```
+`canDelete` is already defined as `PM || ADMIN`. However, **it is not used for anything** in the current render — no button renders when `canDelete` is true. Only `canArchive` drives the Archive button (lines 660-669 and 676-685).
+
+This means the `canDelete` variable is a dead assignment. The PM delete affordance must be added here.
+
+### Where to add the delete button
+In `CardDetailModal.tsx`, the `DialogFooter` (lines 659-672) currently renders:
+```tsx
+<DialogFooter>
+  {canArchive && (
+    <Button variant="destructive" onClick={() => setArchiveOpen(true)} className="mr-auto">
+      <Archive className="h-4 w-4 mr-1" />
+      Archive card
+    </Button>
+  )}
+  <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+</DialogFooter>
+```
+
+The delete button should be added guarded by `canDelete`. Since the archive button is ADMIN-only and delete will be PM-accessible (PM sees delete but not archive), the ordering becomes:
+- PM: sees Delete button (left-aligned, `mr-auto`), no Archive button
+- ADMIN: sees both Archive and Delete buttons, or just Archive if delete is moved to the three-dot menu — planner discretion. Simpler: show both when ADMIN, only Delete when PM.
+
+The `useDeleteCard` hook already exists in `frontend/src/features/board/hooks.ts` (lines 61-71). The `boardApi.deleteCard(id: string)` is already implemented in `frontend/src/features/board/api.ts` (line 32-36).
+
+### DeleteCardDialog — new component needed
+Pattern to mirror: `ArchiveCardDialog.tsx`. The new `DeleteCardDialog.tsx` should:
+- Import `AlertDialog` primitives from `@/components/ui/alert-dialog`
+- Accept props: `cardId: string`, `projectName: string`, `open: boolean`, `onOpenChange`, `onDeleted?: () => void`
+- Call `useDeleteCard()` internally
+- On confirm: call `deleteCard.mutate(cardId)`, on success call `onDeleted?.()` and `onOpenChange(false)`
+- Warning text: "This permanently deletes the card and all attached comments, notes, and files. The linked schedule assignments are not affected. This cannot be undone."
+
+State needed in `CardDetailModal`: add `const [deleteOpen, setDeleteOpen] = useState(false)` (mirroring `archiveOpen`). The delete button triggers `setDeleteOpen(true)`.
+
+### `canDelete` already in CardDetailModal (advisory)
+`const canDelete = role === 'ADMIN' || role === 'PM'` is already there at line 483. The guard is already correct for the PM-access requirement. Just needs to be wired to a button and dialog.
+
+### On close after delete
+When `onDeleted` fires, the modal should close: `onDeletedCallback: () => onOpenChange(false)`.
+
+---
+
+## C. Assignment Lock — Backend
+
+### `toggleLock` service function
+`backend/src/services/assignmentService.ts` lines 506-513:
+```ts
+export async function toggleLock(id: string) {
+  const existing = await prisma.assignment.findUniqueOrThrow({ where: { id } });
+  return prisma.assignment.update({
+    where: { id },
+    data: { isLocked: !existing.isLocked },
+  });
+}
+```
+Simple boolean flip. No audit logging, no cascade side effects.
+
+### Lock route
+`backend/src/routes/schedule.ts` lines 357-367:
+```ts
+router.post('/assignments/:id/lock', requireRole('PM'), mutationRateLimiter, async (req, res) => {
+  try {
+    const id = req.params.id as string;
+    const assignment = await assignmentService.toggleLock(id);
+    res.json({ assignment });
+    emitScheduleInvalidate('assignments');
+  } catch (error) {
+    console.error('[schedule routes] Error toggling assignment lock:', error);
+    res.status(500).json({ error: 'Failed to toggle assignment lock' });
+  }
+});
+```
+Already `requireRole('PM')` — PM+ can toggle lock. No changes needed to the route guard.
+
+### `updateAssignment` lock guard
+`backend/src/services/assignmentService.ts` lines 291-295:
+```ts
+const existing = await prisma.assignment.findUniqueOrThrow({ where: { id } });
+
+if (existing.isLocked && data.isLocked !== false) {
+  throw new Error('Cannot update a locked assignment. Unlock it first.');
+}
+```
+Edits to a locked assignment are rejected unless `isLocked: false` is explicitly passed (i.e., the caller is unlocking it). The `PUT /assignments/:id` route maps this error to `409` (line 321-323 of schedule.ts):
+```ts
+if (error instanceof Error && error.message.includes('locked')) {
+  return res.status(409).json({ error: error.message });
+}
+```
+
+### `deleteAssignment` lock guard
+`backend/src/services/assignmentService.ts` lines 346-348:
+```ts
+if (existing.isLocked) {
+  throw new Error('Cannot delete a locked assignment. Unlock it first.');
+}
+```
+Also maps to `409` in the route (schedule.ts lines 345-347):
+```ts
+if (error instanceof Error && error.message.includes('locked')) {
+  return res.status(409).json({ error: error.message });
+}
+```
+
+### Frontend lock API call
+`frontend/src/features/schedule/api.ts` lines 110-115:
+```ts
+async toggleLock(id: string) {
+  return apiClient<Assignment>(`/api/schedule/assignments/${id}/lock`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+},
+```
+
+### Frontend `useToggleLock` hook
+`frontend/src/features/schedule/hooks.ts` lines 183-193:
+```ts
+export function useToggleLock() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => scheduleApi.toggleLock(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'assignments'] })
+    },
+    onError: (error: Error) => handleMutationError(error, 'Failed to toggle lock'),
+  })
+}
+```
+The hook does not invalidate `['board', 'cards']`. Toggling lock doesn't change the board card data, so this is fine.
+
+### `handleLockToggle` in ScheduleGrid
+`frontend/src/features/schedule/components/ScheduleGrid.tsx` lines 299-303:
+```ts
+const toggleLockMutation = useToggleLock()
+const handleLockToggle = useCallback((assignmentId: string) => {
+  toggleLockMutation.mutate(assignmentId)
+}, [toggleLockMutation])
+```
+
+### How `onLockToggle` is passed to `AssignmentCell`
+`ScheduleGrid.tsx` line 922:
+```tsx
+onLockToggle={assignment ? () => handleLockToggle(assignment.id) : undefined}
+```
+The callback already receives the assignment id; it calls `scheduleApi.toggleLock(id)`. For split cells, the same `assignment.id` is used (there is no per-half id — the whole assignment is the unit of locking). This is correct and matches the design decision.
+
+---
+
+## D. AssignmentCell Split Rendering — The Gap
+
+### Non-split lock toggle (working)
+In the non-split branch of `AssignmentCell` (lines 461-481 in AssignmentCell.tsx):
+```tsx
+{canEdit && (isLocked ? (
+  <button className="..." onClick={(e) => { e.stopPropagation(); onLockToggle?.(e) }}>
+    <Lock className="w-3 h-3" style={{ color: textColor }} />
+  </button>
+) : (
+  <button className="... opacity-0 group-hover:opacity-60 hover:!opacity-100 ..." onClick={(e) => { e.stopPropagation(); onLockToggle?.(e) }}>
+    <Lock className="w-3 h-3" style={{ color: textColor }} />
+  </button>
+))}
+{!canEdit && isLocked && (
+  <Lock className="w-3 h-3 shrink-0" style={{ color: textColor }} />
+)}
+```
+When `canEdit` is true: a clickable lock button (always visible when locked, hover-visible when unlocked).
+When `canEdit` is false and locked: a static `<Lock>` icon.
+
+### SplitCell — what it currently has
+`SplitCell` component, lines 226-318 of AssignmentCell.tsx. The only lock-related code is lines 302-304:
+```tsx
+{isLocked && (
+  <div className="absolute top-0.5 right-0.5">
+    <Lock className="w-3 h-3 text-muted-foreground" />
+  </div>
+)}
+```
+This renders a **static** lock icon (absolutely positioned in the top-right corner) when locked — **no onClick, no onLockToggle call**. There is no hover-to-show unlock button when `canEdit` is true.
+
+### What `SplitCell` receives
+`SplitCell`'s props signature (lines 227-249):
+```ts
+function SplitCell({
+  assignment, cellId, teamMemberId, weekStart,
+  canEdit, isClickable, isLocked, isSelected,
+  onCellClick, onStatusCycle, handleStatusClick,
+}: {...})
+```
+Note: `onLockToggle` is **NOT in SplitCell's prop interface**. It must be added.
+
+### How `AssignmentCell` (the exported component) routes to `SplitCell`
+Lines 421-437:
+```tsx
+if (isSplit) {
+  return (
+    <SplitCell
+      assignment={assignment}
+      cellId={cellId}
+      teamMemberId={teamMemberId}
+      weekStart={weekStart}
+      canEdit={canEdit}
+      isClickable={isClickable}
+      isLocked={isLocked}
+      isSelected={isSelected}
+      onCellClick={onCellClick}
+      onStatusCycle={onStatusCycle}
+      handleStatusClick={handleStatusClick}
+    />
+  )
+}
+```
+`onLockToggle` is passed to `AssignmentCell` from ScheduleGrid but is not threaded into `SplitCell`. The fix is to add `onLockToggle` to `SplitCell`'s prop interface and pass it from `AssignmentCell`.
+
+### Required changes to `SplitCell`
+1. Add `onLockToggle?: (e: React.MouseEvent) => void` to `SplitCell` props.
+2. Replace the static lock icon block with the same clickable pattern used in the non-split cell:
+   - `canEdit && isLocked`: visible lock button (`onClick` calls `onLockToggle`).
+   - `canEdit && !isLocked`: hover-visible lock button.
+   - `!canEdit && isLocked`: static icon (keep existing).
+3. Add `e.stopPropagation()` in the button's onClick to prevent the cell's `onCellClick` firing.
+4. Thread `onLockToggle` from `AssignmentCell` to `SplitCell` (add to the spread at lines 421-437).
+
+The lock icon in `SplitCell` is currently `text-muted-foreground` (no contrast-color). For the clickable version, match the non-split cell's style: use `getContrastColor(bgColor)` — but `SplitCell` doesn't have a single `bgColor`. The top-right absolute overlay sits outside any specific half. Use `text-muted-foreground` (as today) or a neutral overlay — planner discretion. The simplest consistent change is to keep the same `text-muted-foreground` and add the click behavior.
+
+---
+
+## E. AssignmentModal — Lock Control
+
+### Current state
+`AssignmentModal.tsx` has no `isLocked` state, no lock toggle button, no locked-field disabling. The footer (lines 538-573) contains only: Delete button, "View on Board" link, Cancel, and Save.
+
+### What's already available
+- `AlertDialog` is already imported at lines 14-22 (used for "Remove primary/secondary" split dialogs). No new import needed.
+- `useUpsertAssignment` and `useDeleteAssignment` are imported. No lock-specific hook is imported yet — `useToggleLock` must be added.
+- The `assignment` prop carries `assignment.isLocked` (available from the `Assignment` type).
+- The modal has `isEdit = !!assignment` gating (line 153).
+
+### Where to add the lock toggle
+Per 01-CONTEXT.md: "footer, near the Delete button — Claude/planner discretion."
+
+Proposed placement: in the `DialogFooter`, between the Delete button and the "View on Board" link — i.e., as the second element in the footer row after the `mr-auto` Delete button. A small lock/unlock button with icon + label.
+
+```tsx
+{isEdit && assignment && (
+  <Button
+    type="button"
+    variant="outline"
+    size="sm"
+    onClick={() => toggleLock.mutate(assignment.id)}
+    disabled={toggleLock.isPending}
+  >
+    {assignment.isLocked ? <Unlock ... /> : <Lock ... />}
+    {assignment.isLocked ? 'Unlock' : 'Lock'}
+  </Button>
+)}
+```
+
+### Disabling fields while locked
+When `assignment.isLocked` is true, all editable inputs should be `disabled`. Fields to disable:
+- `Input` for `projectName` and `splitProjectName` (add `disabled={isLocked}`)
+- `ClientSelect` — add `disabled` prop (or conditionally render as readonly)
+- `ColorPalette` — add `disabled` prop
+- Status buttons — add `disabled={isLocked}` to each
+- `TagSelector` tag buttons — add `disabled={isLocked}`
+- Split toggle `Checkbox` — `disabled={isLocked}` (can't add/remove split while locked)
+- Save button — `disabled={upsertMutation.isPending || isLocked}`
+
+`isLocked` should be derived from `assignment?.isLocked ?? false` (read from the prop, not local state, so it reflects the server state). When the user clicks the unlock button, `toggleLock.mutate(assignment.id)` fires, and on success `queryClient.invalidateQueries(['schedule', 'assignments'])` causes the parent to refetch and pass updated `assignment.isLocked: false` back down.
+
+**Important**: The unlock action itself must work even when fields are disabled. The lock toggle button must NOT be disabled when `isLocked` is true (only the form fields are disabled). The Save button is the one that must be disabled while locked.
+
+### Hook to add
+`import { useToggleLock } from '../hooks'` at top of `AssignmentModal.tsx`. Then inside the component:
+```ts
+const toggleLock = useToggleLock()
+```
+
+### Locking icon imports
+`Lock` and `Unlock` from `lucide-react`. `Lock` is already imported in `AssignmentCell.tsx`. In `AssignmentModal.tsx` the current imports are `ExternalLink, Trash2` (line 27). Add `Lock, Unlock`.
+
+---
+
+## F. RBAC
+
+### Backend role hierarchy
+`backend/src/middleware/auth.ts` lines 55-58:
+```ts
+const ROLE_HIERARCHY: Record<string, number> = {
+  NORMAL: 1,
+  PM: 2,
+  ADMIN: 3,
+};
+```
+`requireRole('PM')` accepts levels >= 2, so both PM and ADMIN pass. Changing the delete route from `requireRole('ADMIN')` to `requireRole('PM')` is safe and follows the hierarchy.
+
+### Frontend role check
+`frontend/src/lib/rbac.ts` line 19:
+```ts
+export function hasRole(userRole: Role | undefined, minimumRole: Role): boolean {
+  if (!userRole) return false;
+  return (ROLE_HIERARCHY[userRole] ?? 0) >= (ROLE_HIERARCHY[minimumRole] ?? Infinity);
+}
+```
+`useAuth()` in `frontend/src/features/auth/hooks.ts` exposes `role` and `hasRole`. In `CardDetailModal.tsx`, `role` is already read (line 401): `const { user, role } = useAuth()`. The existing dead variable `const canDelete = role === 'ADMIN' || role === 'PM'` (line 483) is already correctly computed — just needs to be wired to the UI.
+
+### No CONCERNS #5 conflict
+01-CONTEXT.md notes the `requireCardAccess` PM-passes-unconditionally TODO is out of scope. The board sub-resource auth middleware (`middleware/boardAuth.ts`) is not involved in the card delete route — that route only uses `requireRole`.
+
+---
+
+## G. Tests
+
+### Existing relevant tests
+- `backend/src/services/__tests__/deleteAssignmentOrphan.delete.test.ts` — tests `assignmentService.deleteAssignment` (5 scenarios: zero→deleted, multi-pentester safety, split-cell independence, backlog no-op, non-fatal). This is the closest analogue for the board delete tests. Pattern to follow.
+- `backend/src/services/__tests__/boardAutoMove.stopped.test.ts` — board card lifecycle tests; shows how to seed BoardCard + Project rows for service tests.
+- `frontend/src/features/board/components/__tests__/KanbanCard.test.tsx` — React component tests using vitest + @testing-library/react + DndContext wrapper. Pattern to follow for any new frontend component tests.
+- `backend/src/services/__tests__/scheduleIsolation.phase23.test.ts` and `scheduleIsolation.phase24.test.ts` — schedule/board isolation invariant tests.
+
+### Test runner conventions
+- Backend: vitest, runs against the real SQLite dev DB. Each test seeds its own rows with unique suffixes; `afterEach` cleans up. Uses `withDbRetry` for SQLite lock contention. Files in `backend/src/services/__tests__/`.
+- Frontend: vitest + @testing-library/react + jsdom. Config in `frontend/vitest.config.ts`. Component tests in `frontend/src/features/<domain>/components/__tests__/`.
+
+### Tests to add
+
+**Backend service — `boardCardDelete.pm.test.ts`**:
+1. `deleteCard` when called after route guard change — the service itself is unchanged, but a route-level integration test is valuable:
+   - Seed a Client + Project + BoardCard + BoardComment + BoardFile + Assignment (pointing at the project). Delete the card. Assert: BoardCard is gone; BoardComment and BoardFile are gone (cascade). Assert: Project row still exists (board delete does NOT cascade to Project). Assert: Assignment row still exists with `projectId` still set (SetNull does not fire on card delete — actually the assignment→project FK is `onDelete: SetNull`, but the card delete doesn't touch the Project row, so the assignment FK is unaffected).
+2. Audit log entry created: after the route-level change, the audit log table has a `board.card.delete` row with correct `cardId` and `userId`.
+
+**Backend route — authorization test**:
+3. PM role can delete (returns 200/`{success:true}`); NORMAL role gets 403.
+
+**Frontend — `DeleteCardDialog.test.tsx`**:
+4. Renders with the correct warning text; Cancel closes dialog without calling mutate; Confirm calls `useDeleteCard().mutate` with the card id.
+
+**Frontend — `CardDetailModal` delete button visibility**:
+5. PM role: Delete button renders; Archive button does NOT render.
+6. ADMIN role: both Archive and Delete buttons render.
+7. NORMAL role: neither button renders.
+
+**Frontend — `AssignmentCell` split lock toggle**:
+8. Split cell with `canEdit=true, isLocked=false`: lock button is NOT visible by default, visible on hover (`.group-hover` CSS — this may not be directly testable via jsdom; document as a visual smoke test).
+9. Split cell with `canEdit=true, isLocked=true`: lock button is visible; clicking it calls `onLockToggle`.
+10. Split cell with `canEdit=false, isLocked=true`: static icon rendered, no clickable button.
+
+**Frontend — `AssignmentModal` lock control**:
+11. `isEdit=true, assignment.isLocked=true`: Save button is disabled; project name input is disabled; lock toggle button shows "Unlock" label.
+12. `isEdit=true, assignment.isLocked=false`: Save button enabled; lock toggle button shows "Lock" label.
+13. Clicking "Unlock" calls `useToggleLock().mutate(assignment.id)`.
+
+---
+
+## Files to Modify
+
+### Backend
+| File | Change |
+|---|---|
+| `backend/src/routes/board.ts` | Line 204: `requireRole('ADMIN')` → `requireRole('PM')`. Add `logAuditEvent` call (fetch card before delete to get `projectName`; add `extractIp` helper). Add import for `logAuditEvent` from `'../services/audit.js'`. |
+
+### Frontend — Board delete dialog (new file)
+| File | Change |
+|---|---|
+| `frontend/src/features/board/components/DeleteCardDialog.tsx` | New file. `AlertDialog`-based confirmation, mirrors `ArchiveCardDialog.tsx`. Props: `cardId`, `projectName`, `open`, `onOpenChange`, `onDeleted?`. Calls `useDeleteCard()`. |
+| `frontend/src/features/board/components/CardDetailModal.tsx` | (1) Add `const [deleteOpen, setDeleteOpen] = useState(false)`. (2) Import `useDeleteCard` from `'../hooks'`. (3) Import `DeleteCardDialog`. (4) Import `Trash2` from `lucide-react` (or reuse existing icons). (5) Add Delete button in `DialogFooter` guarded by `canDelete`. (6) Add `<DeleteCardDialog>` below `<ArchiveCardDialog>` (or instead of, when only PM). (7) On `onDeleted`: call `onOpenChange(false)`. |
+
+### Frontend — Split cell lock toggle
+| File | Change |
+|---|---|
+| `frontend/src/features/schedule/components/AssignmentCell.tsx` | (1) Add `onLockToggle?: (e: React.MouseEvent) => void` to `SplitCell` prop interface. (2) Replace static lock icon block in `SplitCell` with the clickable pattern mirroring the non-split cell (three cases: `canEdit && isLocked`, `canEdit && !isLocked`, `!canEdit && isLocked`). (3) Add `onLockToggle` to `SplitCell` invocation inside `AssignmentCell` (the exported component), passing `onLockToggle` through. |
+
+### Frontend — AssignmentModal lock control
+| File | Change |
+|---|---|
+| `frontend/src/features/schedule/components/AssignmentModal.tsx` | (1) Import `useToggleLock` from `'../hooks'`. (2) Import `Lock, Unlock` from `'lucide-react'`. (3) Add `const toggleLock = useToggleLock()` inside the component. (4) Derive `const isLocked = isEdit && !!assignment?.isLocked`. (5) Add `disabled={isLocked}` to all editable form inputs/buttons/selects. (6) Add `disabled={upsertMutation.isPending || isLocked}` to Save button. (7) Add lock toggle button in `DialogFooter` after Delete button (visible only when `isEdit`). |
+
+### New test files
+| File | What to test |
+|---|---|
+| `backend/src/services/__tests__/boardCardDelete.pm.test.ts` | Service-level: cascade to comments/files; Project row survival; Assignment FK survival; audit log entry. |
+| `frontend/src/features/board/components/__tests__/DeleteCardDialog.test.tsx` | Dialog renders; Cancel aborts; Confirm calls mutate. |
+| `frontend/src/features/schedule/components/__tests__/AssignmentCell.split-lock.test.tsx` | Split cell lock visibility for all `(canEdit, isLocked)` combinations; toggle callback fired. |
+| `frontend/src/features/schedule/components/__tests__/AssignmentModal.lock.test.tsx` | Locked/unlocked state disables Save and form fields; toggle button label correct; toggle callback fired. |
+
+---
+
+## Edge Cases & Risks
+
+### 1. Deleting a board card whose project is still referenced by a split assignment
+If Assignment A has `splitProjectId = <project>` and a PM hard-deletes the BoardCard for that project, the Project row survives (card delete does not cascade to Project). The Assignment's `splitProjectId` FK remains. No data integrity issue, but the split cell in the schedule grid now has no board card. If `linkProjectsForAssignment` runs again (e.g., on next upsert), it will recreate the board card. This is acceptable behaviour.
+
+### 2. On-disk file orphaning
+`boardService.deleteCard` does not unlink files from `uploads/board/<cardId>/`. Files are left on disk. The archive service does clean them up. For the PM delete path, this is the same gap that exists for the ADMIN delete path today. Mitigate: add a best-effort `fs.unlinkSync` loop to `deleteCard` (mirroring `archiveCard`), or document the gap and schedule a cleanup sweep. Out of scope per 01-CONTEXT.md, but should be noted in the plan.
+
+### 3. Locked assignment edit/delete interaction in AssignmentModal
+The modal's Delete button currently has no guard against `isLocked`. If `isLocked` is true, clicking Delete would call `deleteAssignment` which would return a 409 ("Cannot delete a locked assignment"). The `handleMutationError` in hooks shows "Permission denied" for 403 but falls through to generic toast for 409. The UX should disable the Delete button when `isLocked` is true as well, consistent with disabling Save. Add `disabled={deleteMutation.isPending || isLocked}` to the Delete button in the modal.
+
+### 4. AssignmentModal: `assignment.isLocked` is the authoritative value
+The modal should read `isLocked` from `assignment.isLocked` (the prop), not maintain a local boolean state. The modal is re-opened from `ScheduleGrid` which passes the live `assignmentMap` entry. After `toggleLock` mutate succeeds, `queryClient.invalidateQueries(['schedule', 'assignments'])` causes the modal's `assignment` prop to update (the grid re-renders and passes the updated assignment through `modalState`). This means the lock toggle is reactive without extra state.
+
+### 5. Split cell: `onLockToggle` not passed from `AssignmentCell` props to `SplitCell`
+The `AssignmentCell` exported component receives `onLockToggle` in its props. But the `SplitCell` internal component does not receive it — it is silently dropped. This is the specific gap to fix. No API changes needed.
+
+### 6. `SplitHalf` does not need a lock toggle
+The lock applies to the whole assignment (one `isLocked` boolean). The toggle button should be on the `SplitCell` overlay (absolute positioned), not inside `SplitHalf`. This keeps parity with the current static icon placement (top-right absolute overlay).
+
+### 7. Audit action name for board card delete
+Use `'board.card.delete'` (consistent with `'board.card.archive'` in `boardAdmin.ts`). The details object: `{ cardId, projectName, pmId: userId }`.
+
+### 8. `canDelete` dead variable
+`CardDetailModal.tsx` line 483 already computes `canDelete = role === 'ADMIN' || role === 'PM'`. This is unused currently. The plan task is simply to wire it to a button + dialog — no logic change needed.
+
+### 9. Socket isolation
+The board delete route already calls `emitBoardInvalidate('cards')`. No schedule socket event is needed (the assignment is untouched). The lock toggle route already calls `emitScheduleInvalidate('assignments')`. The modal lock toggle will cause assignment query invalidation via `useToggleLock().onSuccess`.
+
+### 10. `requireCardAccess` middleware not involved
+The delete and lock routes do not use `requireCardAccess` (the board sub-resource ownership middleware from `middleware/boardAuth.ts`). The delete route uses only `requireRole`; the lock route uses only `requireRole('PM')`. No changes needed to boardAuth middleware.

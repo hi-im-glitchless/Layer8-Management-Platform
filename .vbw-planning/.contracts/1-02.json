@@ -1,0 +1,32 @@
+{
+  "phase_id": "phase-1",
+  "plan_id": "phase-1-plan-02",
+  "phase": 1,
+  "plan": 2,
+  "objective": "Split-Cell Lock Toggle + Assignment Modal Lock Control",
+  "task_ids": [],
+  "task_count": 0,
+  "allowed_paths": [],
+  "forbidden_paths": [],
+  "depends_on": [],
+  "must_haves": [
+    "SplitCell exposes a clickable lock/unlock affordance that calls onLockToggle, mirroring the non-split cell; the whole assignment is the unit of locking (single isLocked boolean, existing POST /assignments/:id/lock, no backend change)",
+    "onLockToggle is threaded from the AssignmentCell exported component into SplitCell (previously silently dropped)",
+    "Split-cell lock affordance follows the three cases: canEdit && isLocked -> visible clickable lock; canEdit && !isLocked -> hover-visible clickable lock; !canEdit && isLocked -> static icon (no button)",
+    "The lock button onClick calls e.stopPropagation() so cell onCellClick does not fire",
+    "AssignmentModal shows a lock/unlock toggle button (footer, near Delete) driven by assignment.isLocked read from the prop (not local state); clicking it calls useToggleLock().mutate(assignment.id)",
+    "While assignment.isLocked is true, all editable form fields, the Save button, and the Delete button are disabled, but the lock-toggle button itself remains enabled so the user can unlock",
+    "Existing backend lock/edit/delete guards and NORMAL-role access are unchanged (frontend-only plan)",
+    "path: \"frontend/src/features/schedule/components/AssignmentCell.tsx",
+    "path: \"frontend/src/features/schedule/components/AssignmentModal.tsx",
+    "path: \"frontend/src/features/schedule/components/__tests__/AssignmentCell.split-lock.test.tsx",
+    "path: \"frontend/src/features/schedule/components/__tests__/AssignmentModal.lock.test.tsx",
+    "from: \"AssignmentCell exported component",
+    "from: \"SplitCell lock button",
+    "from: \"AssignmentModal lock toggle button"
+  ],
+  "verification_checks": [],
+  "max_token_budget": 50000,
+  "timeout_seconds": 600,
+  "contract_hash": "5f4694137dcb72f78f29c306e0c34df159de4ddaf0e567c69d7fdb745a4bf2bc"
+}

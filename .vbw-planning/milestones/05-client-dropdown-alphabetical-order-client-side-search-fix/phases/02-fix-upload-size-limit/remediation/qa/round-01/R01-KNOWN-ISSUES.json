@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "phase": "02",
+  "issues": [
+    {
+      "test": "DeleteCardDialog.test.tsx (unnamed shows destructive delete warning test)",
+      "file": "frontend/src/features/board/components/__tests__/DeleteCardDialog.test.tsx:46",
+      "error": "TestingLibraryElementError: Unable to find element with text matching /permanently deletes the card and all attached.../i - actual rendered text is This permanently deletes the card, the project, and all its linked schedule assignments (for all pentesters), along with all attached comments, notes, and files. Text/copy drifted from what the test expects. Predates Phase 2 (component/test last touched in commits 41e08eb/687a82c/195840b, none of which are part of this phases b764f97/4a48358/735a581/b6cc33c, and DeleteCardDialog.tsx/test.tsx are not in files_modified for 02-01).",
+      "first_seen_in": "02-VERIFICATION.md",
+      "last_seen_in": "02-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

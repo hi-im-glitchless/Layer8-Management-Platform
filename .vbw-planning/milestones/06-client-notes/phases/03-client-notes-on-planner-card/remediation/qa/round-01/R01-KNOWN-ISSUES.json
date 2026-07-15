@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "phase": "03",
+  "issues": [
+    {
+      "test": "pdfQueue > addPdfConversionJob > should reject an empty file path",
+      "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+      "error": "expected throw including Invalid DOCX path but got Invalid source file path: — same documented env-dependent flake as above",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "pdfQueue > addPdfConversionJob > should reject an invalid file path",
+      "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+      "error": "expected throw including Invalid DOCX path but got Invalid source file path: ... — documented recurring env-dependent (Redis/BullMQ/Gotenberg) flake, unrelated to board changes (STATE.md known-issues, seen across phases 01/03/09)",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+      "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+      "error": "mocked call-order/shape assertion mismatch in AI template pipeline — documented recurring known-issue (STATE.md, phases 01/03/09), file untouched by this phase",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping service > queryFewShotExamples > filters by templateType and language correctly",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "same documented stale-mock orderBy-shape known-issue as above",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping service > queryFewShotExamples > respects limit parameter",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "same documented stale-mock orderBy-shape known-issue as above",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping service > queryFewShotExamples > returns entries sorted by usageCount DESC",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "expected orderBy {usageCount: desc} but service now sends [{confidence:desc},{usageCount:desc}] — documented stale-mock known-issue (STATE.md, phases 01/03/09), file untouched by this phase",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

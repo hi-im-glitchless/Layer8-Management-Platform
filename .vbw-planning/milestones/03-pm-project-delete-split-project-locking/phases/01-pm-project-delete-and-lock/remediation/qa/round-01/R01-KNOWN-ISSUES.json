@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "issues": [
+    {
+      "test": "eslint prefer-const",
+      "file": "frontend/src/features/schedule/components/ColorPalette.tsx:31-33",
+      "error": "r/g/b are never reassigned, use const — pre-existing in hexToHsl (authored 2026-03-25, commit 16b0c336); unrelated to the disabled prop added in plan 01-02",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "eslint prefer-const",
+      "file": "frontend/src/features/schedule/components/ColorPalette.tsx:31-33",
+      "error": "r/g/b are never reassigned, use const — pre-existing in hexToHsl authored 2026-03-25 (commit 16b0c336); unrelated to the disabled prop added in plan 01-02",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "eslint react-hooks/set-state-in-effect",
+      "file": "frontend/src/features/schedule/components/AssignmentModal.tsx:199",
+      "error": "Avoid calling setState() directly within an effect — pre-existing open-reset useEffect (authored 2026-03-18, commit 6d0b71ff); not in any line changed in plan 01-02",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "eslint react-hooks/set-state-in-effect",
+      "file": "frontend/src/features/schedule/components/AssignmentModal.tsx:199",
+      "error": "Avoid calling setState() directly within an effect — pre-existing open-reset useEffect authored 2026-03-18 (commit 6d0b71ff); not in any line changed in plan 01-02",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

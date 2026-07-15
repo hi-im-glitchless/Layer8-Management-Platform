@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "phase": "02-client-notes-tool-page",
+  "accepted": [
+    {
+      "signature": "0d575f7cdfe06f3088a431f2f59cc8ba69c80805608e36d923c68d23dc194e9d",
+      "source_plan": "01",
+      "source_path": "02-01-SUMMARY.md",
+      "text": "None affecting scope or behavior. Verification results: `cd frontend && npx tsc --noEmit` exit 0; `npx vitest run` full frontend suite 71/71 passing (incl. the new 7 NotesEditor cases and the 23 board cases); no `backend/` files modified. Bookkeeping only: the Task 2 commit was finalized via `git commit --amend` after a combined `git add` aborted on the already-`git rm`'d path — the resulting single commit 04e59a2 contains both the modal edit and the old-file deletion.",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    },
+    {
+      "signature": "0e74385c106482aff693ba7fa348f9a359afccb00ccf1701eae1546dfd17c571",
+      "source_plan": "01",
+      "source_path": "02-01-SUMMARY.md",
+      "text": "None affecting scope. Bookkeeping note: the Task 2 commit was created with `git commit` then `git commit --amend` because a combined `git add` (deleted path + modal edit) aborted atomically on the already-`git rm`'d path; the final commit 04e59a2 correctly contains both the CardDetailModal edit and the old-file deletion. Still one atomic commit for the task.",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    },
+    {
+      "signature": "725f2d686400617859f7e8d120f70ef09b0ae90c55a76af5013dca17a5910d2b",
+      "source_plan": "02",
+      "source_path": "02-02-SUMMARY.md",
+      "text": "DEVN-01 (minor, <5 lines): useUpdateClientNotes adds an onError handler wired to this file's existing handleMutationError helper, which the plan snippet omitted. Added for consistency — every other mutation in hooks.ts uses it; no behavior change to the documented success/unwrap/invalidate contract.",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    },
+    {
+      "signature": "fc78e813057e3f9029fea2061ebff2112045cf81163c98580fd86e7964b9755f",
+      "source_plan": "02",
+      "source_path": "02-02-SUMMARY.md",
+      "text": "DEVN-01 (minor, <5 lines): `useUpdateClientNotes` includes an `onError` handler wired to the existing `handleMutationError` helper in hooks.ts (the plan's snippet omitted it). Added purely for consistency with every other mutation in the file; the documented mutationFn/unwrap/invalidate contract is unchanged. No other deviations. Backend untouched (0 backend files), no projects/search fetch added (descoped), no socket invalidation added.",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    },
+    {
+      "signature": "46ac59f9540345c38014dd0d8eedb50be2226a8b0a2ad412af9a9ae64f7ac2e8",
+      "source_plan": "03",
+      "source_path": "02-03-SUMMARY.md",
+      "text": "ClientNotesModal takes both clientId and a client={id,name,color} prop (name+colour supplied by the page from the loaded useClients list). This is the 'clientId plus a lookup' option the plan's Task 2 action explicitly offered — not a scope change.",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    },
+    {
+      "signature": "7419c90c2261ac552ed4fdd6cb3d5c9b5a1457c073f0faba9dcba30fcd5f9ff9",
+      "source_plan": "03",
+      "source_path": "02-03-SUMMARY.md",
+      "text": "Followed plan task order (Task 1 first): commit a9603b4 imports @/routes/ClientNotes before it exists, so that single commit does not typecheck in isolation. Explicitly sanctioned by the plan's Task 1 NOTE; resolved by commit 107b8dc. Whole-plan typecheck is clean (tsc --noEmit exit 0).",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    },
+    {
+      "signature": "9cdd2aa78b8bacefda012f048880b1741cf786332e4e4af769da574176dea500",
+      "source_plan": "03",
+      "source_path": "02-03-SUMMARY.md",
+      "text": "`ClientNotesModal` takes both `clientId` and a `client={id,name,color}` prop supplied by the page from the loaded client list — the \"clientId plus a lookup\" option the plan's Task 2 action offered; not a scope change.",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    },
+    {
+      "signature": "b0a0493ac84422a6ccd49fe2699c8169fed21b35d837f13261433b076cdc3d75",
+      "source_plan": "03",
+      "source_path": "02-03-SUMMARY.md",
+      "text": "Followed plan Task order (Task 1 first): commit `a9603b4` references `@/routes/ClientNotes` before it exists, so that commit alone doesn't typecheck — explicitly sanctioned by the plan's Task 1 NOTE and resolved by `107b8dc`. Whole-plan `tsc --noEmit` is clean.",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    },
+    {
+      "signature": "cfe62f05967c8dddacbced92b45437379ea864b8361e07dc04d1911b304c0167",
+      "source_plan": "03",
+      "source_path": "02-03-SUMMARY.md",
+      "text": "Pre-existing (DEVN-05): `Sidebar.tsx` carries two `react-hooks` ESLint issues on lines untouched by this plan (localStorage `set-state-in-effect`; `visibleGroups` useMemo memoization/deps). Confirmed pre-existing via `git diff 98c406d..HEAD`; out of scope, not fixed. See `pre_existing_issues`. (Note: already dispositioned accepted-process-exception in QA remediation R01 under the DEVN-05 precedent.)",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "02-UAT.md",
+      "accepted_at": "2026-07-15T15:59:12Z"
+    }
+  ]
+}

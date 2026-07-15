@@ -1,0 +1,29 @@
+{
+  "phase_id": "phase-2",
+  "plan_id": "phase-2-plan-01",
+  "phase": 2,
+  "plan": 1,
+  "objective": "Lift & Generalize the Shared NotesEditor",
+  "task_ids": [],
+  "task_count": 0,
+  "allowed_paths": [],
+  "forbidden_paths": [],
+  "depends_on": [],
+  "must_haves": [
+    "Exactly ONE markdown notes editor component exists after this plan: frontend/src/components/NotesEditor.tsx. The old frontend/src/features/board/components/NotesEditor.tsx is deleted — grep -rn \\\"features/board/components/NotesEditor\\\" frontend/src returns zero hits and no second editor file defines a rehype-sanitize schema.",
+    "NotesEditor no longer imports useUpdateNotes or any board-feature hook; it saves exclusively through an onSave(notes: string) => Promise<unknown> | void prop, and its Save/Cancel disabled state + button label are driven by an isSaving: boolean prop (not update.isPending).",
+    "The hardened SANITIZE_SCHEMA (defaultSchema minus script/iframe/object/embed) is preserved byte-for-byte — the markdown sanitization applied in Preview is identical to the pre-move board behavior; no schema field is added, removed, or reordered.",
+    "On a resolved onSave the editor switches to the Preview tab; on a rejected onSave it stays on Edit (mirrors the prior onSuccess-only setTab('preview') behavior exactly).",
+    "CardDetailModal imports NotesEditor from '@/components/NotesEditor', owns its own const updateNotes = useUpdateNotes(), and passes onSave={(notes) => updateNotes.mutateAsync({ cardId: card.id, notes })} + isSaving={updateNotes.isPending}; the board card notes still save, still optimistically update, and still flip to Preview on success.",
+    "The generalized props are: initialNotes: string; notesUpdatedAt: string | null; notesUpdatedBy: string | null (a pre-resolved display name or null — component never resolves ids); onSave; isSaving; resetKey?: string. The draft-reset effect depends on [resetKey, initialNotes] so switching entities with identical notes still resets a dirty draft; CardDetailModal passes resetKey={card.id}.",
+    "path: \"frontend/src/components/NotesEditor.tsx",
+    "path: \"frontend/src/features/board/components/CardDetailModal.tsx",
+    "path: \"frontend/src/components/__tests__/NotesEditor.test.tsx",
+    "from: \"frontend/src/features/board/components/CardDetailModal.tsx",
+    "from: \"frontend/src/features/board/components/CardDetailModal.tsx"
+  ],
+  "verification_checks": [],
+  "max_token_budget": 50000,
+  "timeout_seconds": 600,
+  "contract_hash": "394d889fb216c2b7733242b3fdec7eeaf6ce9f459ae3aa95acc371aaa6ce1a19"
+}

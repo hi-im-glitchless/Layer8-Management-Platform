@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "issues": [
+    {
+      "test": "eslint react-hooks/set-state-in-effect",
+      "file": "frontend/src/features/schedule/components/AssignmentModal.tsx",
+      "error": "Calling setState synchronously within an effect (form-reset useEffect, line 124 post-change / 202 on HEAD) — pre-existing on the committed version, in code not touched by this plan",
+      "first_seen_in": "01-01-SUMMARY.md",
+      "last_seen_in": "01-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "eslint react-hooks/set-state-in-effect",
+      "file": "frontend/src/features/schedule/components/AssignmentModal.tsx",
+      "error": "Calling setState synchronously within an effect (form-reset useEffect, line 124) — reproduced on HEAD via `npx eslint AssignmentModal.tsx`; pre-existing, in code this plan did not touch (touched lines are the ClientCombobox call sites, not the effect body).",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

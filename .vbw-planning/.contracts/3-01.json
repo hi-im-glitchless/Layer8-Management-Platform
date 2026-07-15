@@ -1,0 +1,32 @@
+{
+  "phase_id": "phase-3",
+  "plan_id": "phase-3-plan-01",
+  "phase": 3,
+  "plan": 1,
+  "objective": "Read-Only Client Notes on the Planner Card",
+  "task_ids": [],
+  "task_count": 0,
+  "allowed_paths": [],
+  "forbidden_paths": [],
+  "depends_on": [],
+  "must_haves": [
+    "Exactly one SANITIZE_SCHEMA and one markdown render path (NotesPreview) exist in the frontend after this phase; SANITIZE_SCHEMA stays module-private in NotesEditor.tsx.",
+    "The card client-notes section is read-only for every role including ADMIN: no textarea, no Edit/Preview tabs, no Save/Cancel button in its DOM subtree.",
+    "A card whose project.client is null, or whose client.notes is empty/whitespace, renders no client-notes section and no heading (single guard project.client?.notes?.trim()).",
+    "KanbanCard.tsx is not modified and the Kanban tile renders identically regardless of client.notes presence.",
+    "The client-notes section renders above the existing project NotesEditor, inside the same space-y-6 container in CardDetailModal.",
+    "path: \"backend/src/services/boardService.ts",
+    "path: \"frontend/src/components/NotesEditor.tsx",
+    "path: \"frontend/src/features/board/types.ts",
+    "path: \"frontend/src/features/board/components/CardDetailModal.tsx",
+    "path: \"frontend/src/features/board/components/__tests__/CardDetailModal.test.tsx",
+    "path: \"backend/src/services/__tests__/boardCardClientNotes.pm.test.ts",
+    "from: \"frontend/src/features/board/components/CardDetailModal.tsx",
+    "from: \"backend/src/services/boardService.ts getCard",
+    "from: \"frontend/src/features/board/types.ts BoardCard.project.client"
+  ],
+  "verification_checks": [],
+  "max_token_budget": 50000,
+  "timeout_seconds": 600,
+  "contract_hash": "433370cddf19becd6fa18625dc37b6f01a9aa218b2a1f62c0335d810d38f49f4"
+}

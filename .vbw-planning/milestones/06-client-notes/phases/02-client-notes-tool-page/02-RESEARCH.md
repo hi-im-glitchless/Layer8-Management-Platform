@@ -1,0 +1,347 @@
+---
+phase: "02"
+title: "Client Notes Tool Page"
+type: research
+confidence: high
+date: 2026-07-10
+---
+
+## Summary
+
+- **Route guard already exists and is the exact pattern to reuse.** `RoleProtectedRoute` (`frontend/src/App.tsx:41-62`) wraps `/admin` and `/audit-log` today with `minRole="ADMIN"`. Phase 2 just needs a new `<Route element={<RoleProtectedRoute minRole="PM" />}>` wrapping the new client-notes route — no new guard component needs to be built.
+- **`notesUpdatedBy` → display name is already solved by the board, and Phase 2 can reuse the identical mechanism.** `CardDetailModal.tsx:466-482` resolves a raw user id to a display name via a local `resolveEditorName` closure that (a) checks per-card `assignments` first for a pentester alias, then (b) falls back to `GET /api/board/members` (`useBoardMembers()`, `frontend/src/features/board/hooks.ts:149-155`) — an **all-roles-readable** (`requireAuth` only, `backend/src/routes/boardMembers.ts:23`), slim `{id, username, displayName}[]` list. Phase 2 has no per-card assignments to fall back to first, so it only needs step (b): call `useBoardMembers()` and do `allMembers.find(u => u.id === notesUpdatedBy)`.
+- **`NotesEditor` has exactly one import site** (`CardDetailModal.tsx:39`), confirmed via grep for `NotesEditor` across the whole frontend — no other consumer exists. Moving it is a single call-site update plus the file move itself.
+- **The codebase's own convention for lifting a board-only component to shared use is `client-combobox.tsx`**, which now lives at `frontend/src/components/client-combobox.tsx` (flat, not nested under a domain) and is imported by both `features/schedule/components/AssignmentModal.tsx` and `features/board/components/BoardFilters.tsx`. `NotesEditor` should move to `frontend/src/components/notes-editor.tsx` (or `NotesEditor.tsx`, matching its current PascalCase — the combobox's lowercase-kebab filename is the outlier, not necessarily the rule) following the same "components with 2+ feature consumers live in `frontend/src/components/`, not under a single `features/{domain}/`" convention.
+- **Backend for Phase 2 is 100% done** (verified directly, not just from Phase 1's research): `GET /api/schedule/clients/:id/notes` (`schedule.ts:669-681`, `requireAuth` only) returns `{ notes, notesUpdatedAt, notesUpdatedBy }` unwrapped; `PUT /api/schedule/clients/:id/notes` (`schedule.ts:692-721`, `requireRole('PM')`) returns `{ client: { notes, notesUpdatedAt, notesUpdatedBy } }` — **note the response-shape asymmetry**: GET returns the notes object directly, PUT wraps it in `{ client: ... }`. The frontend API layer must handle both shapes explicitly, not assume one.
+- **No frontend API/hook exists yet for either client-notes endpoint** — `frontend/src/features/schedule/api.ts` only has `getClients`/`createClient`/`updateClient`/`deleteClient` (lines 189-208+); Phase 2 must add `getClientNotes(id)` / `updateClientNotes(id, notes)` plus `useClientNotes(id)` / `useUpdateClientNotes()` hooks.
+- **An unused backend endpoint (`GET /api/projects/search?clientId=`) already exists and is the natural source for "the client's projects" in the modal.** `backend/src/routes/projects.ts:18-37`, `requireAuth` only, backed by `projectService.searchProjects` (`backend/src/services/projectService.ts:120-134`) which does `prisma.project.findMany({ where: { clientId }, include: { client: {select} }, orderBy: [{updatedAt:'desc'}], take: 50 })`. **No frontend wrapper calls this today** — grep of `frontend/src/features/schedule/{api,hooks}.ts` for `projects/search` / `searchProjects` returns nothing. Phase 2 must add its own `api.ts` function + hook for this, or the plan must explicitly decide the modal won't show projects (contradicting the roadmap goal's "and its projects").
+- **Bulk client list confirmed to lack `notes`, `id/name/color` only.** `Client` type (`frontend/src/features/schedule/types.ts:120-126`) is `{id, name, color, createdAt, updatedAt}`. `useClients()` (`frontend/src/features/schedule/hooks.ts:280-285`) is the existing hook the client-list page should reuse for the list view; the modal then fetches notes per-client via the new endpoint on open, exactly as Phase 1's research recommended.
+
+## Sidebar & Route Guard
+
+**Sidebar** (`frontend/src/components/layout/Sidebar.tsx`):
+
+```ts
+// lines 20-31
+interface NavItem {
+  to: string
+  icon: typeof LayoutDashboard
+  label: string
+  minRole?: Role
+}
+
+interface NavGroup {
+  label: string
+  items: NavItem[]
+  minRole?: Role
+}
+
+// lines 40-52, the Tools group (exact current contents)
+{
+  label: 'Tools',
+  items: [
+    // Hidden: tools not currently in use
+    // { to: '/template-adapter', icon: FileCode, label: 'Template Adapter', minRole: 'PM' },
+    // Hidden: tools not currently in use
+    // { to: '/executive-report', icon: FileText, label: 'Executive Report', minRole: 'PM' },
+    // Hidden: tools not currently in use
+    // { to: '/documents', icon: FileUp, label: 'Documents' },
+    { to: '/schedule', icon: Calendar, label: 'Schedule' },
+    { to: '/board', icon: KanbanSquare, label: 'Planner' },
+  ],
+},
+```
+
+Visibility filtering (`Sidebar.tsx:78-86`):
+```ts
+const visibleGroups = useMemo(
+  () => navigationGroups
+    .filter((group) => !group.minRole || userHasRole(group.minRole))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.minRole || userHasRole(item.minRole)),
+    })),
+  [user?.role]
+)
+```
+`userHasRole` is `useAuth().hasRole` (`Sidebar.tsx:72`), which is `(minimumRole: Role) => checkRole(query.data?.role, minimumRole)` (`frontend/src/features/auth/hooks.ts:30`), delegating to `hasRole` in `frontend/src/lib/rbac.ts:19-22` — a simple `ROLE_HIERARCHY` numeric comparison (`NORMAL: 1 < PM: 2 < ADMIN: 3`).
+
+**Exact shape to add** a `Client Notes` item: add one `NavItem` object to the `Tools` group's `items` array —
+```ts
+{ to: '/client-notes', icon: <SomeIcon>, label: 'Client Notes', minRole: 'PM' },
+```
+This alone hides the link from `NORMAL` (existing filter logic requires no changes). Icon library in use is `lucide-react` (already imported at `Sidebar.tsx:3-12`; e.g. `StickyNote`, `NotebookPen`, `FileText`, or `Users` would all fit thematically — not otherwise used elsewhere in the sidebar, so any is free to pick).
+
+**Route guard** — `RoleProtectedRoute` already exists at `frontend/src/App.tsx:41-62`:
+```tsx
+function RoleProtectedRoute({ minRole }: { minRole: Role }) {
+  const { isAuthenticated, isLoading, role } = useAuth();
+  if (isLoading) { /* spinner */ }
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!hasRole(role, minRole)) {
+    toast.error('Access denied: insufficient permissions');
+    return <Navigate to="/" replace />;
+  }
+  return <Outlet />;
+}
+```
+Currently used only for `ADMIN` (`App.tsx:104-107`, wrapping `/admin` and `/audit-log`). **This plainly answers the ROADMAP's open question: a real route guard exists, refuses direct navigation (not just hides the link), and is reusable as-is for `minRole="PM"`.** Phase 2's route registration is:
+```tsx
+<Route element={<RoleProtectedRoute minRole="PM" />}>
+  <Route path="/client-notes" element={<ClientNotes />} />
+</Route>
+```
+placed inside the existing `<Route element={<ProtectedRoute />}>` block (`App.tsx:97-108`), alongside (not nested in) the `ADMIN`-gated block. New page component needs an import line (`import { ClientNotes } from '@/routes/ClientNotes'`) added near the other route imports (`App.tsx:6-13`).
+
+## NotesEditor Extraction
+
+**Full current contents already read** (`frontend/src/features/board/components/NotesEditor.tsx`, 128 lines):
+
+Props (lines 9-14):
+```ts
+interface NotesEditorProps {
+  cardId: string
+  initialNotes: string
+  notesUpdatedAt: string | null
+  notesUpdatedBy: string | null   // <-- already a resolved display name (or null), NOT the raw id — caller resolves it first
+}
+```
+
+Sanitize schema (lines 24-29):
+```ts
+const SANITIZE_SCHEMA: Schema = {
+  ...defaultSchema,
+  tagNames: (defaultSchema.tagNames ?? []).filter(
+    (tag) => tag !== 'script' && tag !== 'iframe' && tag !== 'object' && tag !== 'embed',
+  ),
+}
+```
+Starts from `rehype-sanitize`'s `defaultSchema` and additionally strips `script`/`iframe`/`object`/`embed` tag names defensively (comment explains `on*` attrs are already excluded by `defaultSchema`'s allow-list). This is the schema the ROADMAP requires be shared identically — extracting the file verbatim preserves it automatically.
+
+Save/mutation contract (lines 47-73): the component is **tightly coupled to board-card notes** via a hardcoded `useUpdateNotes()` import from `../hooks` (board feature hooks) and a hardcoded `{cardId, notes: draft}` mutation payload shape:
+```ts
+import { useUpdateNotes } from '../hooks'
+...
+const update = useUpdateNotes()
+...
+const handleSave = () => {
+  if (!dirty || update.isPending) return
+  update.mutate(
+    { cardId, notes: draft },
+    { onSuccess: () => setTab('preview') },
+  )
+}
+```
+**This is the one real blocker to a clean lift-and-share**: `NotesEditor` currently calls a board-specific mutation hook by name inside the component body, not via a prop. To be reused by a `Client` (not `BoardCard`) entity, the component needs one of:
+1. Accept the mutation as a prop (e.g. `onSave: (notes: string) => Promise<void> | void` plus `isSaving: boolean`), decoupling it from `useUpdateNotes` entirely — caller (both `CardDetailModal` and the new client-notes modal) supplies its own mutation hook.
+2. Accept a generic `entityId` + an injected hook reference — messier, not idiomatic React.
+
+Option 1 matches the codebase's existing "lift by generalizing to callback props" convention seen in `ClientCombobox` (`onChange: (id: string | null) => void` — the combobox itself has zero knowledge of assignments/board-filters/clients-CRUD, callers own the mutation). Recommend the plan mirror that: rename `cardId` prop to something generic or drop it, replace the internal `useUpdateNotes()` call with an `onSave` callback prop, and have `CardDetailModal` pass `(notes) => updateNotes.mutate({cardId: card.id, notes})` while the new client-notes modal passes `(notes) => updateClientNotes.mutate({id: client.id, notes})`.
+
+**Target location, per the `client-combobox.tsx` convention:** `frontend/src/components/` (flat, sibling to `client-combobox.tsx`), e.g. `frontend/src/components/notes-editor.tsx` or `frontend/src/components/NotesEditor.tsx`. `client-combobox.tsx`'s header comment (lines 9-15) explicitly documents this pattern — "Kept intentionally loose... so both call sites work" — the same generalization NotesEditor needs for its save contract.
+
+**Complete import-site list** (verified via `grep -rln "NotesEditor"` across `frontend/src`, confirming there is exactly one reference besides the component's own file):
+- `frontend/src/features/board/components/CardDetailModal.tsx:39` — `import { NotesEditor } from './NotesEditor'` — must become `import { NotesEditor } from '@/components/NotesEditor'` (or the chosen filename) after the move, and the `notesUpdatedBy`/`cardId`/mutation-wiring call site (lines 636-641) must be updated to match the new `onSave`-style prop contract.
+
+No test file (`NotesEditor.test.tsx`) exists today, so there is no test import site to update.
+
+## notesUpdatedBy → Display Name
+
+**Solved.** `CardDetailModal.tsx:462-482`:
+```ts
+// Resolve a User.id to a display name using the same alias > displayName >
+// username precedence as the rest of the planner (see commit 6797b19).
+// Prefers a per-card pentester alias when the editor is on the card; falls
+// back to the global member list for PM/Admin editors who aren't assigned.
+const resolveEditorName = (userId: string | null): string | null => {
+  if (!userId) return null
+  for (const a of assignments) {
+    if (a.teamMember?.userId === userId) {
+      return (
+        a.teamMember.displayName ??
+        a.teamMember.user?.displayName ??
+        a.teamMember.user?.username ??
+        null
+      )
+    }
+  }
+  const m = allMembers.find((u) => u.id === userId)
+  if (m) return m.displayName ?? m.username
+  return null
+}
+const notesUpdatedByName = resolveEditorName(card.notesUpdatedBy)
+```
+`allMembers` comes from `useBoardMembers()` (`CardDetailModal.tsx:410-411`: `const { data: membersData } = useBoardMembers(); const allMembers = membersData?.users ?? []`).
+
+`useBoardMembers()` (`frontend/src/features/board/hooks.ts:149-155`):
+```ts
+export function useBoardMembers() {
+  return useQuery({
+    queryKey: ['board', 'members'],
+    queryFn: () => boardApi.getMembers(),
+    staleTime: 5 * 60 * 1000, // 5 minutes — member list rarely changes
+  })
+}
+```
+Backed by `GET /api/board/members` (`backend/src/routes/boardMembers.ts`):
+```ts
+/**
+ * GET /api/board/members
+ * Returns active users (id, username, displayName) for @mention autocomplete.
+ */
+router.get('/', requireAuth, readRateLimiter, async (_req, res) => {
+  const users = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true, username: true, displayName: true },
+    orderBy: { username: 'asc' },
+  });
+  res.json({ users });
+});
+```
+**`requireAuth` only — every role including `NORMAL` can call it.** A `PM` (the minimum role for Phase 2's page) is certainly permitted.
+
+**Phase 2's answer:** the client-notes modal has no per-card `assignments` to check first (that concept doesn't exist for a `Client`), so it only needs the second half of `resolveEditorName` — call the *same* `useBoardMembers()` hook (it is a board-feature hook but the endpoint itself is generic user data, not board-scoped; reusing the hook cross-feature is consistent with `client-combobox.tsx`'s precedent of one component/hook serving multiple features) and do a flat `allMembers.find(u => u.id === client.notesUpdatedBy)`, falling back to `m.displayName ?? m.username`, then to `null`/raw-id display if not found (e.g. a deactivated user, since `boardMembers.ts` filters `isActive: true`). **Recommend the plan extract a small shared `resolveUserName(users, userId)` helper** (or reuse `resolveEditorName`'s tail logic) rather than duplicating the `displayName ?? username` precedence inline a second time — this is a genuine 2nd-call-site opportunity the plan should note, though it is not required to also move `useBoardMembers` itself (importing a board hook from a non-board route is fine; only `NotesEditor` was flagged by the ROADMAP as needing to move).
+
+**Deactivated-user edge case:** since `boardMembers.ts` filters `isActive: true`, a client note last edited by a now-deactivated user will resolve to `null` via `allMembers.find` (not found) — same behavior the board already has for stale `notesUpdatedBy` ids. Plan should decide the null-name fallback text (e.g. "Last edited by an unknown user" vs. omitting the "by X" clause) — `NotesEditor`'s own display line (`NotesEditor.tsx:100-110`) already handles `notesUpdatedBy === null` gracefully by omitting the "by X" clause entirely, so this is a non-issue if the component and its prop contract are reused as-is.
+
+## Client List Data & Notes Fetch
+
+**Bulk list** — `frontend/src/features/schedule/api.ts:189-191`:
+```ts
+async getClients() {
+  return apiClient<{ clients: Client[] }>('/api/schedule/clients')
+},
+```
+Hook — `frontend/src/features/schedule/hooks.ts:280-285`:
+```ts
+export function useClients() {
+  return useQuery({
+    queryKey: ['schedule', 'clients'],
+    queryFn: () => scheduleApi.getClients(),
+  })
+}
+```
+`Client` type (`frontend/src/features/schedule/types.ts:120-126`):
+```ts
+export interface Client {
+  id: string
+  name: string
+  color: string
+  createdAt: string
+  updatedAt: string
+}
+```
+**No `notes` field — confirmed, matches Phase 1's finding.** The Client Notes list page should call `useClients()` (already imported by `ClientManager.tsx`, `AssignmentModal.tsx`, `BoardFilters.tsx`, `client-combobox.tsx` — reusing it introduces no new query key or cache-shape risk) for `id`/`name`/`color`, then on modal-open fetch notes per-client via a **new** hook (e.g. `useClientNotes(clientId)`) hitting the Phase 1 `GET /clients/:id/notes` endpoint. This confirms Phase 1's research recommendation exactly.
+
+**New frontend surface Phase 2 must add** (none of this exists yet — verified by grep of `schedule/api.ts` and `schedule/hooks.ts` for `notes`, zero hits):
+```ts
+// api.ts — GET returns the notes object directly (unwrapped)
+async getClientNotes(id: string) {
+  return apiClient<{ notes: string; notesUpdatedAt: string | null; notesUpdatedBy: string | null }>(
+    `/api/schedule/clients/${id}/notes`
+  )
+},
+// PUT returns { client: {...} } (wrapped) — different shape from GET, confirmed by reading schedule.ts:692-721 & clientService.ts:98-112
+async updateClientNotes(id: string, notes: string) {
+  return apiClient<{ client: { notes: string; notesUpdatedAt: string | null; notesUpdatedBy: string | null } }>(
+    `/api/schedule/clients/${id}/notes`,
+    { method: 'PUT', body: JSON.stringify({ notes }) }
+  )
+},
+```
+and matching hooks (`useClientNotes(id)` as a `useQuery`, `useUpdateClientNotes()` as a `useMutation` that invalidates `['schedule', 'client-notes', id]` and/or refetches on success).
+
+**"and its projects" (roadmap goal text) — not directly served by any hook today.** `backend/src/routes/projects.ts:18-37` (`GET /api/projects/search?clientId=&q=`, `requireAuth` only) is the correct backend source — `projectService.searchProjects` filters `where: { clientId }`, includes `client: {select}`, orders by `updatedAt desc`, caps at 50 rows. **No frontend `api.ts`/`hooks.ts` function calls this endpoint anywhere in the codebase today** (confirmed by grep for `projects/search` and `searchProjects` in `frontend/src`). Phase 2's plan must add a new `searchProjects({clientId})` API function + hook (there is no existing `features/projects/` directory; the natural home is either a small addition to `features/schedule/api.ts`/`hooks.ts` since `Project` there is already client-scoped conceptually, or a new `features/projects/` feature module — the plan should decide, no strong existing precedent forces one over the other since this is the first frontend consumer of `/api/projects/search`).
+
+## Page/Modal Patterns
+
+**Representative route** — `frontend/src/routes/Schedule.tsx`: page-level header row with a title + action buttons gated by `hasRole('PM')` inline (`{hasRole('PM') && <HolidayManager />}`, line 41), a `ClientManager` button always rendered (own internal role check), and a data grid (`ScheduleGrid`) below. No page-level loading/error boundary of its own — data-fetching is delegated entirely into child components (`ScheduleGrid`, `ClientManager`, etc.), each owning its own `useQuery`.
+
+**Representative "list + click-to-open-modal" pattern** — `frontend/src/routes/Board.tsx:74-90, 209-212, 332-340`: modal open-state is driven by a **URL search param** (`?card=<id>`), not local `useState`:
+```ts
+const [searchParams, setSearchParams] = useSearchParams()
+const selectedCardId = searchParams.get('card') ?? null
+const setSelectedCardId = useCallback((id: string | null) => {
+  setSearchParams((prev) => {
+    const next = new URLSearchParams(prev)
+    if (id === null) next.delete('card')
+    else next.set('card', id)
+    return next
+  }, { replace: true })
+}, [setSearchParams])
+...
+const handleCardClick = useCallback((cardId: string) => { setSelectedCardId(cardId) }, [])
+...
+<CardDetailModal
+  cardId={selectedCardId}
+  open={selectedCardId !== null}
+  onOpenChange={(open) => { if (!open) setSelectedCardId(null) }}
+/>
+```
+This gives deep-linkable modals (shareable/refreshable URLs) and is the more elaborate of two patterns in the codebase; `ClientManager.tsx` (`frontend/src/features/schedule/components/ClientManager.tsx:84-91, 244-246`) uses the simpler uncontrolled `<Dialog><DialogTrigger>` (no URL state, no external open/onOpenChange) for its single "Manage Clients" trigger button. **Recommend the plan pick the `Board.tsx` URL-param pattern** for the client-notes list-page-with-clickable-rows use case (closer structural match — many rows, one clicked at a time, `?client=<id>`) over `ClientManager`'s single-trigger pattern.
+
+Data-fetching/loading/error convention (`Board.tsx:38, 229-247, 280-293`): `useQuery`-backed `isLoading`/`isError`/`error`/`refetch`, with a dedicated error block (icon + message + Retry button) and skeleton placeholders during load. This is the convention to replicate for the client list page.
+
+`Client Notes` list-page layout should most closely resemble `ClientManager.tsx`'s `<Table>` (columns: color swatch, name) — reusing `@/components/ui/table` primitives — rather than a card grid, since the existing "list of clients" UI in the codebase is already tabular.
+
+## Testing Conventions
+
+**Representative test files:**
+- `frontend/src/components/__tests__/client-combobox.test.tsx` — pure component test, no `useAuth`/query mocking needed (component takes plain props).
+- `frontend/src/features/board/components/__tests__/BoardFilters.test.tsx` — mocks `useAuth` directly:
+  ```ts
+  vi.mock('@/features/auth/hooks', () => ({
+    useAuth: () => ({ hasRole: () => true }),
+  }))
+  ```
+  (a fixed stub — no role-variant test exists in this file; it only needs `hasRole` truthy to render one conditional section.)
+- `frontend/src/features/board/components/__tests__/DeleteCardDialog.test.tsx` — mocks the **hooks module** wholesale rather than TanStack Query itself:
+  ```ts
+  const mutate = vi.fn()
+  vi.mock('../../hooks', () => ({
+    useDeleteCard: () => ({ mutate, isPending: false }),
+  }))
+  ```
+  This is the established convention for any component under test that calls a `useXMutation()`/`useXQuery()` hook: **mock the hook module directly**, not `@tanstack/react-query` or the API layer. No test in the repo wraps components in a real `QueryClientProvider` for this purpose (not found via search).
+
+**No route-guard test exists today** for `RoleProtectedRoute`/`App.tsx` (grep for `RoleProtectedRoute` in `*.test.tsx` returns nothing) — Phase 2 would be the first to add one, whether that means a new `App.test.tsx`/`ClientNotes.test.tsx`, or an integration-style test exercising the routing tree.
+
+**Structural sketch of a "NORMAL cannot reach the route" test:**
+```tsx
+// frontend/src/routes/__tests__/ClientNotesAccess.test.tsx (illustrative; no such file exists yet)
+import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+// ... render just the relevant <Route> subtree from App.tsx, or a minimal
+// harness reproducing <RoleProtectedRoute minRole="PM"><ClientNotes /></RoleProtectedRoute>
+
+vi.mock('@/features/auth/hooks', () => ({
+  useAuth: () => ({ isAuthenticated: true, isLoading: false, role: 'NORMAL', hasRole: (r) => false }),
+}))
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } })) // RoleProtectedRoute calls toast.error
+
+it('NORMAL is redirected away from /client-notes and sees the denial toast', () => {
+  render(
+    <MemoryRouter initialEntries={['/client-notes']}>
+      {/* mount the RoleProtectedRoute + ClientNotes route subtree, plus a
+          sentinel element at '/' to assert the redirect landed there */}
+    </MemoryRouter>
+  )
+  expect(screen.queryByText(/client notes/i)).not.toBeInTheDocument()
+  // and/or assert toast.error was called with 'Access denied: insufficient permissions'
+})
+```
+A second case (`role: 'PM'`) should assert the page **does** render, and a third could assert the Sidebar link is absent for `NORMAL` (mount `<Sidebar />` with the same `useAuth` mock, `queryByText('Client Notes')` → null) — that's a distinct, cheaper unit test from the route-guard test and both are warranted since the ROADMAP explicitly separates "link hidden" from "direct navigation refused" as two success criteria.
+
+## Open Questions / Risks
+
+1. **`NotesEditor`'s save contract is hardcoded to `useUpdateNotes` (board-card notes).** The plan must decide the generalized prop contract (recommend an `onSave(notes: string): void` callback replacing the internal hook call) before either consumer can be wired — this is the one real design decision blocking the "lift" step, not just a file move.
+2. **GET vs PUT response-shape asymmetry** (`{notes,...}` vs `{client:{notes,...}}`) is a real backend fact, not a frontend mistake to fix — the new `api.ts` functions must handle both shapes as-is (Phase 2 has no mandate to touch Phase 1's backend).
+3. **"the client's info ... and its projects" (ROADMAP goal) has no wired frontend path today.** `GET /api/projects/search?clientId=` exists and is `requireAuth`-only (PM can call it) but zero frontend code calls it. The plan must explicitly scope in "add a projects-by-client fetch" as new Phase 2 work, or explicitly descope "and its projects" from the modal — leaving it silently unaddressed would fail the roadmap's literal goal text. Recommend scoping it in; the backend already exists.
+4. **No existing route-guard test or `useAuth`-role-variant test pattern in this codebase** — Phase 2 is genuinely first-of-its-kind for this class of test. The sketch above is a reasonable structural starting point but the plan should treat it as new test infrastructure, not "reuse an existing pattern," when estimating effort.
+5. **Icon choice for the sidebar entry** is unconstrained by convention (no `lucide-react` icon is reserved/implied) — purely a plan/build-time cosmetic decision.
+6. **Where the new `searchProjects`-by-client API function belongs** (`features/schedule/` vs. a new `features/projects/`) is not resolved by existing convention, since this endpoint currently has zero frontend callers. Flagging as a plan decision, not a fact.
+7. **`useBoardMembers()` is a board-feature hook being reused from a non-board route.** This is architecturally fine (the underlying endpoint `/api/board/members` is user data, not board-scoped) but is a cross-feature import the plan should note explicitly rather than have it look accidental — matches the spirit of `client-combobox.tsx` already being consumed cross-feature.
+
+## Live Validation Evidence
+
+Not applicable — this phase has no external/live data sources to probe. All findings are static code reads (frontend components, hooks, API layer, routing, backend routes/services already shipped in Phase 1) with no network or live-DB calls executed. `grep`/`find` searches used for import-site and endpoint-consumer discovery were exhaustive over `frontend/src` and returned either concrete hits (quoted above) or explicit zero-hit confirmations (noted inline, e.g. "no frontend wrapper calls this today").

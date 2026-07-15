@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "phase": "04-project-notes-preview-first-tabs",
+  "accepted": [
+    {
+      "signature": "5a5bb719095f49e09b4d1d586b1a7e01c469e2d0eeeab8fd5d6ab48e0104f23d",
+      "source_plan": "01",
+      "source_path": "04-01-SUMMARY.md",
+      "text": "DEVN-01 (per-task restatement): Edit-tab activation in tests uses fireEvent.mouseDown (Radix Tabs activate on mousedown, not a bare click). (Resolved-by-amendment in QA remediation R01.)",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "04-UAT.md",
+      "accepted_at": "2026-07-15T18:37:41Z"
+    },
+    {
+      "signature": "9f9d0ffd7eae9dd011f1c17c7f173dc8a688fa61849cd16fc126e142c6cbc02a",
+      "source_plan": "01",
+      "source_path": "04-01-SUMMARY.md",
+      "text": "DEVN-01: The new \"keeps Edit functional\" case and CardDetailModal case (e) assert against the Preview-default state. Radix Tabs triggers activate on mousedown (not a bare click), so Edit-tab activation in tests uses fireEvent.mouseDown rather than fireEvent.click. (Resolved-by-amendment in QA remediation R01.)",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "04-UAT.md",
+      "accepted_at": "2026-07-15T18:37:41Z"
+    },
+    {
+      "signature": "ab110fa70dca1837d57b27c5e7a05aa4628705a8bca876ee28025ea9d967fd8b",
+      "source_plan": "01",
+      "source_path": "04-01-SUMMARY.md",
+      "text": "DEVN-02 (per-task restatement): CardDetailModal (a)/(b) incidental project-notes assertions changed from getByDisplayValue (textarea) to getByText (Preview markdown) because Radix unmounts the inactive Edit tab under previewFirst. Client-notes assertions and cases (c)/(d) are unchanged. (Resolved-by-amendment in QA remediation R01.)",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "04-UAT.md",
+      "accepted_at": "2026-07-15T18:37:41Z"
+    },
+    {
+      "signature": "d430276f71982fbb6930ecafce9291561f53296df68df121bafc83184dc64494",
+      "source_plan": "01",
+      "source_path": "04-01-SUMMARY.md",
+      "text": "DEVN-02: CardDetailModal test cases (a)/(b) could not stay byte-for-byte unchanged. Under previewFirst Radix unmounts the inactive Edit tab, so the project textarea isn't in the DOM on mount; the two incidental project-notes assertions were switched from getByDisplayValue (textarea) to getByText (Preview markdown). The client-notes assertions (the cases' real purpose) and cases (c)/(d) are unchanged. (Resolved-by-amendment in QA remediation R01 — the plan now documents this.)",
+      "disposition": "accepted-process-exception",
+      "accepted_in": "04-UAT.md",
+      "accepted_at": "2026-07-15T18:37:41Z"
+    }
+  ]
+}

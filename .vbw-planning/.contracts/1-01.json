@@ -1,0 +1,32 @@
+{
+  "phase_id": "phase-1",
+  "plan_id": "phase-1-plan-01",
+  "phase": 1,
+  "plan": 1,
+  "objective": "Client Notes — Data Model + API",
+  "task_ids": [],
+  "task_count": 0,
+  "allowed_paths": [],
+  "forbidden_paths": [],
+  "depends_on": [],
+  "must_haves": [
+    "model Client (schema.prisma:274) gains notes String @default(\\\"\\\"), notesUpdatedAt DateTime?, notesUpdatedBy String? — mirroring BoardCard (schema.prisma:324-329), attribution editor id is a plain String? with NO Prisma relation.",
+    "Migration is purely additive (ADD COLUMN only, no table redefinition); it applies cleanly to the existing populated SQLite dev.db and existing clients read back notes=\\\"\\\", notesUpdatedAt=null, notesUpdatedBy=null.",
+    "GET /api/schedule/clients/:id/notes is gated by requireAuth only (all authenticated roles, NORMAL included) and returns the thin shape { notes, notesUpdatedAt, notesUpdatedBy }; 404 when the client id does not exist.",
+    "PUT /api/schedule/clients/:id/notes is gated by requireRole('PM') — admits PM and ADMIN, rejects NORMAL with 403; 404 when the client id does not exist.",
+    "Each successful write stamps notesUpdatedAt=new Date() and notesUpdatedBy=req.session.userId (raw user id, NOT username/display name) AND writes exactly one AuditLog entry via logAuditEvent with action 'client.notes.update' and details identifying the client; the write happens first, then the audit call, then the response (matching boardAdmin.ts archive).",
+    "The notes write is a single prisma.client.update scoped to { notes, notesUpdatedAt, notesUpdatedBy } that references no other model; NO Assignment/TeamMember/Absence/Holiday row is created, updated, or deleted as a side effect (schedule-domain no-write boundary).",
+    "No socket invalidation is emitted for the notes write (follows the existing /clients CRUD convention in schedule.ts, which emits none — NOT the team-members convention).",
+    "path: \"backend/prisma/schema.prisma",
+    "path: \"backend/prisma/migrations/{timestamp}_client_notes/migration.sql",
+    "path: \"backend/src/services/clientService.ts",
+    "path: \"backend/src/routes/schedule.ts",
+    "path: \"backend/src/routes/__tests__/clientNotesAccess.test.ts",
+    "from: \"backend/src/routes/schedule.ts",
+    "from: \"backend/src/routes/schedule.ts"
+  ],
+  "verification_checks": [],
+  "max_token_budget": 50000,
+  "timeout_seconds": 600,
+  "contract_hash": "045e35b6030e7cff0bd026437d239e6337b60aa28a718d6c33ad0f4499003ee4"
+}

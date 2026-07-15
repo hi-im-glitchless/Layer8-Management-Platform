@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "issues": [
+    {
+      "test": "Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests)",
+      "file": "backend/tests/services/audit.test.ts",
+      "error": "P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, prisma.$transaction) under full-suite parallel load (SQLite single-writer contention via better-sqlite3 adapter). Passes in isolation. audit.ts is not in this plans files_modified.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "Session Service > isTrustedDevice > returns true for valid trusted device",
+      "file": "backend/tests/services/session.test.ts",
+      "error": "Environmental (Redis/session store) failure in a file untouched by this plan.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "Stale compiled duplicates under dist/ (boardAdminArchive, boardFiles, deleteAssignmentOrphan.stopped, pdfQueue, templateAdapter, templateMapping)",
+      "file": "backend/dist/**/*.test.js",
+      "error": "backend/dist/ is gitignored (.gitignore:12) stale tsc build output picked up by vitest, re-running pre-change compiled tests in parallel and roughly doubling dev.db write load, amplifying the SQLite single-writer contention above. Pre-existing environmental artifact, not part of this plans scope.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "boardFiles routes > download/upload happy paths",
+      "file": "backend/src/routes/__tests__/boardFiles.test.ts",
+      "error": "Environmental (ClamAV/filesystem/SQLite-lock) failure in a file untouched by this plan; documented known flake.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry",
+      "file": "backend/src/routes/__tests__/clientNotesAccess.test.ts",
+      "error": "Under FULL-SUITE load only (not in isolation, not paired with boardAdminArchive alone): PUT returns 500. Root-caused via stack trace to the identical P1008 SocketTimeout inside logAuditEvents prisma.$transaction (backend/src/services/audit.ts:47-71), not in schedule.ts or clientService.ts (both plan-owned files execute correctly - the update itself succeeds; the subsequent audit write times out under heavy concurrent SQLite load). Independently verified via stack trace inspection, not taken on Devs word. clientNotesAccess.test.ts is 8/8 green in isolation and when paired with boardAdminArchive.test.ts across 3 repeated runs; the underlying contention is in the untouched, shared audit.ts transaction, which fails identically and independently in tests/services/audit.test.ts under the same full-suite run.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "pdfQueue > addPdfConversionJob > rejects invalid/empty file path (2 tests)",
+      "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+      "error": "Environmental (Redis/BullMQ/Gotenberg-dependent) failure in a file untouched by this plan.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+      "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+      "error": "TypeError: Cannot read properties of undefined (reading filter) at templateAdapter.ts:248 - mock/fixture drift in a file untouched by this plan.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping service > queryFewShotExamples (3 tests)",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "Mock expectation mismatch: test expects orderBy {usageCount: desc} but service now uses orderBy [{confidence: desc},{usageCount: desc}]. Stale test vs. code drift in a file untouched by this plan.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

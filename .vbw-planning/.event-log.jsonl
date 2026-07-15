@@ -55,3 +55,17 @@
 {"event":"bash_guard_block","command_preview":"find backend/src/routes -iname \"*board*\"","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-02T16:41:37Z"}
 {"event":"bash_guard_block","command_preview":"cat /home/rm/Documents/Layer8-Management","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-08T20:24:32Z"}
 {"event":"bash_guard_block","command_preview":"ls /home/rm/Documents/Layer8-Management-","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-08T20:24:32Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T11:08:57Z"}
+{"event":"bash_guard_block","command_preview":"grep -rln \"seed\" /home/rm/Documents/Laye","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T11:09:06Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"prisma migrate\|db:push\|DATABA","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T11:09:11Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T11:09:15Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T11:09:16Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T11:09:26Z"}
+{"event":"bash_guard_block","command_preview":"grep -rn \"include.*client\|client:.*true","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T11:10:09Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"project:\s*{\" -A 15 /home/rm/Do","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T11:10:14Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T12:18:26Z"}
+{"event":"bash_guard_block","command_preview":"find /home/rm/Documents/Layer8-Managemen","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T12:19:47Z"}
+{"event":"bash_guard_block","command_preview":"grep -rln \"boardService\|listCards\|getC","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T13:29:52Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"client:\" /home/rm/Documents/Lay","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T13:29:52Z"}
+{"event":"bash_guard_block","command_preview":"grep -n \"emitBoardInvalidate\" -A 5 /home","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T13:30:36Z"}
+{"event":"bash_guard_block","command_preview":"git log --oneline -- .vbw-planning/phase","pattern_matched":"scout:shell file write/redirection","agent":"scout","timestamp":"2026-07-10T16:43:57Z"}

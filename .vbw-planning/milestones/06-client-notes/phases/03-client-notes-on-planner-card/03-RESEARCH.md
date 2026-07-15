@@ -1,0 +1,280 @@
+---
+phase: "03"
+title: "Read-Only Client Notes on the Planner Card"
+type: research
+confidence: high
+date: 2026-07-10
+---
+
+## Summary
+
+- **The widened-select hypothesis is CONFIRMED.** `boardService.ts`'s `listCards` and `getCard` both already do `client: { select: { id: true, name: true, color: true } }` at `backend/src/services/boardService.ts:154` and `:193`. Adding `notes: true, notesUpdatedAt: true, notesUpdatedBy: true` to both is a two-line change (the select object is duplicated inline in the two functions, not shared — the plan may optionally extract a `PROJECT_CLIENT_SELECT` const, but is not required to).
+- **`CardDetailModal` reads from `getCard` via `GET /api/board/cards/:id`, not from a cached list.** Traced: `CardDetailModal.tsx:410` calls `useBoardCard(cardId)` → `boardApi.getCard(id)` (`frontend/src/features/board/api.ts:21-23`) → `GET /api/board/cards/:id` (`backend/src/routes/board.ts:93`) → `boardService.getCard(id)` (`backend/src/services/boardService.ts:187-223`). This is a dedicated query keyed `['board','cards',id]`, independent of the `['board','cards',filters]` list query the Kanban board itself uses — so widening `getCard`'s select is what actually reaches the modal (widening `listCards` alone would not).
+- **No leak risk found.** Both `GET /api/board/cards` and `GET /api/board/cards/:id` are `requireAuth`-only (`backend/src/routes/board.ts:60,93`) — already reachable by every authenticated role, matching the product decision. `emitBoardInvalidate('cards')` (`backend/src/services/socketService.ts:17-19`) only broadcasts a bare `{resource: 'cards'}` invalidation signal over the socket, never the payload itself — so no other consumer receives the widened client object. No test in the repo asserts the exact field set of `card.project.client` (grepped `backend/src/services/__tests__/*.test.ts` and `backend/src/routes/__tests__/*.test.ts` for `project.client`/`client: {` — zero hits), so no existing backend test needs updating for the select widening itself.
+- **`SANITIZE_SCHEMA` is NOT exported today** and the preview-markdown rendering is inline JSX inside `NotesEditor.tsx`'s `<TabsContent value="preview">` (`frontend/src/components/NotesEditor.tsx:92-98`), driven by the component's own local `draft` edit-state — not a prop. A second copy is forbidden, so Phase 3 must either (a) export `SANITIZE_SCHEMA` and build a new tiny read-only component that re-renders the `<ReactMarkdown rehypePlugins=...>` block against a `content: string` prop, or (b) extract that block into an exported sub-component inside `NotesEditor.tsx` (e.g. `NotesPreview({ content }: { content: string })`) and have both the internal Preview tab and the new client-notes section import it. Recommend (b) — it guarantees exactly one render path, not just one schema constant.
+- **Insertion point confirmed at `CardDetailModal.tsx:632-646`**, the `{/* Notes */}` block. The client-notes section goes directly above this block, inside the same `<div className="space-y-6">` (line 527), sharing the same vertical rhythm as every other section (Status/Stage, Client+tags, Pentesters, Notes, Files, Comments).
+- **Null/empty cases traced precisely.** `Project.clientId` nullable → Prisma's `client: { select: {...} } }` relation resolves to `client: null` when absent (confirmed by the existing `project.client?.name` optional-chaining usage at `CardDetailModal.tsx:546` and `KanbanCard.tsx:170`, and by the `Client` schema field's default `notes: ""` for clients that do exist but have never had notes written). The read-only section must guard on both `!card.project.client` (no client) and `!card.project.client.notes?.trim()` (client exists, notes empty) — either case renders nothing, no heading.
+- **`KanbanCard.tsx` is unaffected and needs no change.** It reads only `card.project.client?.name` (`KanbanCard.tsx:170-174`) and its `memo` comparator (`KanbanCard.tsx:223-241`) only checks `prev.card.project.client?.name === next.card.project.client?.name` — `.notes` is never read or compared, so widening the payload cannot change the tile's render or re-render behavior. `DEVN-05` (accepted non-blocking ESLint finding on this file) should not be touched.
+- **Frontend type change is isolated to one interface field.** `frontend/src/features/board/types.ts:35`: `client?: { id: string; name: string; color: string } | null` needs `notes: string; notesUpdatedAt: string | null; notesUpdatedBy: string | null` added. No `boardApi`/`api.ts` change is needed since `getCard`'s return type is generically `{ card: BoardCard }` (`frontend/src/features/board/api.ts:21-23`) — it inherits the widened shape automatically once the type is updated.
+- **No `CardDetailModal.test.tsx` exists yet** (confirmed via `find`) — Phase 3 is the first test file for this component, OR the plan can sidestep the modal's heavy hook wiring by extracting a small presentational subcomponent (e.g. `ClientNotesSection`) that takes plain props and is tested in isolation, following the `NotesEditor.test.tsx` "pure-props harness" convention (see Testing Conventions below) rather than mounting the whole modal with 5+ mocked hooks.
+
+## Card Data Path
+
+**Confirmed: the ROADMAP's stated hypothesis is correct, verified independently by reading the code.**
+
+`backend/src/services/boardService.ts:144-184` (`listCards`):
+```ts
+export async function listCards(filters: { stage?: string; projectId?: string }) {
+  ...
+  const cards = await prisma.boardCard.findMany({
+    where,
+    include: {
+      project: {
+        include: {
+          client: { select: { id: true, name: true, color: true } },
+          primaryAssignments: { include: { teamMember: ASSIGNMENT_TEAM_MEMBER_SELECT } },
+          splitAssignments: { include: { teamMember: ASSIGNMENT_TEAM_MEMBER_SELECT } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  ...
+```
+
+`backend/src/services/boardService.ts:187-223` (`getCard`):
+```ts
+export async function getCard(id: string) {
+  const card = await prisma.boardCard.findUnique({
+    where: { id },
+    include: {
+      project: {
+        include: {
+          client: { select: { id: true, name: true, color: true } },
+          primaryAssignments: { include: { teamMember: ASSIGNMENT_TEAM_MEMBER_SELECT } },
+          splitAssignments: { include: { teamMember: ASSIGNMENT_TEAM_MEMBER_SELECT } },
+        },
+      },
+      comments: { include: { author: true }, orderBy: { createdAt: 'asc' } },
+      files: true,
+    },
+  });
+  if (!card) return null;
+  ...
+```
+
+Both selects are byte-identical duplicates. **The change is: add `notes: true, notesUpdatedAt: true, notesUpdatedBy: true` to the `client: { select: {...} }` object literal in both places** (2 one-line edits, or refactor to a single shared `const PROJECT_CLIENT_SELECT = { id: true, name: true, color: true, notes: true, notesUpdatedAt: true, notesUpdatedBy: true } as const` referenced from both — following the existing `ASSIGNMENT_TEAM_MEMBER_SELECT` const pattern already used two lines above at `boardService.ts:132-138`). The latter is the more idiomatic choice given the codebase already extracts a shared select const for the sibling `teamMember` relation in the same functions.
+
+**`getCard` is what `CardDetailModal` actually uses — traced end to end:**
+1. `CardDetailModal.tsx:410`: `const { data } = useBoardCard(cardId ?? '')`
+2. `frontend/src/features/board/hooks.ts:24-30`: `useBoardCard` → `useQuery({ queryKey: ['board','cards', id], queryFn: () => boardApi.getCard(id), enabled: !!id })`
+3. `frontend/src/features/board/api.ts:21-23`: `boardApi.getCard(id)` → `apiClient<{ card: BoardCard }>('/api/board/cards/${id}')`
+4. `backend/src/routes/board.ts:93` (`GET /cards/:id`, `requireAuth`, `readRateLimiter`) → calls `boardService.getCard(id)`, responds `{ card }`.
+
+This is a distinct query from the Kanban list (`useBoardCards`, `boardApi.getCards`, `GET /cards`), so the modal is **not** reading a cached list entry — it issues its own per-card fetch on open. **Both `listCards` and `getCard` must be widened** since `listCards` backs the Kanban board's own card objects (which the plan should NOT surface notes on, per the "Kanban tile visually unchanged" requirement, but widening the select there is still harmless/inert since `KanbanCard.tsx` never reads `.notes` — see below) and `getCard` is what the modal actually consumes.
+
+**No leak risk beyond what's already intended.** `GET /api/board/cards` (`board.ts:60`) and `GET /api/board/cards/:id` (`board.ts:93`) are both `requireAuth`-only — no role gate — so every authenticated role already receives the full card+project+client payload today; adding `notes` fields to an object already sent to all roles is exactly the intended "visible to every authenticated role" behavior, not a new exposure surface. The only other place `client` shows up in a select in this codebase is the unrelated `projectService.searchProjects` (`backend/src/services/projectService.ts:120-134`, Phase 2's unused `GET /api/projects/search?clientId=` endpoint) — not touched by this change and not reachable from the board.
+
+## Read-Only Markdown Rendering
+
+**Current state of `frontend/src/components/NotesEditor.tsx` (128 lines, confirmed by direct read):**
+
+- `SANITIZE_SCHEMA` (lines 25-30) is a **module-private `const`, not exported**:
+```ts
+const SANITIZE_SCHEMA: Schema = {
+  ...defaultSchema,
+  tagNames: (defaultSchema.tagNames ?? []).filter(
+    (tag) => tag !== 'script' && tag !== 'iframe' && tag !== 'object' && tag !== 'embed',
+  ),
+}
+```
+  Grepped `SANITIZE_SCHEMA` across `frontend/src` — the only two references are its own definition and its own use inside `NotesEditor.tsx` (line 65), plus a comment in `NotesEditor.test.tsx:144` confirming it "survived the move" (from the Phase 2 file relocation). It is the single source of truth for sanitization and must stay that way.
+
+- The preview render is inline, coupled to local edit state, not a prop (lines 92-98):
+```tsx
+<TabsContent value="preview">
+  <div className="prose prose-sm dark:prose-invert max-w-none rounded-md border border-input bg-background p-3 min-h-[24rem]">
+    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+    <ReactMarkdown rehypePlugins={rehypePlugins as any}>
+      {draft || '*No notes yet.*'}
+    </ReactMarkdown>
+  </div>
+</TabsContent>
+```
+  `rehypePlugins` is `useMemo(() => [[rehypeSanitize, SANITIZE_SCHEMA]] as const, [])` (line 65) and `draft` is the component's own `useState(initialNotes)` (line 57) — i.e. the *edited, uncommitted* text, not `initialNotes` itself. This block cannot be reused as-is for a read-only section (it renders `draft`, would need edit-mode plumbing it doesn't have, and lives inside a `Tabs`/`TabsContent` the read-only section doesn't want).
+
+- Grepped `ReactMarkdown` across `frontend/src` — **`NotesEditor.tsx` is the only file that imports it.** There is no existing standalone markdown-preview component anywhere in the frontend to reuse.
+
+**What the plan should extract (recommended, not yet built):** a small exported component inside `NotesEditor.tsx`, e.g.
+```tsx
+export function NotesPreview({ content }: { content: string }) {
+  const rehypePlugins = useMemo(() => [[rehypeSanitize, SANITIZE_SCHEMA]] as const, [content])
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none">
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <ReactMarkdown rehypePlugins={rehypePlugins as any}>
+        {content || '*No notes yet.*'}
+      </ReactMarkdown>
+    </div>
+  )
+}
+```
+then refactor `NotesEditor`'s own `TabsContent value="preview"` to render `<NotesPreview content={draft} />` (keeping the existing wrapper `div` with the `border`/`min-h-[24rem]` styling in `NotesEditor`, since the read-only client-notes section likely wants a lighter/borderless treatment to read as "not an editable field"). This is a same-file addition, not a new file, and keeps `SANITIZE_SCHEMA` module-private (no need to export it at all if `NotesPreview` itself is exported and does the rendering) — satisfying "second copy of the schema is forbidden" without widening `NotesEditor.tsx`'s public API more than necessary. The import site for Phase 3's new client-notes section becomes `import { NotesPreview } from '@/components/NotesEditor'`.
+
+**Alternative considered and not recommended:** export `SANITIZE_SCHEMA` itself and let the new client-notes section build its own `<ReactMarkdown>` JSX. Rejected because it duplicates the `rehypePlugins`/wrapper-`div`/fallback-text (`'*No notes yet.*'`) logic a second time even though the schema itself is shared — the "one render path" property is more valuable than "one schema constant" and `NotesPreview` gets both for free.
+
+## Insertion Point in CardDetailModal
+
+Confirmed exact surrounding JSX, `frontend/src/features/board/components/CardDetailModal.tsx:527-646` (the `<div className="space-y-6">` that holds every card-detail section):
+
+```tsx
+527  <div className="space-y-6">
+528    {/* Status + Stage */}
+529    <div className="flex items-center gap-2 flex-wrap">
+530      <Badge variant="secondary">{stageLabel(card.stage)}</Badge>
+       ...
+541    </div>
+542
+543    {/* Client + tags row */}
+544    {(project.client?.name || project.tags.length > 0) && (
+545      <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
+546        {project.client?.name && <span className="font-medium">{project.client.name}</span>}
+       ...
+556    )}
+557
+558    {/* Pentesters — one row per distinct pentester, weeks listed. */}
+559    {pentesterGroups.length > 0 && (
+       ...
+579    )}
+580
+581    {/* Earliest week (legacy "Week start" line — keep for quick reference) */}
+       ...
+588    )}
+589
+590    {/* Checklist */}
+       ...
+630    )}
+631
+632    {/* Notes */}
+633    <div className="space-y-2">
+634      <div className="flex items-center gap-2 text-sm font-medium">
+635        <FileText className="h-4 w-4 text-muted-foreground" />
+636        <span>Notes</span>
+637      </div>
+638      <NotesEditor
+639        initialNotes={card.notes ?? ''}
+640        notesUpdatedAt={card.notesUpdatedAt}
+641        notesUpdatedBy={notesUpdatedByName}
+642        resetKey={card.id}
+643        isSaving={updateNotes.isPending}
+644        onSave={(notes) => updateNotes.mutateAsync({ cardId: card.id, notes })}
+645      />
+646    </div>
+647
+648    {/* Files */}
+```
+
+**The new client-notes section is inserted between line 630 (`)}` closing Checklist) and line 632 (`{/* Notes */}`)**, i.e. immediately before the existing Notes block, inside the same `space-y-6` flow, matching the roadmap's "directly above the existing card `NotesEditor`" requirement precisely. Suggested shape (illustrative, matching the existing sections' `space-y-2` + icon-heading pattern):
+```tsx
+{/* Client Notes (read-only) */}
+{project.client?.notes?.trim() && (
+  <div className="space-y-2">
+    <div className="flex items-center gap-2 text-sm font-medium">
+      <FileText className="h-4 w-4 text-muted-foreground" />
+      <span>Client Notes{project.client.name ? ` — ${project.client.name}` : ''}</span>
+    </div>
+    <NotesPreview content={project.client.notes} />
+  </div>
+)}
+```
+`project` is already destructured at `CardDetailModal.tsx:433` (`const project = card.project`), so `project.client` is available without new plumbing once the type/select widen lands.
+
+## Null & Empty Cases
+
+Two independent nullable layers, both traced:
+
+1. **`Project.clientId` is nullable** (confirmed in schema and by existing optional-chaining usage). When a project has no client, Prisma's `client: { select: {...} } }` relation resolves the whole `client` field to `null` on the returned object — this is already proven by the codebase's own defensive `project.client?.name` checks at `CardDetailModal.tsx:546` and `KanbanCard.tsx:170`, which only make sense if `client` can be `null`. After widening the select, `card.project.client` is either `null` (no client) or `{ id, name, color, notes, notesUpdatedAt, notesUpdatedBy }` (client exists).
+
+2. **`Client.notes` defaults to `""`** (schema default, confirmed in Phase 1 research: `notes String @default("")`). A client that exists but has never had notes written returns `notes: ""`, `notesUpdatedAt: null`, `notesUpdatedBy: null`.
+
+**Guard needed:** `project.client?.notes?.trim()` (or equivalent non-empty check) covers both cases in one expression — `undefined?.trim()` short-circuits to `undefined` (falsy) when `client` is `null`, and `''.trim()` is `''` (falsy) when notes are empty-but-present. Either way the section's JSX block simply does not render, matching the existing conditional-block convention already used for "Client + tags row" (`project.client?.name || project.tags.length > 0`) and "Pentesters" (`pentesterGroups.length > 0`) — no stray heading is rendered in either null/empty case, consistent with how every other optional section in this modal already behaves.
+
+## Types
+
+`frontend/src/features/board/types.ts:28-36` (current):
+```ts
+project: {
+  id: string
+  name: string
+  clientId: string | null
+  tags: string[]
+  color: string
+  status: string
+  client?: { id: string; name: string; color: string } | null
+}
+```
+**Required change:** widen the `client` field's inline type to add the three notes fields:
+```ts
+client?: {
+  id: string
+  name: string
+  color: string
+  notes: string
+  notesUpdatedAt: string | null
+  notesUpdatedBy: string | null
+} | null
+```
+No other type file needs a change: `frontend/src/features/board/api.ts`'s `getCard`/`getCards` are typed as `apiClient<{ card: BoardCard }>`/`apiClient<{ cards: BoardCard[] }>` — they inherit the widened `BoardCard['project']['client']` shape automatically once `types.ts` is updated. `frontend/src/features/schedule/types.ts`'s separate `Client` interface (`id, name, color, createdAt, updatedAt` — no `notes`, confirmed unchanged since Phase 2) is a **different type for a different consumer** (the Tools-page client list) and must NOT be touched or conflated with this one — Phase 2 deliberately keeps notes out of that bulk-list type for payload-size reasons (per Phase 1's research), and that reasoning still holds; this phase's widening is scoped to the board-card join only.
+
+## Testing Conventions
+
+**Frontend — two viable levels, both following established patterns in this codebase:**
+
+1. **Component-level (recommended primary target), mirroring `KanbanCard.test.tsx`'s `makeCard` fixture builder** (`frontend/src/features/board/components/__tests__/KanbanCard.test.tsx:38-65`):
+```ts
+function makeCard(
+  assignments: BoardCardAssignment[],
+  projectOverrides: Partial<BoardCard['project']> = {},
+): BoardCard {
+  return {
+    id: 'card-1', stage: 'execution', checklist: [],
+    notes: '', notesUpdatedAt: null, notesUpdatedBy: null,
+    stageLockedBy: null, archivedAt: null,
+    createdAt: '...', updatedAt: '...',
+    project: {
+      id: 'proj-1', name: 'Acme Pentest', clientId: 'client-1',
+      tags: [], color: '#3366ff', status: 'confirmed',
+      client: { id: 'client-1', name: 'Acme Corp', color: '#3366ff' },
+      ...projectOverrides,
+    },
+    assignments,
+  }
+}
+```
+Phase 3's own fixture (whether reused directly, copied into a new `CardDetailModal.test.tsx`, or lifted into a shared test-fixtures module — no such shared module currently exists, so copying the pattern is the established convention, not an anti-pattern here) needs `client` extended with `notes`/`notesUpdatedAt`/`notesUpdatedBy`, e.g. `client: { id: 'client-1', name: 'Acme Corp', color: '#3366ff', notes: '**Important**', notesUpdatedAt: null, notesUpdatedBy: null }`.
+
+   Since `CardDetailModal` has heavy hook coupling (`useBoardCard`, `useBoardMembers`, `useUpdateCard`, `useUpdateNotes`, `useMarkCardNotificationsRead`, `useAuth`, plus `useAddComment`/`useEditComment`/`useSoftDeleteComment`), the **cheapest, most isolated test target is a small extracted `ClientNotesSection` (or similar) presentational component** that takes `{ clientName, notes }` (or the raw `project.client` object) as plain props — following `NotesEditor.test.tsx`'s explicit "pure-props harness" convention (`frontend/src/components/__tests__/NotesEditor.test.tsx:5-7`: *"the editor no longer calls any hook, so no QueryClientProvider / hook-module mock is needed"*). This avoids needing to mock 6+ hooks just to test 4 lines of conditional JSX. If the plan instead tests inline inside `CardDetailModal.test.tsx` (the first such file), it must follow `DeleteCardDialog.test.tsx`'s "mock the hooks module wholesale" convention (`vi.mock('../../hooks', () => ({ useBoardCard: () => ({ data: { card: makeCard(...) } }), ... }))`) rather than wrapping in a real `QueryClientProvider`.
+
+   **Structural sketch of the four required cases** (whichever component is under test):
+   - (a) *Notes shown above project notes*: render with `project.client.notes = 'Client is VIP, handle with care'` and a non-empty `card.notes`; assert both texts appear in the DOM, and assert the client-notes DOM node's position precedes the `NotesEditor`'s "Notes" heading (e.g. via `container.querySelectorAll` order or `compareDocumentPosition`).
+   - (b) *No section when project has no client*: `project.client = null`; assert `screen.queryByText(/client notes/i)` (or the chosen heading text) is not in the document.
+   - (c) *No section when notes are empty*: `project.client = { ..., notes: '' }`; same non-presence assertion as (b).
+   - (d) *Read-only for ADMIN (no edit affordance)*: render with `role: 'ADMIN'` (however the harness supplies role — `useAuth` mock if testing inside `CardDetailModal`, or simply omitting any edit UI if testing the extracted presentational component, since a correctly-built `ClientNotesSection` has no edit affordance in its props/JSX at all, making this case trivially true by construction rather than needing a role check). Assert no `<textarea>`, no "Edit"/"Save" button/tab is rendered in the client-notes DOM subtree, regardless of role — this is the strongest form of the assertion since the component should have no edit code path to gate in the first place.
+
+2. **`KanbanCard.test.tsx` needs a companion regression case** (not a new requirement, but a natural addition given its existing `makeCard` overrides pattern at lines 273-298 already exercises `client: {...}` overrides): a test asserting that a `client` object carrying `notes` does not change the rendered tile output or trigger extra DOM (i.e., `KanbanCard` renders identically whether or not `client.notes` is present) — cheap to add, directly proves the "Kanban tile visually unchanged" success criterion at the test level, not just by code inspection.
+
+**Backend — no existing test asserts the card payload's exact field set**, confirmed by grepping `project.client`/`client: {` across `backend/src/services/__tests__/*.test.ts` and `backend/src/routes/__tests__/*.test.ts` (zero hits beyond client *creation* calls like `prisma.client.create`). This means:
+- **No existing test needs to change** for the select-widening itself (nothing currently pins down `client`'s field set to `{id,name,color}` only).
+- **A new positive-coverage test is still warranted** — e.g. extend or add to `backend/src/services/__tests__/boardCardDelete.pm.test.ts`'s sibling pattern (it already has `seedClient`/`seedProjectWithCard` helpers at lines 153-173) or add a small dedicated test asserting `boardService.getCard(id)` returns `project.client.notes` matching a seeded `Client.notes` value, and returns `project.client === null` for a card whose project has `clientId: null` (already exercised indirectly by `boardPatchChecklistAccess.test.ts:168`'s `clientId: null` seed, but not asserted against the `client` field in the response — worth tightening).
+
+## Open Questions / Risks
+
+1. **Shared select const vs. duplicated inline object.** The plan should decide whether to extract `PROJECT_CLIENT_SELECT` as a top-level const (matching the existing `ASSIGNMENT_TEAM_MEMBER_SELECT` precedent two lines above) or just add the three fields to both inline selects independently. Either is correct; the shared-const form is more consistent with the file's own established style and prevents the two selects drifting apart in a future edit.
+2. **`NotesPreview` extraction touches `NotesEditor.tsx`, a Phase-2-shipped shared component with an existing test file (`NotesEditor.test.tsx`).** The plan must account for updating/adding to that test file (or leaving it unchanged if `NotesPreview` is purely additive and the existing Preview-tab behavior is unaffected by the refactor — recommend verifying the existing `sanitizes the preview` test still passes unmodified since `NotesEditor`'s own preview tab would now delegate to `NotesPreview` internally but produce identical DOM).
+3. **Heading text and "— {client name}" suffix are a plan/UX decision, not fixed by any convention.** The sketch above (`Client Notes — {name}`) is illustrative; the existing "Notes" heading for the card's own notes has no client-name suffix, so the plan should decide whether the client's name is redundant (already shown in the "Client + tags row" a few sections above at `CardDetailModal.tsx:544-556`) or useful repetition directly next to the client's own notes.
+4. **Whether to also show `notesUpdatedAt`/`notesUpdatedBy` attribution on the read-only section.** `NotesEditor`'s own "Last edited by X ... ago" line (lines 102-112) requires resolving `notesUpdatedBy` (a raw user id) to a display name via the same `resolveEditorName`/`useBoardMembers()` mechanism already used for the card's own notes (`CardDetailModal.tsx:464-484`) and for Phase 2's `ClientNotesModal.tsx:36-42`. This is straightforward to reuse (same `allMembers` list already fetched in `CardDetailModal` at line 412) but is scope the ROADMAP's stated success criteria don't explicitly require ("render those notes... as sanitized markdown" — no attribution line mentioned). Flagging as a plan decision: attribution is easy to add but not mandated.
+5. **`project.client.notes` may contain long markdown** (same unbounded-blob concern Phase 1's research raised for the bulk client list) — since this is a single per-card fetch already carrying full project/assignment data, not a bulk list, the payload-size concern that justified keeping `notes` out of the bulk `Client` type does not apply here; one card's client notes is a bounded, already-paid-for cost of opening that one card's modal.
+
+## Live Validation Evidence
+
+Not applicable — this phase has no external/live data sources to probe. All findings are static code reads (Prisma service functions, Express routes, React components/hooks/types, test files) with no network or live-DB calls executed. Greps for `SANITIZE_SCHEMA`, `ReactMarkdown`, `project.client`, `client: {`, and `emitBoardInvalidate` were exhaustive over `backend/src` and `frontend/src` and returned either concrete hits (quoted above) or explicit zero-hit confirmations (noted inline).

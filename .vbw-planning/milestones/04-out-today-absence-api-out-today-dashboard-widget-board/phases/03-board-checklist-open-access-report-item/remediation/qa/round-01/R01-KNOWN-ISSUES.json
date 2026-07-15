@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "phase": "03",
+  "issues": [
+    {
+      "test": "Phase 24 schedule isolation > auto-create-board-card-on-assignment leaves TeamMember / Absence / Holiday byte-identical",
+      "file": "backend/src/services/__tests__/scheduleIsolation.phase24.test.ts",
+      "error": "Failed only in one full-suite parallel run; passed cleanly in isolation. Same parallel-contention class, unrelated to this plans changed files.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "boardAdminArchive.test.ts > archives the card with an empty body and a valid ADMIN session → 200",
+      "file": "backend/src/routes/__tests__/boardAdminArchive.test.ts",
+      "error": "Failed (500 instead of 200) only in one full-suite parallel run; passed cleanly when re-run in isolation. Same SQLite parallel-contention class as boardFiles flake; board.ts archive guard code path is unchanged by this plan.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "boardFiles routes — Phase 3 broadened read policy > (b) lets a non-assigned NORMAL user download a file → 200",
+      "file": "backend/src/routes/__tests__/boardFiles.test.ts",
+      "error": "Fails intermittently only under combined parallel-worker run (SQLite single-writer + filesystem contention, 500 instead of 200); passes cleanly in isolation (8/8). filesRouter is untouched by this plan.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "pdfQueue > addPdfConversionJob > should reject an empty file path",
+      "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+      "error": "Env-dependent PDF-queue suite (external/Redis-backed); unrelated to board checklist changes.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "pdfQueue > addPdfConversionJob > should reject an invalid file path",
+      "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+      "error": "Env-dependent PDF-queue suite (external/Redis-backed); unrelated to board checklist changes.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+      "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+      "error": "Env-dependent template-AI suite (needs Python sanitization service / LLM); unrelated to board checklist changes.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping service > queryFewShotExamples > filters by templateType and language correctly",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "Env-dependent template-mapping suite; unrelated to board checklist changes.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping service > queryFewShotExamples > respects limit parameter",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "Env-dependent template-mapping suite; unrelated to board checklist changes.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "templateMapping service > queryFewShotExamples > returns entries sorted by usageCount DESC",
+      "file": "backend/src/services/__tests__/templateMapping.test.ts",
+      "error": "Env-dependent template-mapping suite; unrelated to board checklist changes.",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

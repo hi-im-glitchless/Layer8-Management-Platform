@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "phase": "02",
+  "issues": [
+    {
+      "test": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps",
+      "file": "frontend/src/components/layout/Sidebar.tsx",
+      "error": "Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Pre-existing on untouched lines; newer react-hooks ruleset flagging long-standing code. Out of scope; not fixed.",
+      "first_seen_in": "02-03-SUMMARY.md",
+      "last_seen_in": "02-03-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps",
+      "file": "frontend/src/components/layout/Sidebar.tsx",
+      "error": "Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Verified via git diff 98c406d..HEAD that this phases only Sidebar.tsx edits are the NotebookPen import and the one nav item line; lines 84-87 are untouched.",
+      "first_seen_in": "02-VERIFICATION.md",
+      "last_seen_in": "02-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "eslint react-hooks/set-state-in-effect",
+      "file": "frontend/src/components/layout/Sidebar.tsx",
+      "error": "Line 94: Avoid calling setState() directly within an effect (localStorage collapsed-state load). Pre-existing on code untouched by this plan — git diff 98c406d..HEAD shows my only Sidebar edits are the NotebookPen import and the nav item. Out of scope; not fixed.",
+      "first_seen_in": "02-03-SUMMARY.md",
+      "last_seen_in": "02-03-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "eslint react-hooks/set-state-in-effect",
+      "file": "frontend/src/components/layout/Sidebar.tsx",
+      "error": "Line 94: Avoid calling setState() directly within an effect (localStorage collapsed-state load). Verified via git diff 98c406d..HEAD that line 94 is untouched by this phase.",
+      "first_seen_in": "02-VERIFICATION.md",
+      "last_seen_in": "02-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

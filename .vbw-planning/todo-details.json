@@ -813,6 +813,633 @@
         "disposition": "unresolved",
         "source_path": "02-VERIFICATION.md"
       }
+    },
+    "d9de86bc": {
+      "summary": "Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests) (backend/tests/services/audit.test.ts): P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, pr...",
+      "context": "Known issue from phase 01. Test: Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests). File: backend/tests/services/audit.test.ts. Error: P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, prisma.$transaction) under full-suite parallel load (SQLite single-writer contention via better-sqlite3 adapter). Passes in isolation. audit.ts is not in this plan's files_modified.. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/tests/services/audit.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests)",
+        "file": "backend/tests/services/audit.test.ts",
+        "error": "P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, prisma.$transaction) under full-suite parallel load (SQLite single-writer contention via better-sqlite3 adapter). Passes in isolation. audit.ts is not in this plan's files_modified.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    },
+    "129efb6a": {
+      "summary": "Session Service > isTrustedDevice > returns true for valid trusted device (backend/tests/services/session.test.ts): Environmental (Redis/session store) failure in a file untouched by this plan.",
+      "context": "Known issue from phase 01. Test: Session Service > isTrustedDevice > returns true for valid trusted device. File: backend/tests/services/session.test.ts. Error: Environmental (Redis/session store) failure in a file untouched by this plan.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/tests/services/session.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api/",
+        "test": "Session Service > isTrustedDevice > returns true for valid trusted device",
+        "file": "backend/tests/services/session.test.ts",
+        "error": "Environmental (Redis/session store) failure in a file untouched by this plan.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "67ce731e": {
+      "summary": "Stale compiled duplicates under dist/ (boardAdminArchive, boardFiles, deleteAssignmentOrphan.stopped, pdfQueue, templateAdapter, templateMapping) (backend/dist/**/*.test.js): backend/dist/ is gitignored (.gitignore:12) stale tsc build output picked up ...",
+      "context": "Known issue from phase 01. Test: Stale compiled duplicates under dist/ (boardAdminArchive, boardFiles, deleteAssignmentOrphan.stopped, pdfQueue, templateAdapter, templateMapping). File: backend/dist/**/*.test.js. Error: backend/dist/ is gitignored (.gitignore:12) stale tsc build output picked up by vitest, re-running pre-change compiled tests in parallel and roughly doubling dev.db write load, amplifying the SQLite single-writer contention above. Pre-existing environmental artifact, not part of this plan's scope.. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/dist/**/*.test.js"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "Stale compiled duplicates under dist/ (boardAdminArchive, boardFiles, deleteAssignmentOrphan.stopped, pdfQueue, templateAdapter, templateMapping)",
+        "file": "backend/dist/**/*.test.js",
+        "error": "backend/dist/ is gitignored (.gitignore:12) stale tsc build output picked up by vitest, re-running pre-change compiled tests in parallel and roughly doubling dev.db write load, amplifying the SQLite single-writer contention above. Pre-existing environmental artifact, not part of this plan's scope.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    },
+    "92a219dc": {
+      "summary": "boardFiles routes > download/upload happy paths (backend/src/routes/__tests__/boardFiles.test.ts): Environmental (ClamAV/filesystem/SQLite-lock) failure in a file untouched by ...",
+      "context": "Known issue from phase 01. Test: boardFiles routes > download/upload happy paths. File: backend/src/routes/__tests__/boardFiles.test.ts. Error: Environmental (ClamAV/filesystem/SQLite-lock) failure in a file untouched by this plan; documented known flake.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/boardFiles.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api/",
+        "test": "boardFiles routes > download/upload happy paths",
+        "file": "backend/src/routes/__tests__/boardFiles.test.ts",
+        "error": "Environmental (ClamAV/filesystem/SQLite-lock) failure in a file untouched by this plan; documented known flake.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "919ef3bf": {
+      "summary": "client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry (backend/src/routes/__tests__/clientNotesAccess.test.ts): Under FULL-SUITE load only (not in isolation, not paired with boardAdminArchi...",
+      "context": "Known issue from phase 01. Test: client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry. File: backend/src/routes/__tests__/clientNotesAccess.test.ts. Error: Under FULL-SUITE load only (not in isolation, not paired with boardAdminArchive alone): PUT returns 500. Root-caused via stack trace to the identical P1008 SocketTimeout inside logAuditEvent's prisma.$transaction (backend/src/services/audit.ts:47-71), not in schedule.ts or clientService.ts (both plan-owned files execute correctly - the update itself succeeds; the subsequent audit write times out under heavy concurrent SQLite load). Independently verified via stack trace inspection, not taken on Dev's word. clientNotesAccess.test.ts is 8/8 green in isolation and when paired with boardAdminArchive.test.ts across 3 repeated runs; the underlying contention is in the untouched, shared audit.ts transaction, which fails identically and independently in tests/services/audit.test.ts under the same full-suite run.. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/routes/__tests__/clientNotesAccess.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry",
+        "file": "backend/src/routes/__tests__/clientNotesAccess.test.ts",
+        "error": "Under FULL-SUITE load only (not in isolation, not paired with boardAdminArchive alone): PUT returns 500. Root-caused via stack trace to the identical P1008 SocketTimeout inside logAuditEvent's prisma.$transaction (backend/src/services/audit.ts:47-71), not in schedule.ts or clientService.ts (both plan-owned files execute correctly - the update itself succeeds; the subsequent audit write times out under heavy concurrent SQLite load). Independently verified via stack trace inspection, not taken on Dev's word. clientNotesAccess.test.ts is 8/8 green in isolation and when paired with boardAdminArchive.test.ts across 3 repeated runs; the underlying contention is in the untouched, shared audit.ts transaction, which fails identically and independently in tests/services/audit.test.ts under the same full-suite run.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    },
+    "2a82dee3": {
+      "summary": "pdfQueue > addPdfConversionJob > rejects invalid/empty file path (2 tests) (backend/src/services/__tests__/pdfQueue.test.ts): Environmental (Redis/BullMQ/Gotenberg-dependent) failure in a file untouched ...",
+      "context": "Known issue from phase 01. Test: pdfQueue > addPdfConversionJob > rejects invalid/empty file path (2 tests). File: backend/src/services/__tests__/pdfQueue.test.ts. Error: Environmental (Redis/BullMQ/Gotenberg-dependent) failure in a file untouched by this plan.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api/",
+        "test": "pdfQueue > addPdfConversionJob > rejects invalid/empty file path (2 tests)",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "Environmental (Redis/BullMQ/Gotenberg-dependent) failure in a file untouched by this plan.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "9d9370c2": {
+      "summary": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading 'filter') at template...",
+      "context": "Known issue from phase 01. Test: templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order. File: backend/src/services/__tests__/templateAdapter.test.ts. Error: TypeError: Cannot read properties of undefined (reading 'filter') at templateAdapter.ts:248 - mock/fixture drift in a file untouched by this plan.. Seen 1 time(s). Source: 01-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "TypeError: Cannot read properties of undefined (reading 'filter') at templateAdapter.ts:248 - mock/fixture drift in a file untouched by this plan.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "01-VERIFICATION.md"
+      }
+    },
+    "1ca1f10a": {
+      "summary": "templateMapping service > queryFewShotExamples (3 tests) (backend/src/services/__tests__/templateMapping.test.ts): Mock expectation mismatch: test expects orderBy {usageCount: desc} but servic...",
+      "context": "Known issue from phase 01. Test: templateMapping service > queryFewShotExamples (3 tests). File: backend/src/services/__tests__/templateMapping.test.ts. Error: Mock expectation mismatch: test expects orderBy {usageCount: desc} but service now uses orderBy [{confidence: desc},{usageCount: desc}]. Stale test vs. code drift in a file untouched by this plan.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api/",
+        "test": "templateMapping service > queryFewShotExamples (3 tests)",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "Mock expectation mismatch: test expects orderBy {usageCount: desc} but service now uses orderBy [{confidence: desc},{usageCount: desc}]. Stale test vs. code drift in a file untouched by this plan.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "bcf52bfc": {
+      "summary": "Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests) (backend/tests/services/audit.test.ts): P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, pr...",
+      "context": "Known issue from phase 01. Test: Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests). File: backend/tests/services/audit.test.ts. Error: P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, prisma.$transaction) under full-suite parallel load (SQLite single-writer contention via better-sqlite3 adapter). Passes in isolation. audit.ts is not in this phase files_modified.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/tests/services/audit.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests)",
+        "file": "backend/tests/services/audit.test.ts",
+        "error": "P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, prisma.$transaction) under full-suite parallel load (SQLite single-writer contention via better-sqlite3 adapter). Passes in isolation. audit.ts is not in this phase files_modified.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "2b1225e1": {
+      "summary": "Session Service > isTrustedDevice > returns true for valid trusted device (backend/tests/services/session.test.ts): Environmental (Redis/session store) failure in a file untouched by this phase.",
+      "context": "Known issue from phase 01. Test: Session Service > isTrustedDevice > returns true for valid trusted device. File: backend/tests/services/session.test.ts. Error: Environmental (Redis/session store) failure in a file untouched by this phase.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/tests/services/session.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "Session Service > isTrustedDevice > returns true for valid trusted device",
+        "file": "backend/tests/services/session.test.ts",
+        "error": "Environmental (Redis/session store) failure in a file untouched by this phase.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "d0de64e8": {
+      "summary": "boardFiles routes > download/upload happy paths (backend/src/routes/__tests__/boardFiles.test.ts): Environmental (ClamAV/filesystem/SQLite-lock) failure in a file untouched by ...",
+      "context": "Known issue from phase 01. Test: boardFiles routes > download/upload happy paths. File: backend/src/routes/__tests__/boardFiles.test.ts. Error: Environmental (ClamAV/filesystem/SQLite-lock) failure in a file untouched by this phase; documented known flake.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/boardFiles.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "boardFiles routes > download/upload happy paths",
+        "file": "backend/src/routes/__tests__/boardFiles.test.ts",
+        "error": "Environmental (ClamAV/filesystem/SQLite-lock) failure in a file untouched by this phase; documented known flake.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "d0c62816": {
+      "summary": "client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry (backend/src/routes/__tests__/clientNotesAccess.test.ts): Under full-suite load only (not in isolation, not paired with boardAdminArchi...",
+      "context": "Known issue from phase 01. Test: client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry. File: backend/src/routes/__tests__/clientNotesAccess.test.ts. Error: Under full-suite load only (not in isolation, not paired with boardAdminArchive alone) PUT returns 500. Root-caused via stack trace to the identical P1008 SocketTimeout inside logAuditEvent prisma.$transaction (backend/src/services/audit.ts:47-71), not in schedule.ts or clientService.ts. The update itself succeeds; the subsequent audit write times out under heavy concurrent SQLite load. clientNotesAccess.test.ts is 8/8 green in isolation and when paired with boardAdminArchive.test.ts across 3 repeated runs. The underlying contention is in the untouched, shared audit.ts transaction.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/clientNotesAccess.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry",
+        "file": "backend/src/routes/__tests__/clientNotesAccess.test.ts",
+        "error": "Under full-suite load only (not in isolation, not paired with boardAdminArchive alone) PUT returns 500. Root-caused via stack trace to the identical P1008 SocketTimeout inside logAuditEvent prisma.$transaction (backend/src/services/audit.ts:47-71), not in schedule.ts or clientService.ts. The update itself succeeds; the subsequent audit write times out under heavy concurrent SQLite load. clientNotesAccess.test.ts is 8/8 green in isolation and when paired with boardAdminArchive.test.ts across 3 repeated runs. The underlying contention is in the untouched, shared audit.ts transaction.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "11db713e": {
+      "summary": "pdfQueue > addPdfConversionJob > rejects invalid/empty file path (2 tests) (backend/src/services/__tests__/pdfQueue.test.ts): Environmental (Redis/BullMQ/Gotenberg-dependent) failure in a file untouched ...",
+      "context": "Known issue from phase 01. Test: pdfQueue > addPdfConversionJob > rejects invalid/empty file path (2 tests). File: backend/src/services/__tests__/pdfQueue.test.ts. Error: Environmental (Redis/BullMQ/Gotenberg-dependent) failure in a file untouched by this phase.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "pdfQueue > addPdfConversionJob > rejects invalid/empty file path (2 tests)",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "Environmental (Redis/BullMQ/Gotenberg-dependent) failure in a file untouched by this phase.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "2ef6882c": {
+      "summary": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading filter) at templateAd...",
+      "context": "Known issue from phase 01. Test: templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order. File: backend/src/services/__tests__/templateAdapter.test.ts. Error: TypeError: Cannot read properties of undefined (reading filter) at templateAdapter.ts:248 - mock/fixture drift in a file untouched by this phase.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "TypeError: Cannot read properties of undefined (reading filter) at templateAdapter.ts:248 - mock/fixture drift in a file untouched by this phase.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "94606964": {
+      "summary": "templateMapping service > queryFewShotExamples (3 tests) (backend/src/services/__tests__/templateMapping.test.ts): Mock expectation mismatch: test expects orderBy usageCount desc but service n...",
+      "context": "Known issue from phase 01. Test: templateMapping service > queryFewShotExamples (3 tests). File: backend/src/services/__tests__/templateMapping.test.ts. Error: Mock expectation mismatch: test expects orderBy usageCount desc but service now uses orderBy confidence desc then usageCount desc. Stale test vs. code drift in a file untouched by this phase.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api",
+        "test": "templateMapping service > queryFewShotExamples (3 tests)",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "Mock expectation mismatch: test expects orderBy usageCount desc but service now uses orderBy confidence desc then usageCount desc. Stale test vs. code drift in a file untouched by this phase.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "9da91531": {
+      "summary": "Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests) (backend/tests/services/audit.test.ts): P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, pr...",
+      "context": "Known issue from phase 01. Test: Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests). File: backend/tests/services/audit.test.ts. Error: P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, prisma.$transaction) under full-suite parallel load (SQLite single-writer contention via better-sqlite3 adapter). Passes in isolation. audit.ts is not in this plans files_modified.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/tests/services/audit.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api/",
+        "test": "Audit Service > logAuditEvent / queryAuditLogs / verifyAuditChain / exportAuditLogs (19 tests)",
+        "file": "backend/tests/services/audit.test.ts",
+        "error": "P1008 SocketTimeout on the AuditLog Serializable transaction (audit.ts:71, prisma.$transaction) under full-suite parallel load (SQLite single-writer contention via better-sqlite3 adapter). Passes in isolation. audit.ts is not in this plans files_modified.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "ee4acafd": {
+      "summary": "client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry (backend/src/routes/__tests__/clientNotesAccess.test.ts): Under FULL-SUITE load only (not in isolation, not paired with boardAdminArchi...",
+      "context": "Known issue from phase 01. Test: client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry. File: backend/src/routes/__tests__/clientNotesAccess.test.ts. Error: Under FULL-SUITE load only (not in isolation, not paired with boardAdminArchive alone): PUT returns 500. Root-caused via stack trace to the identical P1008 SocketTimeout inside logAuditEvents prisma.$transaction (backend/src/services/audit.ts:47-71), not in schedule.ts or clientService.ts (both plan-owned files execute correctly - the update itself succeeds; the subsequent audit write times out under heavy concurrent SQLite load). Independently verified via stack trace inspection, not taken on Devs word. clientNotesAccess.test.ts is 8/8 green in isolation and when paired with boardAdminArchive.test.ts across 3 repeated runs; the underlying contention is in the untouched, shared audit.ts transaction, which fails identically and independently in tests/services/audit.test.ts under the same full-suite run.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/routes/__tests__/clientNotesAccess.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api/",
+        "test": "client notes access (Phase 01) > (6) lets an ADMIN write notes -> 200; (7) writes exactly one client.notes.update audit entry",
+        "file": "backend/src/routes/__tests__/clientNotesAccess.test.ts",
+        "error": "Under FULL-SUITE load only (not in isolation, not paired with boardAdminArchive alone): PUT returns 500. Root-caused via stack trace to the identical P1008 SocketTimeout inside logAuditEvents prisma.$transaction (backend/src/services/audit.ts:47-71), not in schedule.ts or clientService.ts (both plan-owned files execute correctly - the update itself succeeds; the subsequent audit write times out under heavy concurrent SQLite load). Independently verified via stack trace inspection, not taken on Devs word. clientNotesAccess.test.ts is 8/8 green in isolation and when paired with boardAdminArchive.test.ts across 3 repeated runs; the underlying contention is in the untouched, shared audit.ts transaction, which fails identically and independently in tests/services/audit.test.ts under the same full-suite run.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "3cc0717d": {
+      "summary": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading filter) at templateAd...",
+      "context": "Known issue from phase 01. Test: templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order. File: backend/src/services/__tests__/templateAdapter.test.ts. Error: TypeError: Cannot read properties of undefined (reading filter) at templateAdapter.ts:248 - mock/fixture drift in a file untouched by this plan.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-client-notes-data-model-api/",
+        "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "TypeError: Cannot read properties of undefined (reading filter) at templateAdapter.ts:248 - mock/fixture drift in a file untouched by this plan.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "deaa0c87": {
+      "summary": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps (frontend/src/components/layout/Sidebar.tsx): Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing u...",
+      "context": "Known issue from phase 02. Test: eslint react-hooks/preserve-manual-memoization + exhaustive-deps. File: frontend/src/components/layout/Sidebar.tsx. Error: Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Pre-existing on untouched lines; newer react-hooks ruleset flagging long-standing code. Out of scope; not fixed.. Seen 2 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/components/layout/Sidebar.tsx"
+      ],
+      "added": "2026-07-14",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-client-notes-tool-page",
+        "test": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps",
+        "file": "frontend/src/components/layout/Sidebar.tsx",
+        "error": "Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Pre-existing on untouched lines; newer react-hooks ruleset flagging long-standing code. Out of scope; not fixed.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "99a13d0d": {
+      "summary": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps (frontend/src/components/layout/Sidebar.tsx): Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing u...",
+      "context": "Known issue from phase 02. Test: eslint react-hooks/preserve-manual-memoization + exhaustive-deps. File: frontend/src/components/layout/Sidebar.tsx. Error: Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Verified via git diff 98c406d..HEAD that this phase's only Sidebar.tsx edits are the NotebookPen import and the one nav item line; lines 84-87 are untouched.. Seen 1 time(s). Source: 02-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "frontend/src/components/layout/Sidebar.tsx"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-client-notes-tool-page",
+        "test": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps",
+        "file": "frontend/src/components/layout/Sidebar.tsx",
+        "error": "Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Verified via git diff 98c406d..HEAD that this phase's only Sidebar.tsx edits are the NotebookPen import and the one nav item line; lines 84-87 are untouched.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "02-VERIFICATION.md"
+      }
+    },
+    "70ebed9a": {
+      "summary": "eslint react-hooks/set-state-in-effect (frontend/src/components/layout/Sidebar.tsx): Line 94: Avoid calling setState() directly within an effect (localStorage col...",
+      "context": "Known issue from phase 02. Test: eslint react-hooks/set-state-in-effect. File: frontend/src/components/layout/Sidebar.tsx. Error: Line 94: Avoid calling setState() directly within an effect (localStorage collapsed-state load). Pre-existing on code untouched by this plan — git diff 98c406d..HEAD shows my only Sidebar edits are the NotebookPen import and the nav item. Out of scope; not fixed.. Seen 2 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/components/layout/Sidebar.tsx"
+      ],
+      "added": "2026-07-14",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-client-notes-tool-page",
+        "test": "eslint react-hooks/set-state-in-effect",
+        "file": "frontend/src/components/layout/Sidebar.tsx",
+        "error": "Line 94: Avoid calling setState() directly within an effect (localStorage collapsed-state load). Pre-existing on code untouched by this plan — git diff 98c406d..HEAD shows my only Sidebar edits are the NotebookPen import and the nav item. Out of scope; not fixed.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "fe4d8100": {
+      "summary": "eslint react-hooks/set-state-in-effect (frontend/src/components/layout/Sidebar.tsx): Line 94: Avoid calling setState() directly within an effect (localStorage col...",
+      "context": "Known issue from phase 02. Test: eslint react-hooks/set-state-in-effect. File: frontend/src/components/layout/Sidebar.tsx. Error: Line 94: Avoid calling setState() directly within an effect (localStorage collapsed-state load). Verified via git diff 98c406d..HEAD that line 94 is untouched by this phase.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/components/layout/Sidebar.tsx"
+      ],
+      "added": "2026-07-14",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-client-notes-tool-page",
+        "test": "eslint react-hooks/set-state-in-effect",
+        "file": "frontend/src/components/layout/Sidebar.tsx",
+        "error": "Line 94: Avoid calling setState() directly within an effect (localStorage collapsed-state load). Verified via git diff 98c406d..HEAD that line 94 is untouched by this phase.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "b892cf8e": {
+      "summary": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps (frontend/src/components/layout/Sidebar.tsx): Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing u...",
+      "context": "Known issue from phase 02. Test: eslint react-hooks/preserve-manual-memoization + exhaustive-deps. File: frontend/src/components/layout/Sidebar.tsx. Error: Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Verified via git diff 98c406d..HEAD that this phases only Sidebar.tsx edits are the NotebookPen import and the one nav item line; lines 84-87 are untouched.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/components/layout/Sidebar.tsx"
+      ],
+      "added": "2026-07-14",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-client-notes-tool-page",
+        "test": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps",
+        "file": "frontend/src/components/layout/Sidebar.tsx",
+        "error": "Lines 84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Verified via git diff 98c406d..HEAD that this phases only Sidebar.tsx edits are the NotebookPen import and the one nav item line; lines 84-87 are untouched.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "97963d21": {
+      "summary": "pdfQueue > addPdfConversionJob > should reject an empty file path (backend/src/services/__tests__/pdfQueue.test.ts): expected throw including 'Invalid DOCX path' but got 'Invalid source file pat...",
+      "context": "Known issue from phase 03. Test: pdfQueue > addPdfConversionJob > should reject an empty file path. File: backend/src/services/__tests__/pdfQueue.test.ts. Error: expected throw including 'Invalid DOCX path' but got 'Invalid source file path:' — same documented env-dependent flake as above. Seen 1 time(s). Source: 03-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-client-notes-on-planner-card",
+        "test": "pdfQueue > addPdfConversionJob > should reject an empty file path",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "expected throw including 'Invalid DOCX path' but got 'Invalid source file path:' — same documented env-dependent flake as above",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "03-VERIFICATION.md"
+      }
+    },
+    "f4b36af1": {
+      "summary": "pdfQueue > addPdfConversionJob > should reject an invalid file path (backend/src/services/__tests__/pdfQueue.test.ts): expected throw including 'Invalid DOCX path' but got 'Invalid source file pat...",
+      "context": "Known issue from phase 03. Test: pdfQueue > addPdfConversionJob > should reject an invalid file path. File: backend/src/services/__tests__/pdfQueue.test.ts. Error: expected throw including 'Invalid DOCX path' but got 'Invalid source file path: ...' — documented recurring env-dependent (Redis/BullMQ/Gotenberg) flake, unrelated to board changes (STATE.md known-issues, seen across phases 01/03/09). Seen 1 time(s). Source: 03-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/pdfQueue.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-client-notes-on-planner-card",
+        "test": "pdfQueue > addPdfConversionJob > should reject an invalid file path",
+        "file": "backend/src/services/__tests__/pdfQueue.test.ts",
+        "error": "expected throw including 'Invalid DOCX path' but got 'Invalid source file path: ...' — documented recurring env-dependent (Redis/BullMQ/Gotenberg) flake, unrelated to board changes (STATE.md known-issues, seen across phases 01/03/09)",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "03-VERIFICATION.md"
+      }
+    },
+    "13f26798": {
+      "summary": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): mocked call-order/shape assertion mismatch in AI template pipeline — document...",
+      "context": "Known issue from phase 03. Test: templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order. File: backend/src/services/__tests__/templateAdapter.test.ts. Error: mocked call-order/shape assertion mismatch in AI template pipeline — documented recurring known-issue (STATE.md, phases 01/03/09), file untouched by this phase. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-07-15",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-client-notes-on-planner-card",
+        "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "mocked call-order/shape assertion mismatch in AI template pipeline — documented recurring known-issue (STATE.md, phases 01/03/09), file untouched by this phase",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "61023dd4": {
+      "summary": "templateMapping service > queryFewShotExamples > filters by templateType and language correctly (backend/src/services/__tests__/templateMapping.test.ts): same documented stale-mock orderBy-shape known-issue as above",
+      "context": "Known issue from phase 03. Test: templateMapping service > queryFewShotExamples > filters by templateType and language correctly. File: backend/src/services/__tests__/templateMapping.test.ts. Error: same documented stale-mock orderBy-shape known-issue as above. Seen 1 time(s). Source: 03-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-client-notes-on-planner-card",
+        "test": "templateMapping service > queryFewShotExamples > filters by templateType and language correctly",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "same documented stale-mock orderBy-shape known-issue as above",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "03-VERIFICATION.md"
+      }
+    },
+    "d92e6572": {
+      "summary": "templateMapping service > queryFewShotExamples > respects limit parameter (backend/src/services/__tests__/templateMapping.test.ts): same documented stale-mock orderBy-shape known-issue as above",
+      "context": "Known issue from phase 03. Test: templateMapping service > queryFewShotExamples > respects limit parameter. File: backend/src/services/__tests__/templateMapping.test.ts. Error: same documented stale-mock orderBy-shape known-issue as above. Seen 1 time(s). Source: 03-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-client-notes-on-planner-card",
+        "test": "templateMapping service > queryFewShotExamples > respects limit parameter",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "same documented stale-mock orderBy-shape known-issue as above",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "03-VERIFICATION.md"
+      }
+    },
+    "e21deee1": {
+      "summary": "templateMapping service > queryFewShotExamples > returns entries sorted by usageCount DESC (backend/src/services/__tests__/templateMapping.test.ts): expected orderBy {usageCount: desc} but service now sends [{confidence:desc},...",
+      "context": "Known issue from phase 03. Test: templateMapping service > queryFewShotExamples > returns entries sorted by usageCount DESC. File: backend/src/services/__tests__/templateMapping.test.ts. Error: expected orderBy {usageCount: desc} but service now sends [{confidence:desc},{usageCount:desc}] — documented stale-mock known-issue (STATE.md, phases 01/03/09), file untouched by this phase. Seen 1 time(s). Source: 03-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/templateMapping.test.ts"
+      ],
+      "added": "2026-07-10",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-client-notes-on-planner-card",
+        "test": "templateMapping service > queryFewShotExamples > returns entries sorted by usageCount DESC",
+        "file": "backend/src/services/__tests__/templateMapping.test.ts",
+        "error": "expected orderBy {usageCount: desc} but service now sends [{confidence:desc},{usageCount:desc}] — documented stale-mock known-issue (STATE.md, phases 01/03/09), file untouched by this phase",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "03-VERIFICATION.md"
+      }
+    },
+    "4b47d42f": {
+      "summary": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps (frontend/src/components/layout/Sidebar.tsx): Lines ~84-87: visibleGroups useMemo flagged for manual-memoization + missing ...",
+      "context": "Known issue from phase 02. Test: eslint react-hooks/preserve-manual-memoization + exhaustive-deps. File: frontend/src/components/layout/Sidebar.tsx. Error: Lines ~84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Re-ran eslint at current HEAD (9f3cac3): finding reproduces identically. git diff 98c406d..HEAD -- frontend/src/components/layout/Sidebar.tsx confirms this phase's only edits are the NotebookPen import and one nav-item line; the useMemo body is untouched.. Seen 1 time(s). Source: 02-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "frontend/src/components/layout/Sidebar.tsx"
+      ],
+      "added": "2026-07-14",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-client-notes-tool-page",
+        "test": "eslint react-hooks/preserve-manual-memoization + exhaustive-deps",
+        "file": "frontend/src/components/layout/Sidebar.tsx",
+        "error": "Lines ~84-87: visibleGroups useMemo flagged for manual-memoization + missing userHasRole dep. Re-ran eslint at current HEAD (9f3cac3): finding reproduces identically. git diff 98c406d..HEAD -- frontend/src/components/layout/Sidebar.tsx confirms this phase's only edits are the NotebookPen import and one nav-item line; the useMemo body is untouched.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "02-VERIFICATION.md"
+      }
+    },
+    "0ad9edc1": {
+      "summary": "eslint react-hooks/set-state-in-effect (frontend/src/components/layout/Sidebar.tsx): Line ~94: Avoid calling setState() directly within an effect (localStorage co...",
+      "context": "Known issue from phase 02. Test: eslint react-hooks/set-state-in-effect. File: frontend/src/components/layout/Sidebar.tsx. Error: Line ~94: Avoid calling setState() directly within an effect (localStorage collapsed-state load). Re-ran eslint at current HEAD: finding reproduces at the same line. Confirmed untouched by Phase 02's commits via the same diff.. Seen 1 time(s). Source: 02-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "frontend/src/components/layout/Sidebar.tsx"
+      ],
+      "added": "2026-07-14",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "02",
+        "phase_dir": ".vbw-planning/phases/02-client-notes-tool-page",
+        "test": "eslint react-hooks/set-state-in-effect",
+        "file": "frontend/src/components/layout/Sidebar.tsx",
+        "error": "Line ~94: Avoid calling setState() directly within an effect (localStorage collapsed-state load). Re-ran eslint at current HEAD: finding reproduces at the same line. Confirmed untouched by Phase 02's commits via the same diff.",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "02-VERIFICATION.md"
+      }
+    },
+    "545b1e29": {
+      "summary": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading 'filter') at template...",
+      "context": "Known issue from phase 03. Test: templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order. File: backend/src/services/__tests__/templateAdapter.test.ts. Error: TypeError: Cannot read properties of undefined (reading 'filter') at templateAdapter.ts:248 — accepted process-exception per remediation/qa/round-01 (R01-VERIFICATION.md MH-07); mocked fetch sequence lacks a Step-0 '/adapter/document-structure' response, file untouched since before Phase 03 started. Seen 1 time(s). Source: 03-VERIFICATION.md. Disposition: unresolved.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-07-15",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-client-notes-on-planner-card",
+        "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "TypeError: Cannot read properties of undefined (reading 'filter') at templateAdapter.ts:248 — accepted process-exception per remediation/qa/round-01 (R01-VERIFICATION.md MH-07); mocked fetch sequence lacks a Step-0 '/adapter/document-structure' response, file untouched since before Phase 03 started",
+        "source_kind": "registry",
+        "disposition": "unresolved",
+        "source_path": "03-VERIFICATION.md"
+      }
+    },
+    "37539f43": {
+      "summary": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading filter) at templateAd...",
+      "context": "Known issue from phase 03. Test: templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order. File: backend/src/services/__tests__/templateAdapter.test.ts. Error: TypeError: Cannot read properties of undefined (reading filter) at templateAdapter.ts:248 — accepted process-exception per remediation/qa/round-01 (R01-VERIFICATION.md MH-07); mocked fetch sequence lacks a Step-0 /adapter/document-structure response, file untouched since before Phase 03 started. Seen 1 time(s). Source: remediation/qa/round-02/R02-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "backend/src/services/__tests__/templateAdapter.test.ts"
+      ],
+      "added": "2026-07-15",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "03",
+        "phase_dir": ".vbw-planning/phases/03-client-notes-on-planner-card",
+        "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+        "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+        "error": "TypeError: Cannot read properties of undefined (reading filter) at templateAdapter.ts:248 — accepted process-exception per remediation/qa/round-01 (R01-VERIFICATION.md MH-07); mocked fetch sequence lacks a Step-0 /adapter/document-structure response, file untouched since before Phase 03 started",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-02/R02-SUMMARY.md"
+      }
     }
   }
 }

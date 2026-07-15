@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "issues": [
+    {
+      "test": "tsc --noEmit (typecheck)",
+      "file": "backend/src/middleware/__tests__/rateLimit.test.ts",
+      "error": "TS2835: Relative import paths need explicit file extensions in ECMAScript imports when moduleResolution is node16/nodenext (line 15) — pre-existing in an unmodified file, unrelated to this plan",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "tsc --noEmit (typecheck)",
+      "file": "backend/src/middleware/__tests__/rateLimit.test.ts",
+      "error": "TS2835: Relative import paths need explicit file extensions in ECMAScript imports when moduleResolution is node16/nodenext (line 15) — pre-existing in an unmodified file, unrelated to this plan; not fixed",
+      "first_seen_in": "01-01-SUMMARY.md",
+      "last_seen_in": "01-01-SUMMARY.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

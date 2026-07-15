@@ -1,0 +1,28 @@
+{
+  "phase_id": "phase-2",
+  "plan_id": "phase-2-plan-02",
+  "phase": 2,
+  "plan": 2,
+  "objective": "Client-Notes Frontend Data Layer (api + hooks)",
+  "task_ids": [],
+  "task_count": 0,
+  "allowed_paths": [],
+  "forbidden_paths": [],
+  "depends_on": [],
+  "must_haves": [
+    "scheduleApi.getClientNotes(id) calls GET /api/schedule/clients/{id}/notes and is typed to the UNWRAPPED Phase-01 shape { notes: string; notesUpdatedAt: string | null; notesUpdatedBy: string | null } — it returns that object directly, no .client unwrap.",
+    "scheduleApi.updateClientNotes(id, notes) calls PUT /api/schedule/clients/{id}/notes with body { notes } and is typed to the WRAPPED Phase-01 shape { client: { notes; notesUpdatedAt; notesUpdatedBy } }; the GET/PUT response-shape asymmetry is a Phase-01 backend fact and is handled here, NOT fixed in the backend.",
+    "useClientNotes(id) is a useQuery keyed ['schedule', 'client-notes', id] with enabled: !!id (does not fire for a null/empty id, so it only fetches when a client is selected).",
+    "useUpdateClientNotes() is a useMutation whose mutationFn calls scheduleApi.updateClientNotes(id, notes), returns the unwrapped notes object (reads response.client), and on success invalidates ['schedule', 'client-notes', id] so the modal shows refreshed attribution with no page reload.",
+    "No backend/** file is modified and no existing schedule api/hook (getClients/useClients, assignments, absences, etc.) is altered — only additive exports.",
+    "path: \"frontend/src/features/schedule/api.ts",
+    "path: \"frontend/src/features/schedule/hooks.ts",
+    "path: \"frontend/src/features/schedule/__tests__/clientNotesApi.test.ts",
+    "from: \"frontend/src/features/schedule/hooks.ts",
+    "from: \"frontend/src/features/schedule/api.ts"
+  ],
+  "verification_checks": [],
+  "max_token_budget": 50000,
+  "timeout_seconds": 600,
+  "contract_hash": "ac2a41efb179abd311563201c1f6e36dbf3899fa6ced4f601d551c2f51a9ce18"
+}

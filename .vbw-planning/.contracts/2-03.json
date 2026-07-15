@@ -1,0 +1,37 @@
+{
+  "phase_id": "phase-2",
+  "plan_id": "phase-2-plan-03",
+  "phase": 2,
+  "plan": 3,
+  "objective": "Client Notes Page, Modal, Sidebar Entry & Route Guard",
+  "task_ids": [],
+  "task_count": 0,
+  "allowed_paths": [],
+  "forbidden_paths": [],
+  "depends_on": [
+    "02-01",
+    "02-02"
+  ],
+  "must_haves": [
+    "A NavItem { to: '/client-notes', icon: NotebookPen, label: 'Client Notes', minRole: 'PM' } is added to the Tools group in Sidebar.tsx — visible to PM and ADMIN, filtered out for NORMAL by the existing item.minRole filter (no filter-logic change).",
+    "App.tsx registers <Route path='/client-notes' element={<ClientNotes />}/> INSIDE a <Route element={<RoleProtectedRoute minRole='PM' />}> wrapper (reusing the existing guard at App.tsx:41-62), placed within the authenticated <ProtectedRoute> block; a NORMAL user navigating directly to /client-notes is redirected to '/' (not merely a hidden link) and sees the 'Access denied' toast.",
+    "ClientNotes page lists EVERY client via the existing useClients() hook rendered in a @/components/ui/table (colour swatch + name columns, mirroring ClientManager), with Board.tsx-style isLoading skeleton and isError + Retry states; a row click opens the modal via a ?client={id} URL search param (Board.tsx pattern), and clearing it closes the modal.",
+    "ClientNotesModal fetches the selected client's notes via useClientNotes(clientId), renders the shared @/components/NotesEditor (Edit/Preview) seeded with those notes, shows the client's name + colour (no projects), and saves via useUpdateClientNotes wired as onSave={(notes) => updateClientNotes.mutateAsync({ id: clientId, notes })} with isSaving={updateClientNotes.isPending}; after save the refreshed attribution appears with no page reload.",
+    "The modal resolves notesUpdatedBy to a display name via useBoardMembers() (allMembers.find(u => u.id === notesUpdatedBy) ?? m.displayName ?? m.username), passing the resolved NAME (or null) to NotesEditor's notesUpdatedBy prop — never a raw user id. This cross-feature reuse of the board hook (endpoint /api/board/members is generic user data, requireAuth-only) is intentional and commented as such.",
+    "No backend/** file is modified; no projects/search fetch, hook, or features/projects/ directory is introduced (name + colour only).",
+    "path: \"frontend/src/features/schedule/components/ClientNotesModal.tsx",
+    "path: \"frontend/src/routes/ClientNotes.tsx",
+    "path: \"frontend/src/components/layout/Sidebar.tsx",
+    "path: \"frontend/src/App.tsx",
+    "path: \"frontend/src/routes/__tests__/ClientNotesAccess.test.tsx",
+    "path: \"frontend/src/features/schedule/components/__tests__/ClientNotesModal.test.tsx",
+    "from: \"frontend/src/routes/ClientNotes.tsx",
+    "from: \"frontend/src/features/schedule/components/ClientNotesModal.tsx",
+    "from: \"frontend/src/features/schedule/components/ClientNotesModal.tsx",
+    "from: \"frontend/src/App.tsx"
+  ],
+  "verification_checks": [],
+  "max_token_budget": 50000,
+  "timeout_seconds": 600,
+  "contract_hash": "7582f016e82d0051a7602aab5bdc4dce5237e2d2fbf3f65356c3015716a01a3f"
+}

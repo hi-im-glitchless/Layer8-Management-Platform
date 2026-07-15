@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "phase": "03",
+  "issues": [
+    {
+      "test": "templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order",
+      "file": "backend/src/services/__tests__/templateAdapter.test.ts",
+      "error": "TypeError: Cannot read properties of undefined (reading filter) at templateAdapter.ts:248 — accepted process-exception per remediation/qa/round-01 (R01-VERIFICATION.md MH-07); mocked fetch sequence lacks a Step-0 /adapter/document-structure response, file untouched since before Phase 03 started",
+      "first_seen_in": "03-VERIFICATION.md",
+      "last_seen_in": "03-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}
