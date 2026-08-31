@@ -1,6 +1,16 @@
 # State
 
 **Project:** Template AI Engine (Layer8)
+**Milestone:** Planner Client-First Name Order
+
+## Current Phase
+Phase: 1 of 1 (Planner Client First Name Order)
+Plans: 1/1
+Progress: 100%
+Status: complete
+
+## Phase Status
+- **Phase 1 (Planner Client First Name Order):** Complete — QA PASS (31/32), QA remediation R01 PASS (9/9), UAT 5/5 pass
 
 ## Key Decisions
 | Decision | Date | Rationale |
@@ -102,7 +112,5 @@
 - [KNOWN-ISSUE] templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading filter) at templateAd... — accepted as process-exception for this phase (phase 03, seen 1x) (see remediation/qa/round-02/R02-SUMMARY.md) (added 2026-07-15) (ref:37539f43)
 - [KNOWN-ISSUE] CardDetailModal.test.tsx (all cases) (frontend/src/features/board/components/CardDetailModal.tsx): Radix stderr warning: Missing Description or aria-describedby={undefined} for... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-08-31) (ref:2eca19b2)
 - [KNOWN-ISSUE] repo-wide lint (multiple (e.g. src/routes/Profile.tsx, src/routes/TemplateAdapter.tsx)): eslint . reports 59 problems (45 errors, 14 warnings) outside the 4 files in ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-08-31) (ref:1938b5a4)
-
 ## Blockers
 None
-

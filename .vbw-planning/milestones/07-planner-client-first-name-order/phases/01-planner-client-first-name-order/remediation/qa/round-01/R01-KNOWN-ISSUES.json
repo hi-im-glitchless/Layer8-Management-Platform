@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "issues": [
+    {
+      "test": "CardDetailModal.test.tsx (all cases)",
+      "file": "frontend/src/features/board/components/CardDetailModal.tsx",
+      "error": "Radix stderr warning: Missing Description or aria-describedby={undefined} for DialogContent. Pre-existing, fires on untouched Phase-03 cases too and on the 2 new cases added this phase; a warning, not a failure - independently observed in the re-run.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    },
+    {
+      "test": "repo-wide lint",
+      "file": "multiple (e.g. src/routes/Profile.tsx, src/routes/TemplateAdapter.tsx)",
+      "error": "eslint . reports 59 problems (45 errors, 14 warnings) outside the 4 files in this phase. Independently re-run and confirmed - none of the 59 are in KanbanCard.tsx or CardDetailModal.tsx.",
+      "first_seen_in": "01-VERIFICATION.md",
+      "last_seen_in": "01-VERIFICATION.md",
+      "first_seen_round": 0,
+      "last_seen_round": 0,
+      "times_seen": 1,
+      "source_kind": "registry"
+    }
+  ]
+}

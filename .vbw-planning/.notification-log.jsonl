@@ -4990,3 +4990,9 @@
   "title": "",
   "message": "Claude needs your permission"
 }
+{
+  "timestamp": "2026-08-31T14:46:14Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}

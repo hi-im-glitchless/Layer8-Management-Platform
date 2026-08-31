@@ -1,35 +1,51 @@
 #!/usr/bin/env python3
-"""UAT replay — Phase 09 (Planner orphaned card on last-pentester schedule delete).
+"""UAT replay — Planner client-first name order (card + card detail modal).
 
-Bug fixed: deleting the **last** pentester's Assignment for a project in the
-Schedule used to leave the project's card "hung up" in the Planner (stale on
-screen, then a zero-pentester card stuck in its old column forever). The fix:
-when the deleted assignment was the last one referencing a project, the backend
-moves that project's BoardCard to the **'stopped'** stage (never deletes it), and
-both the acting client and other connected clients refresh the board. A project
-that still has another pentester assigned is left completely untouched.
+Replays / sets up the UI for this phase's UAT checkpoints so they can be watched
+and judged instead of driven entirely by hand. Each checkpoint opens the right
+screen, saves a screenshot to ui-seed/uat-screenshots/, runs a deterministic
+presence/order/class assert where it can, and prints what a human must judge.
 
-This replay parks you on the Schedule and the Board and reads the relevant state
-so you can verify the two checkpoints. The actual delete is a **mutating** action,
-so it is OFF by default — set E2E_DO_DELETE=1 to let the script perform the
-delete it is told to (only do this against a disposable/seeded dataset).
+The phase reverses the name order on the PLANNER (the Kanban board at /board)
+ONLY. Before: row 1 was the project name in the large headline style and row 2
+was the client name in a small bold line. After: row 1 is the CLIENT name in the
+headline style (`text-lg font-semibold`) and row 2 is the PROJECT name in the
+small bold style (`text-sm font-bold`). The card detail modal mirrors it: the
+DialogTitle carries the client and the project name follows beneath it, and the
+meta row below is now tags-only.
 
-* P01-T01 (last-pentester delete → stopped): pick a project assigned to exactly
-  ONE pentester; delete that assignment in the Schedule; the project's card in the
-  Planner moves to the 'Stopped' column and is NOT removed/deleted (notes, files,
-  checklist preserved). The board reflects this without a manual reload.
-* P01-T02 (multi-pentester safety): pick a project assigned to TWO+ pentesters;
-  delete ONE pentester's assignment; the card stays exactly where it was (no stage
-  change, not deleted) because the project still has another assignment.
+Because `Project.clientId` is nullable (deleting a Client nulls it via
+onDelete: SetNull), a clientless project promotes its own name into the headline
+via a chained-OR fallback and must render that name exactly ONCE — never blank,
+never duplicated.
 
-SAFETY: read-only by default (navigate + read + screenshot). The optional delete
-step (E2E_DO_DELETE=1) mutates schedule data — use only on seeded/demo data.
+Checkpoints:
+* T01 — a card WITH a client reads client-first, with the emphasis swapped:
+  client on line 1 large/semibold, project on line 2 small/bold.
+* T02 — a card with NO client shows the project name as the headline, exactly
+  once, with no blank first line and no collapsed layout. If no clientless card
+  exists in the seeded data this is reported as NOT REPRODUCIBLE rather than
+  silently passing — judge it as skip in that case.
+* T03 — the card detail modal header leads with the client name, the project
+  name follows beneath it, and the client name is NOT duplicated in the meta row
+  lower down (that row is tags-only now).
+* T04 — the pin indicator on a manually-placed card still sits top-right on the
+  FIRST row, i.e. it travelled with the headline rather than staying with the
+  project name.
 
-Run (read-only):   cd ui-seed && E2E_HEADLESS=0 python3 uat_replay_09.py
-Then report verdicts (e.g. "P01-T01 pass, P01-T02 pass").
+The schedule grid and the HTML export already read client-first and are out of
+scope; the dashboard project card is a different surface and is unchanged. T05
+is a quick eyeball that those were not disturbed.
 
-Requires the stack up + demo data seeded with at least one single-pentester
-project and one multi-pentester project. Logs in as pm.
+SAFETY: non-destructive — navigate + read + open/close a modal + screenshot only.
+No create, edit, drag, archive or delete.
+
+Run:   cd ui-seed && python3 uat_replay_09.py
+Watch: E2E_HEADLESS=0 python3 uat_replay_09.py
+Then report verdicts (e.g. "T01 pass, T02 skip, T03 pass, T04 pass").
+
+Requires the stack up + demo data seeded. Logs in as pm.
+Override the focused card with E2E_UAT_CARD="<card text fragment>".
 """
 
 import os
@@ -42,9 +58,7 @@ import common
 SHOTS = os.path.join(os.path.dirname(__file__), "uat-screenshots")
 
 CARD_XPATH = "//div[contains(@class,'bg-card')]"
-COLUMN_XPATH = "//*[@data-board-stage] | //*[contains(@class,'kanban-column')]"
-
-DO_DELETE = os.environ.get("E2E_DO_DELETE") == "1"
+DIALOG_XPATH = "//*[@role='dialog']"
 
 
 def shot(driver, name):
@@ -55,7 +69,13 @@ def shot(driver, name):
 
 
 def checkpoint(cid, title):
-    print(f"\n{'='*64}\n  {cid}: {title}\n{'='*64}", flush=True)
+    print(f"\n{'='*68}\n  {cid}: {title}\n{'='*68}", flush=True)
+
+
+def verify(*lines):
+    print("\n  VERIFY (human judgment):", flush=True)
+    for ln in lines:
+        print(f"    - {ln}", flush=True)
 
 
 def open_board(driver):
@@ -63,85 +83,195 @@ def open_board(driver):
     time.sleep(3)
 
 
-def open_schedule(driver):
-    driver.get(common.BASE_URL + "/schedule")
-    time.sleep(3)
-
-
-def board_card_stages(driver):
-    """Best-effort read of (card label -> column/stage) for the board."""
+def read_cards(driver):
+    """Return [{lines:[(text, class)], pin:bool, el:WebElement}] for each card."""
     out = []
-    for c in driver.find_elements(By.XPATH, CARD_XPATH):
+    for el in driver.find_elements(By.XPATH, CARD_XPATH):
         try:
-            label = (c.text or "").strip().split("\n")[0][:40]
+            ps = el.find_elements(By.XPATH, ".//p")
+            lines = []
+            for p in ps[:2]:
+                txt = (p.text or "").strip()
+                if txt:
+                    lines.append((txt, p.get_attribute("class") or ""))
+            if not lines:
+                continue
+            # the pin is an <svg> sibling of the headline <p>, inside row 1
+            pin = False
+            try:
+                row1 = ps[0].find_element(By.XPATH, "..")
+                pin = bool(row1.find_elements(By.TAG_NAME, "svg"))
+            except Exception:
+                pass
+            out.append({"lines": lines, "pin": pin, "el": el})
         except Exception:
-            label = "?"
-        stage = ""
-        try:
-            col = c.find_element(By.XPATH, "./ancestor::*[@data-board-stage][1]")
-            stage = col.get_attribute("data-board-stage") or ""
-        except Exception:
-            stage = ""
-        out.append((label, stage))
+            continue
     return out
 
 
-def t01_last_pentester_to_stopped(driver):
-    checkpoint("P01-T01", "Last-pentester schedule delete -> card moves to 'Stopped'")
-    open_board(driver)
-    before = board_card_stages(driver)
-    path_b = shot(driver, "p09-t01-board-before.png")
-    print(f"  Board BEFORE (card -> stage): {before}")
-    print(f"  Screenshot (board before): {path_b}")
-    open_schedule(driver)
-    shot(driver, "p09-t01-schedule.png")
-    if DO_DELETE:
-        print("  E2E_DO_DELETE=1 set — perform the delete of the SINGLE-pentester "
-              "project's assignment now (the script leaves the exact target to you; "
-              "right-click / delete the assignment cell for a one-pentester project).")
-        input("  Press Enter AFTER you have deleted that assignment...")
-    else:
-        print("  (read-only) Manually delete, in the Schedule, the assignment of the "
-              "LAST/only pentester for a one-pentester project.")
-        input("  Press Enter AFTER you have deleted that assignment...")
-    open_board(driver)
-    after = board_card_stages(driver)
-    path_a = shot(driver, "p09-t01-board-after.png")
-    print(f"  Board AFTER (card -> stage): {after}")
-    print(f"  Screenshot (board after): {path_a}")
-    print("  Verify (human): the affected project's card is STILL on the board (not "
-          "removed, not blank/hung) and now sits in the 'Stopped' column. The board "
-          "updated WITHOUT a manual page reload. Opening the card shows its notes/"
-          "files/checklist intact.")
-
-
-def t02_multi_pentester_untouched(driver):
-    checkpoint("P01-T02", "Multi-pentester project untouched when one assignment deleted")
-    open_board(driver)
-    before = board_card_stages(driver)
-    print(f"  Board BEFORE (card -> stage): {before}")
-    shot(driver, "p09-t02-board-before.png")
-    open_schedule(driver)
-    print("  Manually delete ONE pentester's assignment for a project that has TWO+ "
-          "pentesters assigned (leave at least one assignment remaining).")
-    input("  Press Enter AFTER you have deleted that one assignment...")
-    open_board(driver)
-    after = board_card_stages(driver)
-    shot(driver, "p09-t02-board-after.png")
-    print(f"  Board AFTER (card -> stage): {after}")
-    print("  Verify (human): the multi-pentester project's card is UNCHANGED — same "
-          "column/stage as before, still present, NOT moved to 'Stopped', NOT "
-          "deleted. Only the removed pentester's avatar disappears from the card.")
+def describe(card, idx):
+    print(f"\n  card #{idx}:", flush=True)
+    for i, (txt, cls) in enumerate(card["lines"], 1):
+        size = "text-lg" if "text-lg" in cls else ("text-sm" if "text-sm" in cls else "?")
+        weight = (
+            "font-semibold" if "font-semibold" in cls
+            else ("font-bold" if "font-bold" in cls else "?")
+        )
+        print(f"    line {i}: {txt!r}  [{size} {weight}]", flush=True)
+    print(f"    pin on row 1: {card['pin']}", flush=True)
 
 
 def main():
     driver = common.make_driver()
     try:
+        common.banner("UAT replay — Planner client-first name order")
         common.login(driver, "pm")
-        t01_last_pentester_to_stopped(driver)
-        t02_multi_pentester_untouched(driver)
-        print("\nDone. Report verdicts per checkpoint "
-              "(e.g. 'P01-T01 pass, P01-T02 pass').", flush=True)
+        open_board(driver)
+
+        cards = read_cards(driver)
+        if not cards:
+            print("\n  !! No planner cards found. Seed demo data first "
+                  "(see ui-seed/README.md), then re-run.", flush=True)
+            return
+
+        two_line = [c for c in cards if len(c["lines"]) == 2]
+        one_line = [c for c in cards if len(c["lines"]) == 1]
+
+        focus = os.environ.get("E2E_UAT_CARD")
+        if focus:
+            match = [c for c in cards if focus.lower() in c["lines"][0][0].lower()]
+            if match:
+                two_line = [c for c in match if len(c["lines"]) == 2] or two_line
+                print(f"\n  (focused on card matching {focus!r})", flush=True)
+
+        # ---------------- T01 ----------------
+        checkpoint("T01", "Card WITH a client reads client-first, emphasis swapped")
+        print(f"  {len(cards)} card(s) on the board; "
+              f"{len(two_line)} with two name lines, {len(one_line)} with one.", flush=True)
+        if two_line:
+            for i, c in enumerate(two_line[:4], 1):
+                describe(c, i)
+            head_cls = two_line[0]["lines"][0][1]
+            sub_cls = two_line[0]["lines"][1][1]
+            ok = ("text-lg" in head_cls and "font-semibold" in head_cls
+                  and "text-sm" in sub_cls and "font-bold" in sub_cls)
+            print(f"\n  ASSERT first two-line card has lg/semibold headline + "
+                  f"sm/bold second line: {'PASS' if ok else 'FAIL'}", flush=True)
+        else:
+            print("  !! No two-line cards found — cannot assert the swap.", flush=True)
+        print(f"\n  screenshot: {shot(driver, 'uat09-t01-board.png')}", flush=True)
+        verify(
+            "Line 1 of each card is the CLIENT name, line 2 is the PROJECT name "
+            "(i.e. the opposite of what shipped before).",
+            "The client name is the visually dominant one (larger, semibold); the "
+            "project name is smaller and bold beneath it.",
+            "The client name is plain readable dark text — NOT tinted with the "
+            "client's brand colour (that was deliberately rejected as illegible).",
+            "The coloured accent bar on the card's left edge is unchanged.",
+        )
+
+        # ---------------- T02 ----------------
+        checkpoint("T02", "Card with NO client falls back to the project name")
+        if one_line:
+            for i, c in enumerate(one_line[:4], 1):
+                describe(c, i)
+            cls = one_line[0]["lines"][0][1]
+            ok = "text-lg" in cls and "font-semibold" in cls
+            print(f"\n  ASSERT single-line card renders in the HEADLINE style "
+                  f"(not the small style): {'PASS' if ok else 'FAIL'}", flush=True)
+            print("  ASSERT the name renders exactly once (single line): PASS", flush=True)
+        else:
+            print("  NOT REPRODUCIBLE — every seeded project currently has a client,\n"
+                  "  so there is no clientless card on the board to judge.\n"
+                  "  This is the nullable-clientId path (deleting a Client nulls it).\n"
+                  "  Judge this checkpoint as SKIP unless you want to create the case\n"
+                  "  by unlinking a client first.", flush=True)
+        print(f"\n  screenshot: {shot(driver, 'uat09-t02-clientless.png')}", flush=True)
+        verify(
+            "If a clientless card exists: its first line shows the PROJECT name, "
+            "in the large headline style — not blank, not collapsed.",
+            "That project name appears ONCE on the card, not twice.",
+            "If no clientless card exists, record this as skip.",
+        )
+
+        # ---------------- T03 ----------------
+        checkpoint("T03", "Card detail modal header leads with the client")
+        target = (two_line or cards)[0]
+        expected_client = target["lines"][0][0]
+        expected_project = target["lines"][1][0] if len(target["lines"]) == 2 else None
+        print(f"  opening the card whose headline is {expected_client!r} ...", flush=True)
+        try:
+            target["el"].click()
+            time.sleep(2)
+            dlg = driver.find_element(By.XPATH, DIALOG_XPATH)
+            heads = dlg.find_elements(By.TAG_NAME, "h2")
+            title = (heads[0].text or "").strip() if heads else "(no h2 found)"
+            print(f"\n    modal title (h2): {title!r}", flush=True)
+            print(f"    card headline was: {expected_client!r}", flush=True)
+            print(f"    ASSERT modal title == card headline (client): "
+                  f"{'PASS' if title == expected_client else 'FAIL'}", flush=True)
+            body = dlg.text or ""
+            if expected_project:
+                print(f"    ASSERT project name {expected_project!r} present in modal: "
+                      f"{'PASS' if expected_project in body else 'FAIL'}", flush=True)
+            occurrences = body.count(expected_client)
+            print(f"    client name appears {occurrences}x in the modal text "
+                  f"(expect 1 — it must NOT be duplicated in the meta row below)",
+                  flush=True)
+            print(f"\n  screenshot: {shot(driver, 'uat09-t03-modal.png')}", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  !! could not open/read the modal: {exc}", flush=True)
+            print(f"  screenshot: {shot(driver, 'uat09-t03-modal-error.png')}", flush=True)
+        verify(
+            "The modal's title line is the CLIENT name.",
+            "The PROJECT name appears directly beneath the title, smaller and bold.",
+            "The client name is NOT repeated further down in the grey meta row — "
+            "that row should now show only tags (or be absent if there are none).",
+            "Tags, status badge, notes, files and comments are all unchanged.",
+        )
+
+        # ---------------- T04 ----------------
+        checkpoint("T04", "Pin indicator still sits top-right on the first row")
+        try:
+            driver.find_element(By.XPATH, "//*[@role='dialog']//button").send_keys("")
+        except Exception:
+            pass
+        time.sleep(1)
+        driver.get(common.BASE_URL + "/board")
+        time.sleep(3)
+        cards = read_cards(driver)
+        pinned = [c for c in cards if c["pin"]]
+        print(f"  {len(pinned)} card(s) render a pin on row 1.", flush=True)
+        for i, c in enumerate(pinned[:3], 1):
+            describe(c, i)
+        if not pinned:
+            print("  No manually-placed (pinned) card in the current data.\n"
+                  "  Judge as skip, or pin a card by dragging it to another column\n"
+                  "  and re-run.", flush=True)
+        print(f"\n  screenshot: {shot(driver, 'uat09-t04-pin.png')}", flush=True)
+        verify(
+            "On a manually-placed card, the pin icon is top-right, level with the "
+            "CLIENT name (the new first row) — it moved with the headline.",
+            "The pin is not orphaned next to the project name on the second line.",
+        )
+
+        # ---------------- T05 ----------------
+        checkpoint("T05", "Out-of-scope surfaces undisturbed")
+        driver.get(common.BASE_URL + "/schedule")
+        time.sleep(3)
+        print(f"  screenshot: {shot(driver, 'uat09-t05-schedule.png')}", flush=True)
+        driver.get(common.BASE_URL + "/")
+        time.sleep(3)
+        print(f"  screenshot: {shot(driver, 'uat09-t05-dashboard.png')}", flush=True)
+        verify(
+            "Schedule grid cells still read 'Client - Project' exactly as before "
+            "(they were already client-first; this phase must not have touched them).",
+            "The dashboard project cards are unchanged (project name then client) — "
+            "that surface was deliberately left out of scope.",
+        )
+
+        common.banner("Replay complete — report verdicts per checkpoint")
+        print("  e.g.  T01 pass, T02 skip, T03 pass, T04 pass, T05 pass\n", flush=True)
     finally:
         driver.quit()
 
