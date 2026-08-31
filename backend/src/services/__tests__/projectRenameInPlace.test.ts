@@ -38,6 +38,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { prisma } from '../../db/prisma.js';
 import { updateAssignment, upsertAssignment } from '../assignmentService.js';
+import { DEFAULT_CHECKLIST, type ChecklistItem } from '../boardService.js';
 
 function uniqueSuffix(): string {
   return `rename-inplace-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -520,5 +521,210 @@ describe('Phase 01 — rename-in-place for an already-linked Project', () => {
     const cards = await prisma.boardCard.findMany({ where: { projectId: sharedProjectId } });
     expect(cards).toHaveLength(1);
     expect(cards[0].id).toBe(cardBefore!.id);
+  });
+
+  it('re-points to an existing Project on a triple collision, leaving the abandoned row intact', async () => {
+    const s = seed!;
+    const nameA = `RenameInPlace Collision A ${s.suffix}`;
+    const nameB = `RenameInPlace Collision B ${s.suffix}`;
+
+    // Assignment X owns Project A.
+    const x = await withDbRetry(() =>
+      upsertAssignment({
+        teamMemberId: s.teamMemberAId,
+        projectName: nameA,
+        projectColor: '#a1b2c3',
+        status: 'confirmed',
+        weekStart: WEEK_ONE,
+        clientId: s.clientAId,
+        tags: ['Web'],
+      }),
+    );
+    // Assignment Y owns a *different* Project B.
+    const y = await withDbRetry(() =>
+      upsertAssignment({
+        teamMemberId: s.teamMemberBId,
+        projectName: nameB,
+        projectColor: '#a1b2c3',
+        status: 'confirmed',
+        weekStart: WEEK_ONE,
+        clientId: s.clientBId,
+        tags: ['Interna'],
+      }),
+    );
+
+    const xLinked = await readAssignment(x.id);
+    const yLinked = await readAssignment(y.id);
+    const projectAId = xLinked.projectId!;
+    const projectBId = yLinked.projectId!;
+    expect(projectAId).toBeTruthy();
+    expect(projectBId).toBeTruthy();
+    expect(projectAId).not.toBe(projectBId);
+    expect(await seededProjectCount(s)).toBe(2);
+
+    const projectABefore = await prisma.project.findUnique({ where: { id: projectAId } });
+    const projectBBefore = await prisma.project.findUnique({ where: { id: projectBId } });
+
+    // Edit X's triple to be EXACTLY Project B's triple.
+    await withDbRetry(() =>
+      updateAssignment(x.id, { projectName: nameB, clientId: s.clientBId, tags: ['Interna'] }),
+    );
+
+    const xAfter = await readAssignment(x.id);
+    // Re-point, not rename: X now shares Project B.
+    expect(xAfter.projectId).toBe(projectBId);
+
+    // The abandoned Project A survives untouched — no rename, no status/color
+    // write, no delete. Orphan cleanup is explicitly out of scope for this
+    // phase (recorded Key Decision), and this assertion is what pins it.
+    const projectAAfter = await prisma.project.findUnique({ where: { id: projectAId } });
+    expect(projectAAfter).not.toBeNull();
+    expect(projectAAfter!.name).toBe(nameA);
+    expect(projectAAfter!.clientId).toBe(s.clientAId);
+    expect(projectAAfter!.tags).toBe(JSON.stringify(['Web']));
+    expect(projectAAfter!.updatedAt.getTime()).toBe(projectABefore!.updatedAt.getTime());
+    expect(await prisma.boardCard.count({ where: { projectId: projectAId } })).toBe(1);
+
+    // Y was not disturbed and Project B kept its identity.
+    const yAfter = await readAssignment(y.id);
+    expect(yAfter.projectId).toBe(projectBId);
+    const projectBAfter = await prisma.project.findUnique({ where: { id: projectBId } });
+    expect(projectBAfter!.name).toBe(nameB);
+    expect(projectBAfter!.clientId).toBe(s.clientBId);
+    expect(projectBAfter!.tags).toBe(JSON.stringify(['Interna']));
+    expect(projectBAfter!.updatedAt.getTime()).toBe(projectBBefore!.updatedAt.getTime());
+    expect(await prisma.boardCard.count({ where: { projectId: projectBId } })).toBe(1);
+
+    // No duplicate-key third Project was minted.
+    expect(await seededProjectCount(s)).toBe(2);
+  });
+
+  it('still creates the Project and its DEFAULT_CHECKLIST BoardCard on a first-time link', async () => {
+    const s = seed!;
+    const name = `RenameInPlace FirstLink ${s.suffix}`;
+
+    // Brand-new assignment: the FK starts NULL, so this must take the
+    // upsertByKey create path, not the by-id resolver.
+    const created = await withDbRetry(() =>
+      upsertAssignment({
+        teamMemberId: s.teamMemberAId,
+        projectName: name,
+        projectColor: '#a1b2c3',
+        status: 'placeholder',
+        weekStart: WEEK_ONE,
+        clientId: s.clientAId,
+        tags: ['Web'],
+      }),
+    );
+
+    const linked = await readAssignment(created.id);
+    expect(linked.projectId).toBeTruthy();
+
+    const project = await prisma.project.findUnique({ where: { id: linked.projectId! } });
+    expect(project?.name).toBe(name);
+    expect(project?.status).toBe('placeholder');
+
+    const card = await prisma.boardCard.findUnique({ where: { projectId: linked.projectId! } });
+    expect(card).not.toBeNull();
+    const checklist = JSON.parse(card!.checklist) as ChecklistItem[];
+    expect(checklist).toEqual(DEFAULT_CHECKLIST);
+    expect(checklist).toHaveLength(7);
+    expect(checklist[checklist.length - 1]).toEqual({
+      label: "Report is on client's share",
+      checked: false,
+      order: 6,
+    });
+  });
+
+  it('un-links an assignment that stops being Planner-eligible without writing to the Project row', async () => {
+    const s = seed!;
+    const name = `RenameInPlace Unlink ${s.suffix}`;
+
+    const created = await withDbRetry(() =>
+      upsertAssignment({
+        teamMemberId: s.teamMemberAId,
+        projectName: name,
+        projectColor: '#a1b2c3',
+        status: 'confirmed',
+        weekStart: WEEK_ONE,
+        clientId: s.clientAId,
+        tags: ['Web'],
+      }),
+    );
+
+    const linked = await readAssignment(created.id);
+    const projectId = linked.projectId!;
+    expect(projectId).toBeTruthy();
+    const projectBefore = await prisma.project.findUnique({ where: { id: projectId } });
+    const cardBefore = await prisma.boardCard.findUnique({ where: { projectId } });
+    expect(cardBefore).not.toBeNull();
+
+    // Blank the name -> isPlannerEligible is false for this half.
+    await withDbRetry(() => updateAssignment(created.id, { projectName: '' }));
+
+    const after = await readAssignment(created.id);
+    expect(after.projectId).toBeNull();
+
+    // The un-link path performs ZERO Project writes: the row is left exactly
+    // as it was, card and all, only the Assignment FK moved.
+    const projectAfter = await prisma.project.findUnique({ where: { id: projectId } });
+    expect(projectAfter).not.toBeNull();
+    expect(projectAfter!.name).toBe(name);
+    expect(projectAfter!.clientId).toBe(s.clientAId);
+    expect(projectAfter!.tags).toBe(JSON.stringify(['Web']));
+    expect(projectAfter!.updatedAt.getTime()).toBe(projectBefore!.updatedAt.getTime());
+
+    const cardAfter = await prisma.boardCard.findUnique({ where: { projectId } });
+    expect(cardAfter).not.toBeNull();
+    expect(cardAfter!.id).toBe(cardBefore!.id);
+  });
+
+  it('short-circuits an identical re-save with zero writes, and still syncs a status-only edit', async () => {
+    const s = seed!;
+    const name = `RenameInPlace NoOp ${s.suffix}`;
+    const fields = {
+      teamMemberId: s.teamMemberAId,
+      projectName: name,
+      projectColor: '#a1b2c3',
+      status: 'confirmed',
+      weekStart: WEEK_ONE,
+      clientId: s.clientAId,
+      tags: ['Web'],
+    };
+
+    const created = await withDbRetry(() => upsertAssignment({ ...fields }));
+    const linked = await readAssignment(created.id);
+    const projectId = linked.projectId!;
+    expect(projectId).toBeTruthy();
+    const projectBefore = await prisma.project.findUnique({ where: { id: projectId } });
+    const cardBefore = await prisma.boardCard.findUnique({ where: { projectId } });
+
+    // (1) Byte-identical re-save -> the resolver's zero-write short-circuit.
+    // Mirrors projectUpsertStatus.test.ts's "no drift" case one level up the
+    // chain, through upsertAssignment -> linkProjectsForAssignment.
+    await withDbRetry(() => upsertAssignment({ ...fields }));
+
+    const afterNoOp = await readAssignment(created.id);
+    expect(afterNoOp.projectId).toBe(projectId);
+    const projectAfterNoOp = await prisma.project.findUnique({ where: { id: projectId } });
+    expect(projectAfterNoOp!.updatedAt.getTime()).toBe(projectBefore!.updatedAt.getTime());
+
+    // (2) Status-only edit -> the Phase 05-01 sync must still reach the Project
+    // through the new by-id branch, without disturbing the dedupe triple or the
+    // card.
+    await withDbRetry(() => upsertAssignment({ ...fields, status: 'needs-reqs' }));
+
+    const afterStatus = await readAssignment(created.id);
+    expect(afterStatus.projectId).toBe(projectId);
+    const projectAfterStatus = await prisma.project.findUnique({ where: { id: projectId } });
+    expect(projectAfterStatus!.status).toBe('needs-reqs');
+    expect(projectAfterStatus!.name).toBe(name);
+    expect(projectAfterStatus!.clientId).toBe(s.clientAId);
+    expect(projectAfterStatus!.tags).toBe(JSON.stringify(['Web']));
+    expect(projectAfterStatus!.color).toBe('#a1b2c3');
+
+    expect(await seededProjectCount(s)).toBe(1);
+    const cardAfter = await prisma.boardCard.findUnique({ where: { projectId } });
+    expect(cardAfter!.id).toBe(cardBefore!.id);
   });
 });
