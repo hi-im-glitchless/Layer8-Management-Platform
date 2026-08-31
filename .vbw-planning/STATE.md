@@ -100,7 +100,7 @@
 - [KNOWN-ISSUE] eslint react-hooks/set-state-in-effect (frontend/src/components/layout/Sidebar.tsx): Line ~94: Avoid calling setState() directly within an effect (localStorage co... (phase 02, seen 1x) (see 02-VERIFICATION.md) (added 2026-07-14) (ref:0ad9edc1)
 - [KNOWN-ISSUE] templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading 'filter') at template... (phase 03, seen 1x) (see 03-VERIFICATION.md) (added 2026-07-15) (ref:545b1e29)
 - [KNOWN-ISSUE] templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading filter) at templateAd... — accepted as process-exception for this phase (phase 03, seen 1x) (see remediation/qa/round-02/R02-SUMMARY.md) (added 2026-07-15) (ref:37539f43)
-
+- [KNOWN-ISSUE] CardDetailModal.test.tsx (all cases) (frontend/src/features/board/components/CardDetailModal.tsx): Radix stderr warning: Missing Description or aria-describedby={undefined} for... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-08-31) (ref:2eca19b2)
+- [KNOWN-ISSUE] repo-wide lint (multiple (e.g. src/routes/Profile.tsx, src/routes/TemplateAdapter.tsx)): eslint . reports 59 problems (45 errors, 14 warnings) outside the 4 files in ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-08-31) (ref:1938b5a4)
 ## Blockers
 None
-

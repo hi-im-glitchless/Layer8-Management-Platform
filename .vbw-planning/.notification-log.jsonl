@@ -4972,3 +4972,21 @@
   "title": "",
   "message": "Claude needs your permission"
 }
+{
+  "timestamp": "2026-08-31T13:55:26Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-08-31T14:01:58Z",
+  "type": "idle_prompt",
+  "title": "",
+  "message": "Claude is waiting for your input"
+}
+{
+  "timestamp": "2026-08-31T14:05:20Z",
+  "type": "permission_prompt",
+  "title": "",
+  "message": "Claude needs your permission"
+}

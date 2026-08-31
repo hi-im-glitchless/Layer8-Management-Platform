@@ -1440,6 +1440,44 @@
         "disposition": "accepted-process-exception",
         "source_path": "remediation/qa/round-02/R02-SUMMARY.md"
       }
+    },
+    "2eca19b2": {
+      "summary": "CardDetailModal.test.tsx (all cases) (frontend/src/features/board/components/CardDetailModal.tsx): Radix stderr warning: Missing Description or aria-describedby={undefined} for...",
+      "context": "Known issue from phase 01. Test: CardDetailModal.test.tsx (all cases). File: frontend/src/features/board/components/CardDetailModal.tsx. Error: Radix stderr warning: Missing Description or aria-describedby={undefined} for DialogContent. Pre-existing, fires on untouched Phase-03 cases too and on the 2 new cases added this phase; a warning, not a failure - independently observed in the re-run.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "frontend/src/features/board/components/CardDetailModal.tsx"
+      ],
+      "added": "2026-08-31",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-planner-client-first-name-order",
+        "test": "CardDetailModal.test.tsx (all cases)",
+        "file": "frontend/src/features/board/components/CardDetailModal.tsx",
+        "error": "Radix stderr warning: Missing Description or aria-describedby={undefined} for DialogContent. Pre-existing, fires on untouched Phase-03 cases too and on the 2 new cases added this phase; a warning, not a failure - independently observed in the re-run.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "1938b5a4": {
+      "summary": "repo-wide lint (multiple (e.g. src/routes/Profile.tsx, src/routes/TemplateAdapter.tsx)): eslint . reports 59 problems (45 errors, 14 warnings) outside the 4 files in ...",
+      "context": "Known issue from phase 01. Test: repo-wide lint. File: multiple (e.g. src/routes/Profile.tsx, src/routes/TemplateAdapter.tsx). Error: eslint . reports 59 problems (45 errors, 14 warnings) outside the 4 files in this phase. Independently re-run and confirmed - none of the 59 are in KanbanCard.tsx or CardDetailModal.tsx.. Seen 1 time(s). Source: remediation/qa/round-01/R01-SUMMARY.md. Disposition: accepted-process-exception.",
+      "files": [
+        "multiple (e.g. src/routes/Profile.tsx, src/routes/TemplateAdapter.tsx)"
+      ],
+      "added": "2026-08-31",
+      "source": "known-issue",
+      "known_issue_signature": {
+        "phase": "01",
+        "phase_dir": ".vbw-planning/phases/01-planner-client-first-name-order",
+        "test": "repo-wide lint",
+        "file": "multiple (e.g. src/routes/Profile.tsx, src/routes/TemplateAdapter.tsx)",
+        "error": "eslint . reports 59 problems (45 errors, 14 warnings) outside the 4 files in this phase. Independently re-run and confirmed - none of the 59 are in KanbanCard.tsx or CardDetailModal.tsx.",
+        "source_kind": "accepted-process-exception",
+        "disposition": "accepted-process-exception",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
     }
   }
 }
