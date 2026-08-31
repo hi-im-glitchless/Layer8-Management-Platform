@@ -1,6 +1,6 @@
 import { prisma } from '@/db/prisma.js';
 import { upsertProjectColor } from '@/services/scheduleService.js';
-import { isPlannerEligible, parseTags, upsertByKey as upsertProjectByKey } from '@/services/projectService.js';
+import { isPlannerEligible, parseTags, resolveLinkedProject, upsertByKey as upsertProjectByKey } from '@/services/projectService.js';
 
 /**
  * Parse JSON-stringified tag fields back to arrays for API responses.
@@ -118,25 +118,41 @@ async function linkProjectsForAssignment(assignmentId: string): Promise<void> {
   let nextProjectId: string | null = null;
   let nextSplitProjectId: string | null = null;
 
+  // Phase 01: branch selection per half. When this half already carries a
+  // Project FK, that id is authoritative — the dedupe triple is only used to
+  // *resolve* a first-time link, never to re-resolve an established one.
+  // Routing an identity edit back through upsertByKey would miss the triple
+  // lookup and mint a duplicate Project + BoardCard, orphaning the card the
+  // Planner has been working on; the by-id resolver renames that row in place
+  // (or re-points it on collision) instead.
   if (primaryEligible) {
-    const proj = await upsertProjectByKey({
+    const primaryArgs = {
       name: a.projectName,
       clientId: a.clientId!,
       tags: primaryTags,
       color: a.projectColor,
       status: a.status,
-    });
+    };
+    const proj = a.projectId
+      ? await resolveLinkedProject({ currentProjectId: a.projectId, ...primaryArgs })
+      : await upsertProjectByKey(primaryArgs);
     nextProjectId = proj.id;
   }
 
   if (secondaryEligible) {
-    const proj = await upsertProjectByKey({
+    const secondaryArgs = {
       name: a.splitProjectName!,
       clientId: a.splitClientId!,
       tags: secondaryTags,
+      // Pre-existing split-half asymmetry: color/status fall back to the
+      // primary half's values when the split has none. Preserved verbatim —
+      // it decides what is *written*, never which Project row is *found*.
       color: a.splitProjectColor ?? a.projectColor,
       status: a.splitProjectStatus ?? a.status,
-    });
+    };
+    const proj = a.splitProjectId
+      ? await resolveLinkedProject({ currentProjectId: a.splitProjectId, ...secondaryArgs })
+      : await upsertProjectByKey(secondaryArgs);
     nextSplitProjectId = proj.id;
   }
 
