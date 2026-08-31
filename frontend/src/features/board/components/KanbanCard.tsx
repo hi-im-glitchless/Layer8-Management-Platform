@@ -154,22 +154,27 @@ export const KanbanCard = memo(
 
         {/* Content */}
         <div className="flex-1 p-3 space-y-1.5">
-          {/* Row 1: project name + pin */}
+          {/* Row 1: client name (headline) + pin. The client reads first on the
+              Planner. `project.client` is nullable (onDelete: SetNull — deleting
+              a Client nulls it on live projects), so the project name falls back
+              into the headline slot and the first line is never blank. The client
+              name renders in the standard readable foreground with NO inline
+              colour: client-hex colouring was tried (Phase 10) but light brand
+              colours were illegible on the white card. */}
           <div className="flex items-start justify-between gap-1">
             <p className="text-lg font-semibold leading-tight line-clamp-2">
-              {card.project.name || '(No project)'}
+              {card.project.client?.name || card.project.name || '(No project)'}
             </p>
             {card.stageLockedBy && card.stageLockedBy !== 'auto' && (
               <Pin className="h-3 w-3 shrink-0 text-muted-foreground" />
             )}
           </div>
 
-          {/* Row 2: client name (text) — bold, default text colour. (Client-hex
-              colouring was tried but light brand colours were illegible on the
-              white card, so the name renders in the standard readable foreground.) */}
+          {/* Row 2: project name — rendered only when the client supplied the
+              headline, otherwise the project name would appear twice. */}
           {card.project.client?.name && (
             <p className="text-sm font-bold leading-tight">
-              {card.project.client.name}
+              {card.project.name || '(No project)'}
             </p>
           )}
 

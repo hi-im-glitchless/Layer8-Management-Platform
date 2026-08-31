@@ -95,9 +95,9 @@ function fallbackBgColors(container: HTMLElement): string[] {
 }
 
 /**
- * Grab the Row-2 client-name <p> by its text (Phase 10). The client name is
- * rendered as a bold, inline-coloured <p>; mirror fallbackBgColors by reading
- * its inline `.style.color` and className for the weight assertion.
+ * Grab the client-name <p> by its text. The client name is the card headline
+ * (row 1) and renders with no inline colour (Phase 10); mirror fallbackBgColors
+ * by reading its inline `.style.color` and className for the weight assertion.
  */
 function clientNameEl(name: string): HTMLElement {
   return screen.getByText(name)
@@ -270,9 +270,10 @@ describe('KanbanCard pentester avatars', () => {
 })
 
 /**
- * The Row-2 client name renders bold in the default text colour. Client-hex
- * colouring was tried (Phase 10) but light brand colours were illegible on the
- * white card, so the name now uses no inline colour — just the bold weight.
+ * The client name is the card headline (row 1) and renders semibold in the
+ * default text colour. Client-hex colouring was tried (Phase 10) but light
+ * brand colours were illegible on the white card, so the name now uses no
+ * inline colour — just the headline weight.
  */
 describe('KanbanCard client name styling', () => {
   it('(1) renders the client name bold with no inline colour', () => {
@@ -291,7 +292,7 @@ describe('KanbanCard client name styling', () => {
 
     const el = clientNameEl('Acme Corp')
     // Bold weight class present; default (not muted) foreground.
-    expect(el.className).toContain('font-bold')
+    expect(el.className).toContain('font-semibold')
     expect(el.className).not.toContain('text-muted-foreground')
     // No inline colour applied regardless of the client's stored hex.
     expect(el.style.color).toBe('')
@@ -314,7 +315,7 @@ describe('KanbanCard client name styling', () => {
     )
 
     const el = clientNameEl('Pale Co')
-    expect(el.className).toContain('font-bold')
+    expect(el.className).toContain('font-semibold')
     expect(el.style.color).toBe('')
   })
 
@@ -335,7 +336,7 @@ describe('KanbanCard client name styling', () => {
     const el = clientNameEl('No Colour Co')
     // No crash; name shows bold with no inline colour.
     expect(el).toBeInTheDocument()
-    expect(el.className).toContain('font-bold')
+    expect(el.className).toContain('font-semibold')
     expect(el.style.color).toBe('')
   })
 })
