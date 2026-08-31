@@ -390,4 +390,135 @@ describe('Phase 01 — rename-in-place for an already-linked Project', () => {
     // And no second card was minted for the renamed Project.
     expect(await prisma.boardCard.count({ where: { projectId } })).toBe(1);
   });
+
+  it('renames the SPLIT half in place, leaves the primary untouched, and preserves the color/status fallback', async () => {
+    const s = seed!;
+    const primaryName = `RenameInPlace Split Primary ${s.suffix}`;
+    const splitName = `RenameInPlace Split Secondary ${s.suffix}`;
+    const splitRenamed = `RenameInPlace Split Renamed ${s.suffix}`;
+
+    const created = await withDbRetry(() =>
+      upsertAssignment({
+        teamMemberId: s.teamMemberAId,
+        projectName: primaryName,
+        projectColor: '#a1b2c3',
+        status: 'confirmed',
+        weekStart: WEEK_ONE,
+        clientId: s.clientAId,
+        tags: ['Web'],
+        splitProjectName: splitName,
+        // Left NULL on purpose: the split half must fall back to the primary's
+        // color/status (`a.splitProjectColor ?? a.projectColor`,
+        // `a.splitProjectStatus ?? a.status`). Research flagged this asymmetry
+        // as easy to normalise away, so it is asserted explicitly below.
+        splitProjectColor: null,
+        splitProjectStatus: null,
+        splitClientId: s.clientAId,
+        splitTags: ['Interna'],
+      }),
+    );
+
+    const linked = await readAssignment(created.id);
+    const primaryProjectId = linked.projectId!;
+    const splitProjectId = linked.splitProjectId!;
+    expect(primaryProjectId).toBeTruthy();
+    expect(splitProjectId).toBeTruthy();
+    expect(splitProjectId).not.toBe(primaryProjectId);
+
+    const primaryBefore = await prisma.project.findUnique({ where: { id: primaryProjectId } });
+    const splitBefore = await prisma.project.findUnique({ where: { id: splitProjectId } });
+    // The fallback, at first link.
+    expect(splitBefore?.color).toBe('#a1b2c3');
+    expect(splitBefore?.status).toBe('confirmed');
+    const splitCardBefore = await prisma.boardCard.findUnique({ where: { projectId: splitProjectId } });
+    expect(splitCardBefore).not.toBeNull();
+
+    // Edit ONLY the split triple — name, client and tags all move.
+    await withDbRetry(() =>
+      updateAssignment(created.id, {
+        splitProjectName: splitRenamed,
+        splitClientId: s.clientBId,
+        splitTags: ['API'],
+      }),
+    );
+
+    const after = await readAssignment(created.id);
+    expect(after.splitProjectId).toBe(splitProjectId); // renamed in place, not forked
+    expect(after.projectId).toBe(primaryProjectId);
+
+    const splitAfter = await prisma.project.findUnique({ where: { id: splitProjectId } });
+    expect(splitAfter?.name).toBe(splitRenamed);
+    expect(splitAfter?.clientId).toBe(s.clientBId);
+    expect(splitAfter?.tags).toBe(JSON.stringify(['API']));
+    // The fallback survives the rename: still the PRIMARY's color/status.
+    expect(splitAfter?.color).toBe('#a1b2c3');
+    expect(splitAfter?.status).toBe('confirmed');
+
+    // The primary half is completely untouched — its no-op short-circuit means
+    // zero writes, so updatedAt has not moved.
+    const primaryAfter = await prisma.project.findUnique({ where: { id: primaryProjectId } });
+    expect(primaryAfter?.name).toBe(primaryName);
+    expect(primaryAfter?.clientId).toBe(s.clientAId);
+    expect(primaryAfter?.tags).toBe(JSON.stringify(['Web']));
+    expect(primaryAfter!.updatedAt.getTime()).toBe(primaryBefore!.updatedAt.getTime());
+
+    // No new Project and no new BoardCard were minted by the split rename.
+    expect(await seededProjectCount(s)).toBe(2);
+    const splitCards = await prisma.boardCard.findMany({ where: { projectId: splitProjectId } });
+    expect(splitCards).toHaveLength(1);
+    expect(splitCards[0].id).toBe(splitCardBefore!.id);
+    expect(await prisma.boardCard.count({ where: { projectId: primaryProjectId } })).toBe(1);
+  });
+
+  it('renames a SHARED Project once for every assignment linked to it, keeping its single BoardCard', async () => {
+    const s = seed!;
+    const sharedName = `RenameInPlace Shared ${s.suffix}`;
+    const sharedRenamed = `RenameInPlace Shared Renamed ${s.suffix}`;
+    const sharedFields = {
+      projectName: sharedName,
+      projectColor: '#a1b2c3',
+      status: 'confirmed',
+      weekStart: WEEK_ONE,
+      clientId: s.clientAId,
+      tags: ['Web'],
+    };
+
+    // Two pentesters, same week, same eligible triple -> one shared Project.
+    const first = await withDbRetry(() =>
+      upsertAssignment({ teamMemberId: s.teamMemberAId, ...sharedFields }),
+    );
+    const second = await withDbRetry(() =>
+      upsertAssignment({ teamMemberId: s.teamMemberBId, ...sharedFields }),
+    );
+
+    const firstLinked = await readAssignment(first.id);
+    const secondLinked = await readAssignment(second.id);
+    const sharedProjectId = firstLinked.projectId!;
+    expect(sharedProjectId).toBeTruthy();
+    expect(secondLinked.projectId).toBe(sharedProjectId);
+    expect(await seededProjectCount(s)).toBe(1);
+    const cardBefore = await prisma.boardCard.findUnique({ where: { projectId: sharedProjectId } });
+    expect(cardBefore).not.toBeNull();
+
+    // Rename through ONE of the two assignments.
+    await withDbRetry(() => updateAssignment(first.id, { projectName: sharedRenamed }));
+
+    const firstAfter = await readAssignment(first.id);
+    const secondAfter = await readAssignment(second.id);
+    // Both still point at the same, unchanged Project id — the rename is shared,
+    // not forked, and the untouched assignment was neither re-pointed nor nulled.
+    expect(firstAfter.projectId).toBe(sharedProjectId);
+    expect(secondAfter.projectId).toBe(sharedProjectId);
+    expect(secondAfter.splitProjectId).toBeNull();
+
+    const project = await prisma.project.findUnique({ where: { id: sharedProjectId } });
+    expect(project?.name).toBe(sharedRenamed);
+    expect(project?.clientId).toBe(s.clientAId);
+    expect(project?.tags).toBe(JSON.stringify(['Web']));
+
+    expect(await seededProjectCount(s)).toBe(1);
+    const cards = await prisma.boardCard.findMany({ where: { projectId: sharedProjectId } });
+    expect(cards).toHaveLength(1);
+    expect(cards[0].id).toBe(cardBefore!.id);
+  });
 });
