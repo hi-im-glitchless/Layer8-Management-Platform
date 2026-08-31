@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import type { BoardCard } from '../../types'
 
 /**
@@ -203,5 +203,53 @@ describe('CardDetailModal — read-only client notes (Phase 03-01)', () => {
     expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
     expect(tabs[1]).toHaveTextContent('Edit')
     expect(tabs[1]).toHaveAttribute('aria-selected', 'false')
+  })
+})
+
+/**
+ * The modal header reads client-first, mirroring the Planner card it opens
+ * from: the client name is the DialogTitle and the project name follows it
+ * inside DialogHeader. project.client is nullable, so a clientless card falls
+ * the project name back into the title rather than rendering an empty header.
+ *
+ * Header assertions are scoped to the DialogHeader element so that unrelated
+ * occurrences of either name elsewhere in the modal cannot make them ambiguous.
+ * The fixture has stageLockedBy: null, so no pin renders inside the title and
+ * the heading's accessible name is just the header text.
+ */
+describe('CardDetailModal client-first header name order', () => {
+  it('(1) titles the modal with the client name and follows it with the project name', () => {
+    h.card = makeCard()
+    renderModal()
+
+    const heading = screen.getByRole('heading', { name: 'Acme Corp' })
+    const header = heading.parentElement as HTMLElement
+
+    const projectLine = within(header).getByText('Acme Pentest')
+    expect(projectLine.className).toContain('font-bold')
+
+    // The project name follows the client name in the DOM.
+    expect(
+      heading.compareDocumentPosition(projectLine) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    // The client name is not duplicated within the header.
+    expect(within(header).getAllByText('Acme Corp')).toHaveLength(1)
+  })
+
+  it('(2) falls back to the project name as the title when there is no client', () => {
+    h.card = makeCard({ noClient: true })
+    renderModal()
+
+    const heading = screen.getByRole('heading', { name: 'Acme Pentest' })
+    // The title is non-empty rather than a blank header.
+    expect(heading.textContent?.trim()).toBe('Acme Pentest')
+
+    // And it is not repeated on a second header line.
+    const header = heading.parentElement as HTMLElement
+    expect(within(header).getAllByText('Acme Pentest')).toHaveLength(1)
+
+    expect(screen.queryByText('Acme Corp')).toBeNull()
   })
 })
