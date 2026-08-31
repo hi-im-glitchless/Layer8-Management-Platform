@@ -263,6 +263,13 @@ router.post('/assignments', requireRole('PM'), mutationRateLimiter, async (req, 
     });
     res.status(201).json({ assignment });
     emitScheduleInvalidate('assignments');
+    // Phase 01: a schedule-side write can create a Project + BoardCard or
+    // rename an already-linked Project in place (see
+    // assignmentService.linkProjectsForAssignment). board:invalidate is a
+    // different socket event on a different query key than schedule:invalidate,
+    // so connected Planner clients must be told to refetch their cards.
+    // Emitted unconditionally, matching DELETE /assignments/:id.
+    emitBoardInvalidate('cards');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
@@ -329,6 +336,11 @@ router.put('/assignments/:id', requireRole('PM'), mutationRateLimiter, async (re
     const assignment = await assignmentService.updateAssignment(id, updateData);
     res.json({ assignment });
     emitScheduleInvalidate('assignments');
+    // Phase 01: an edit to projectName/clientId/tags here now renames the
+    // linked Project in place rather than minting a duplicate, so open Planner
+    // clients need a board refetch to pick the new name up. Unconditional, for
+    // the same reason as POST /assignments above.
+    emitBoardInvalidate('cards');
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0].message });
