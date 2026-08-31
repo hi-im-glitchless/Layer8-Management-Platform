@@ -103,6 +103,105 @@ export async function upsertByKey(opts: {
   });
 }
 
+/**
+ * Phase 01 — resolve the Project for an assignment half that ALREADY carries a
+ * Project FK.
+ *
+ * `upsertByKey` resolves purely by the dedupe triple, so an edit to any of
+ * (name, clientId, tags) on an already-linked assignment misses that lookup and
+ * mints a *second* Project + BoardCard, orphaning the original card along with
+ * all its stage/checklist/notes/comments/files state. When the FK is already
+ * known, that id — not the triple — is authoritative; the triple is only used
+ * to *resolve* a first-time link. This resolver therefore renames that row in
+ * place by id, or re-points to an existing Project when the new triple collides
+ * with one.
+ *
+ * Never used for a first-time link: linkProjectsForAssignment still calls
+ * upsertByKey (and its DEFAULT_CHECKLIST BoardCard seeding) when the FK is null.
+ */
+export async function resolveLinkedProject(opts: {
+  currentProjectId: string;
+  name: string;
+  clientId: string;
+  tags: string[];
+  color: string;
+  status: string;
+}) {
+  const current = await prisma.project.findUnique({ where: { id: opts.currentProjectId } });
+  // Defensive: the FK points at a row that no longer exists (deleted out from
+  // under us). Fall back to the first-time-link path rather than throwing.
+  if (!current) {
+    return upsertByKey({
+      name: opts.name,
+      clientId: opts.clientId,
+      tags: opts.tags,
+      color: opts.color,
+      status: opts.status,
+    });
+  }
+
+  // Reuse the same normalisation upsertByKey applies, so a triple compared here
+  // is byte-comparable with one resolved there.
+  const name = opts.name.trim();
+  const tagsJson = normaliseTags(opts.tags);
+
+  if (current.name === name && current.clientId === opts.clientId && current.tags === tagsJson) {
+    // Identity unchanged — this is not a rename. Fall through to the existing
+    // Phase 05-01 last-writer-wins status/color sync, same shape as
+    // upsertByKey's existing-match branch.
+    // Phase 01: the zero-write short-circuit below is load-bearing, not an
+    // optimisation — projectUpsertStatus.test.ts asserts updatedAt is
+    // byte-identical after a true no-op re-save.
+    if (current.status === opts.status && current.color === opts.color) {
+      return current;
+    }
+    return prisma.project.update({
+      where: { id: current.id },
+      data: { status: opts.status, color: opts.color },
+    });
+  }
+
+  // Identity changed. Look for a *different* Project that already owns the new
+  // triple. Phase 01: excluding current.id from the match below is mandatory —
+  // without that exclusion this query finds the very row being renamed and the
+  // rename degenerates into a permanent no-op.
+  const collision = await prisma.project.findFirst({
+    where: { name, clientId: opts.clientId, tags: tagsJson, id: { not: current.id } },
+  });
+
+  if (collision) {
+    // Collision → re-point only. The target's identity is correct by
+    // construction (it was found by that exact triple), so nothing is written
+    // onto it beyond the status/color diff-sync below, and Phase 01
+    // deliberately writes *nothing at all* onto the abandoned row `current` —
+    // no identity fields, no status/color, no delete. Leaving it orphaned
+    // matches the existing un-link path exactly (linkProjectsForAssignment
+    // nulls the FK and touches no Project row); orphan cleanup is explicitly
+    // out of scope for this phase.
+    if (collision.status !== opts.status || collision.color !== opts.color) {
+      return prisma.project.update({
+        where: { id: collision.id },
+        data: { status: opts.status, color: opts.color },
+      });
+    }
+    return collision;
+  }
+
+  // Genuine rename → update the already-known row BY ID, never by triple, so
+  // its single BoardCard follows the rename instead of being orphaned behind a
+  // freshly minted duplicate.
+  return prisma.project.update({
+    where: { id: current.id },
+    data: {
+      name,
+      clientId: opts.clientId,
+      tags: tagsJson,
+      color: opts.color,
+      status: opts.status,
+    },
+  });
+}
+
 /** Get one Project by id. */
 export function getById(id: string) {
   return prisma.project.findUnique({
