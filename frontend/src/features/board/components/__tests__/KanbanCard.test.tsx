@@ -418,3 +418,73 @@ describe('KanbanCard is unaffected by client.notes (Phase 03-01)', () => {
     expect(normaliseDnd(withNotes.container.innerHTML)).toBe(htmlWithoutNotes)
   })
 })
+
+/**
+ * The Planner reads client-first: the client name is the row-1 headline and the
+ * project name follows on the smaller bold line. `project.client` is nullable
+ * (onDelete: SetNull), so a clientless card must fall the project name back into
+ * the headline slot — rendered exactly once, never blank, with the pin still
+ * anchored top-right in the first flex row.
+ */
+describe('KanbanCard client-first name order', () => {
+  it('(1) renders the client name as the headline above the project name', () => {
+    renderCard(makeCard([]))
+
+    const client = screen.getByText('Acme Corp')
+    const project = screen.getByText('Acme Pentest')
+
+    // Emphasis follows position: client takes the headline treatment.
+    expect(client.className).toContain('text-lg')
+    expect(client.className).toContain('font-semibold')
+    expect(project.className).toContain('text-sm')
+    expect(project.className).toContain('font-bold')
+
+    // The client element precedes the project element in the DOM.
+    expect(
+      client.compareDocumentPosition(project) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('(2) falls the project name back into the headline when there is no client', () => {
+    renderCard(makeCard([], { client: null, clientId: null }))
+
+    // Rendered exactly once — no duplicate second line.
+    const matches = screen.getAllByText('Acme Pentest')
+    expect(matches).toHaveLength(1)
+
+    // And it occupies the headline slot, so the first line is never blank.
+    expect(matches[0].className).toContain('text-lg')
+    expect(matches[0].className).toContain('font-semibold')
+
+    expect(screen.queryByText('Acme Corp')).toBeNull()
+  })
+
+  it('(3) keeps the pin top-right in the headline row on a manually placed card', () => {
+    renderCard({ ...makeCard([]), stageLockedBy: 'user-1' })
+
+    const headline = screen.getByText('Acme Corp')
+    const row = headline.parentElement as HTMLElement
+
+    expect(row.className).toContain('justify-between')
+    expect(row.className).toContain('items-start')
+    // The <Pin> lucide icon is the headline's sibling inside row 1.
+    expect(row.querySelector('svg')).not.toBeNull()
+  })
+
+  it('(4) keeps the pin in the headline row on a clientless card', () => {
+    renderCard({
+      ...makeCard([], { client: null, clientId: null }),
+      stageLockedBy: 'user-1',
+    })
+
+    // Anchored on the project name: the pin follows the headline slot itself,
+    // not a hardcoded client element.
+    const headline = screen.getByText('Acme Pentest')
+    const row = headline.parentElement as HTMLElement
+
+    expect(row.className).toContain('justify-between')
+    expect(row.className).toContain('items-start')
+    expect(row.querySelector('svg')).not.toBeNull()
+  })
+})
