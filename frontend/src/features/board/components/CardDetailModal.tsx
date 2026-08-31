@@ -504,7 +504,7 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 pr-8">
             <span className="flex-1">
-              {project.name || '(No project)'}
+              {project.client?.name || project.name || '(No project)'}
             </span>
             {isManuallyPlaced && onResetAutoMove && (
               <Tooltip>
@@ -522,6 +522,14 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
               </Tooltip>
             )}
           </DialogTitle>
+          {/* The project name follows the client in the header, mirroring the
+              Planner card's row order. Rendered only when the client supplied
+              the title — a clientless project already reads as the title. */}
+          {project.client?.name && (
+            <p className="text-sm font-bold leading-tight pr-8">
+              {project.name || '(No project)'}
+            </p>
+          )}
         </DialogHeader>
 
         <div className="space-y-6">
@@ -540,10 +548,9 @@ export function CardDetailModal({ cardId, open, onOpenChange, onResetAutoMove }:
             )}
           </div>
 
-          {/* Client + tags row */}
-          {(project.client?.name || project.tags.length > 0) && (
+          {/* Tags row — the client name now leads the header instead. */}
+          {project.tags.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap text-sm text-muted-foreground">
-              {project.client?.name && <span className="font-medium">{project.client.name}</span>}
               {project.tags.map((tag) => (
                 <span
                   key={tag}
