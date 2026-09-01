@@ -1478,6 +1478,91 @@
         "disposition": "accepted-process-exception",
         "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
       }
+    },
+    "ac88a5f0": {
+      "summary": "[UAT-DEVIATION] 01: DEV-02: during task 1 and task 2 the rationale comments were reworded from a first draft that literally quo... (phase 01, see 01-01-SUMMARY.md) (added 2026-09-01) (ref:ac88a5f0)",
+      "context": "Accepted UAT summary deviation for phase 01-schedule-to-planner-project-sync. Deviation: DEV-02: during task 1 and task 2 the rationale comments were reworded from a first draft that literally quoted the id: { not: current.id } exclusion and named resolveLinkedProject in prose. Those quotations would have inflated this plan verify block bare grep -c counts from 1 to 2 and from 3 to 4, so the comments were rewritten to describe the constructs rather than quote them. The counted constructs themselves were never altered. QA confirmed independently that all counted hits are real code: projectService.ts:169 is a genuine Prisma where-clause, and the three assignmentService.ts hits are one import at :3 plus two real call sites at :137 and :154. No assertion was weakened and no behaviour was hidden. The underlying defect was in the plan, not the code, and was fixed by the R01 amendment (DEV-02) in 01-01-PLAN.md, which now counts non-comment lines only - not by any code change.. Source plan: 01. Source: 01-01-SUMMARY.md. UAT checkpoint: 01-UAT.md#D01.",
+      "files": [
+        "01-01-SUMMARY.md",
+        "01-UAT.md"
+      ],
+      "added": "2026-09-01",
+      "source": "uat-deviation",
+      "uat_deviation": {
+        "phase": "01-schedule-to-planner-project-sync",
+        "checkpoint": "D01",
+        "signature": "dbd17c3c2e02fd2678d3ffd8cc3551b51ea4770987c1a7d8fa1623ed9b712886",
+        "source_plan": "01",
+        "source_path": "01-01-SUMMARY.md"
+      }
+    },
+    "4832228e": {
+      "summary": "[UAT-DEVIATION] 02: Task 1 verify asked for a temporary working-tree revert of plan 01-01's branch selection in assignmentServi... (phase 01, see 01-02-SUMMARY.md) (added 2026-09-01) (ref:4832228e)",
+      "context": "Accepted UAT summary deviation for phase 01-schedule-to-planner-project-sync. Deviation: Task 1 verify asked for a temporary working-tree revert of plan 01-01's branch selection in assignmentService.ts to prove the rename test bites. That edit was blocked by the sandbox (and the execution brief forbids modifying product code), so the bite was proven instead with a throwaway probe that ran the PRE-FIX resolution path -- upsertByKey called with the edited triple against an already-linked assignment. It produced a different Project id, project.count 2 and a second BoardCard, which is exactly the state the rename test's three assertions reject. The probe was deleted before the task 1 commit; no product file was ever modified (git diff over projectService.ts / assignmentService.ts / schedule.ts across HEAD~3..HEAD is empty). Recorded as DEV-01 by QA round 01; plan 01-02 task 1 verify block was amended in remediation round 01 to require this throwaway-probe method plus the git diff 0f04b70^ 0f04b70 corroboration and to state that the working-tree revert is blocked, so the specified method and the executed method now agree.. Source plan: 02. Source: 01-02-SUMMARY.md. UAT checkpoint: 01-UAT.md#D02.",
+      "files": [
+        "01-02-SUMMARY.md",
+        "01-UAT.md"
+      ],
+      "added": "2026-09-01",
+      "source": "uat-deviation",
+      "uat_deviation": {
+        "phase": "01-schedule-to-planner-project-sync",
+        "checkpoint": "D02",
+        "signature": "184a43e1211223b8a3ac141d542ee32d364223d5bd75af0e5b6688fb62d96948",
+        "source_plan": "02",
+        "source_path": "01-02-SUMMARY.md"
+      }
+    },
+    "70ca0edc": {
+      "summary": "[UAT-DEVIATION] R01: No commits were produced by this round. All four edited files live under .vbw-planning/, which .gitignore:7... (phase 01, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-09-01) (ref:70ca0edc)",
+      "context": "Accepted UAT summary deviation for phase 01-schedule-to-planner-project-sync. Deviation: No commits were produced by this round. All four edited files live under .vbw-planning/, which .gitignore:70 excludes, so every change is untracked and ignored. Per the plan context block, git add -f was not used and no commit was fabricated; files_modified above is the record of the work. git status --short backend/ frontend/ is empty and HEAD remains 58609f9.. Source plan: R01. Source: remediation/qa/round-01/R01-SUMMARY.md. UAT checkpoint: 01-UAT.md#D03.",
+      "files": [
+        "01-UAT.md",
+        "remediation/qa/round-01/R01-SUMMARY.md"
+      ],
+      "added": "2026-09-01",
+      "source": "uat-deviation",
+      "uat_deviation": {
+        "phase": "01-schedule-to-planner-project-sync",
+        "checkpoint": "D03",
+        "signature": "3a289ba701665ca8bee210d8f1db02e0230db34d5ca763cb9988f7dd7bcf6bea",
+        "source_plan": "R01",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "84279621": {
+      "summary": "[UAT-DEVIATION] R01: Task 1 action asked for the <done> clause of plan 01-02 task 1 to be extended, and task 4 check 7 asserts g... (phase 01, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-09-01) (ref:84279621)",
+      "context": "Accepted UAT summary deviation for phase 01-schedule-to-planner-project-sync. Deviation: Task 1 action asked for the <done> clause of plan 01-02 task 1 to be extended, and task 4 check 7 asserts grep -c 'R01 amendment' over 01-02-PLAN.md returns 1. The first draft of the <done> extension carried a parenthetical (R01 amendment, DEV-01) marker, which made that count 2. The marker was removed from <done> and kept only in the <verify> block, which is where the honesty constraint requires it. The substantive <done> amendment required by task 1 - that the demonstration is by throwaway probe plus the 0f04b70 diff, not by a working-tree revert - is fully present. Both task 1 verify and task 4 check 7 now pass.. Source plan: R01. Source: remediation/qa/round-01/R01-SUMMARY.md. UAT checkpoint: 01-UAT.md#D04.",
+      "files": [
+        "01-UAT.md",
+        "remediation/qa/round-01/R01-SUMMARY.md"
+      ],
+      "added": "2026-09-01",
+      "source": "uat-deviation",
+      "uat_deviation": {
+        "phase": "01-schedule-to-planner-project-sync",
+        "checkpoint": "D04",
+        "signature": "6e319d0a32488fd22daedeb1307986884ef39f18c98b66c5259c1343844c6cd7",
+        "source_plan": "R01",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
+    },
+    "9df7601c": {
+      "summary": "[UAT-DEVIATION] R01: Check 7 initially returned 2 for `01-02-PLAN.md` because task 1's `<done>` extension carried a parenthetica... (phase 01, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-09-01) (ref:9df7601c)",
+      "context": "Accepted UAT summary deviation for phase 01-schedule-to-planner-project-sync. Deviation: Check 7 initially returned 2 for `01-02-PLAN.md` because task 1's `<done>` extension carried a parenthetical amendment marker. The marker was removed from `<done>` and kept only in the `<verify>` block; the substantive `<done>` amendment task 1 required is intact and check 7 now returns 1. See the round-level `deviations` entry.. Source plan: R01. Source: remediation/qa/round-01/R01-SUMMARY.md. UAT checkpoint: 01-UAT.md#D05.",
+      "files": [
+        "01-UAT.md",
+        "remediation/qa/round-01/R01-SUMMARY.md"
+      ],
+      "added": "2026-09-01",
+      "source": "uat-deviation",
+      "uat_deviation": {
+        "phase": "01-schedule-to-planner-project-sync",
+        "checkpoint": "D05",
+        "signature": "10f0d863fd748a2b993b99cafd742684f3742dc5cdd4e251b25262d9e2d47fe9",
+        "source_plan": "R01",
+        "source_path": "remediation/qa/round-01/R01-SUMMARY.md"
+      }
     }
   }
 }

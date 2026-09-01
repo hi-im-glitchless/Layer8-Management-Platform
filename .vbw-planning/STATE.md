@@ -1,6 +1,16 @@
 # State
 
 **Project:** Template AI Engine (Layer8)
+**Milestone:** Schedule-to-Planner Project Sync
+
+## Current Phase
+Phase: 1 of 1 (Schedule To Planner Project Sync)
+Plans: 2/2
+Progress: 100%
+Status: complete
+
+## Phase Status
+- **Phase 1 (Schedule To Planner Project Sync):** Complete
 
 ## Key Decisions
 | Decision | Date | Rationale |
@@ -19,6 +29,7 @@
 | A single shared `NotesEditor` (hardened `rehype-sanitize` schema) serves all notes surfaces | 2026-07-10 | Prevents divergent markdown sanitization rules across features |
 | Role gating uses `requireRole('PM')` for "PM and Admin" | 2026-07-10 | Role enum is ordered `NORMAL < PM < ADMIN`, so one gate covers both |
 | Client notes are readable by all authenticated roles | 2026-07-10 | Required to render them read-only on planner cards for every user; accepted exposure |
+| Schedule edits to a Project's dedupe triple rename the Project in place (all linked assignments follow) | 2026-08-31 | A Project is intentionally shared by multi-pentester/multi-week assignments and owns exactly one BoardCard; re-keying on edit created duplicate cards and orphaned card history (stage, checklist, notes, comments) |
 
 ## Todos
 - [SIDE-FINDING] ArchiveCardDialog has empty-projectName UX edge case — when a card has no linked schedule assignment, the typed-confirmation target is empty string and the user has no visible name to type. Recommend disabling Archive when no project, or using a literal "DELETE" sentinel. (Surfaced in Phase 23 UAT R01, P05-T2; not blocking — typical cards have project names. See remediation/uat/round-01/R01-UAT.md.)
@@ -102,7 +113,13 @@
 - [KNOWN-ISSUE] templateAdapter service > analyzeTemplate > calls Python service and LLM in correct order (backend/src/services/__tests__/templateAdapter.test.ts): TypeError: Cannot read properties of undefined (reading filter) at templateAd... — accepted as process-exception for this phase (phase 03, seen 1x) (see remediation/qa/round-02/R02-SUMMARY.md) (added 2026-07-15) (ref:37539f43)
 - [KNOWN-ISSUE] CardDetailModal.test.tsx (all cases) (frontend/src/features/board/components/CardDetailModal.tsx): Radix stderr warning: Missing Description or aria-describedby={undefined} for... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-08-31) (ref:2eca19b2)
 - [KNOWN-ISSUE] repo-wide lint (multiple (e.g. src/routes/Profile.tsx, src/routes/TemplateAdapter.tsx)): eslint . reports 59 problems (45 errors, 14 warnings) outside the 4 files in ... — accepted as process-exception for this phase (phase 01, seen 1x) (see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-08-31) (ref:1938b5a4)
-
+- [UAT-DEVIATION] 01: DEV-02: during task 1 and task 2 the rationale comments were reworded from a first draft that literally quo... (phase 01, see 01-01-SUMMARY.md) (added 2026-09-01) (ref:ac88a5f0)
+- [UAT-DEVIATION] 02: Task 1 verify asked for a temporary working-tree revert of plan 01-01's branch selection in assignmentServi... (phase 01, see 01-02-SUMMARY.md) (added 2026-09-01) (ref:4832228e)
+- [UAT-DEVIATION] R01: No commits were produced by this round. All four edited files live under .vbw-planning/, which .gitignore:7... (phase 01, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-09-01) (ref:70ca0edc)
+- [UAT-DEVIATION] R01: Task 1 action asked for the <done> clause of plan 01-02 task 1 to be extended, and task 4 check 7 asserts g... (phase 01, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-09-01) (ref:84279621)
+- [UAT-DEVIATION] R01: Check 7 initially returned 2 for `01-02-PLAN.md` because task 1's `<done>` extension carried a parenthetica... (phase 01, see remediation/qa/round-01/R01-SUMMARY.md) (added 2026-09-01) (ref:9df7601c)
 ## Blockers
 None
 
+## Activity Log
+- 2026-08-31: Created Schedule-to-Planner Project Sync milestone (1 phases)
